@@ -1,10 +1,8 @@
 # EphemerAl
 
-A lightweight, ephemeral (no chat history) self-hosted chat interface for interacting with local Large Language Models (LLMs).
-This stack includes a clean front-end with support for document and image analysis. It was designed as a staff-training environment for people new to AI, while still providing utility for advanced users.
+A lightweight, ephemeral (no chat history) self-hosted LLM user interface. The Setup Document includes instructions to configure an open-weight Ollama/Gemma3/Tika backend. All knowledge is provided by Gemma 3 12b or 27b and any documents/images/queries attached to the conversation. It was designed as an offline staff-training environment for people new to AI, while still providing utility for advanced users.
 
-This was built as a passion project to meet a specific internal need. I leveraged AI to assist with coding, I'm not a developer by trade.
-It wasn't designed for wide distribution, but since I couldn't find an existing solution that met our core requirements such as data security, no user accounts and multimodal input, I'm sharing a generalized version here in case it helps others with similar goals.
+EphemerAl was built as a passion project to meet a specific internal need. I leveraged AI to assist with coding as I'm not a developer by trade. It wasn't designed for distribution, but since I couldn't find an existing solution that met our core requirements such as data security, no user accounts and multimodal input, I'm sharing a generalized version here in case it helps others with similar goals.
 
 ---
 
@@ -20,7 +18,7 @@ It wasn't designed for wide distribution, but since I couldn't find an existing 
 
 ## Architecture
 
-The application is fully containerized using Docker Compose and runs within Windows Subsystem for Linux (WSL2).
+The application stack is fully containerized using Docker Compose and runs within Windows Subsystem for Linux (WSL2).
 If you're unfamiliar with Docker or WSL2 but have Windows 11 Pro or Enterprise, you're covered, the deployment guide walks you through installing everything else.
 
 * **Windows 11 Pro/Enterprise Host:**
@@ -34,14 +32,14 @@ If you're unfamiliar with Docker or WSL2 but have Windows 11 Pro or Enterprise, 
 
 ## System Requirements & Setup
 
-Windows 11 Pro or Enterprise, fully updated
-At least one discrete Nvidia GPU (30-series or newer recommended, with 12GB+ VRAM for Gemma 3 12B to perform well)
-Latest WHQL Nvidia GPU driver (you can skip optional installs like the Control Panel)
+Windows 11 Pro or Enterprise, fully updated.
+At least one discrete Nvidia GPU (30-series or newer recommended with 12GB+ VRAM, for Gemma 3 12B to perform well).
+Latest WHQL Nvidia GPU driver (you can skip optional installs like the Control Panel).
 
 ## Deployment
 
 Follow the steps in the included System Deployment Guide. Most commands can be copy/pasted into PowerShell.
-The stack is configured to auto-launch at login.
+Setup includes instructions on how to auto-launch at login (for easy recovery after reboot).
 A headless WSL setup was attempted but ultimately abandoned to prioritize operational use.
 
 ## Access the Interface:
