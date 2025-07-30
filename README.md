@@ -47,6 +47,7 @@ Once deployed, the system runs entirely on your local hardware—no cloud connec
 
   * 30-series or newer strongly recommended
   * 12GB+ VRAM suggested for smooth performance with Gemma 3 12B
+  * Protip: Plugging your monitor into the integrated gpu (if one exists) will free up 0.5-1.0GB of VRAM on the Nvidia GPU
 * **Driver:** Latest WHQL NVIDIA GPU driver (you can skip optional installs like the Control Panel)
 
 ## Deployment
