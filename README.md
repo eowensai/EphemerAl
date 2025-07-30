@@ -91,7 +91,7 @@ This improves the chances of getting helpful troubleshooting advice.
 
 * The UI doesn't render correctly on mobile.
 * Minimizing the sidebar (where the logo lives) can't be undone without a refresh.
-* User text may initially appear under the right arrow icon in the input box before wrapping correctly.
+* User text may draw under the right arrow icon in the input box before wrapping correctly for long queries.
 * Attachments disappear visually after submission, but their content remains in context for the model throughout the conversation.
 * There is no guardrail for exceeding the model's `ctx` limit. Gemma 3 supports very long context windows, and I chose to defer graceful error handling unless this becomes a problem.
 
