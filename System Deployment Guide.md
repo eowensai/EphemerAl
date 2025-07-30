@@ -190,10 +190,10 @@ You can choose to use lower values, or experiment with higher ones.  Rerun this 
 
 | VRAM (GB) | Gemma 3 12B | Gemma 3 27B |
 |-----------|--------------|--------------|
-| 12        | 12,000       | NA           |
-| 16        | 50,000       | NA           |
-| 24        | 128,000      | 30,000       |
-| 32        | 128,000      | 75,000       |
+| 12        | 12000       | NA          |
+| 16        | 50000       | NA          |
+| 24        | 128000      | 30000       |
+| 32        | 128000      | 75000       |
 
 Copy the whole command (starting with "cat") and paste into the Ollama prompt to have it generate the config file.
 
