@@ -1,0 +1,258 @@
+/*  Google Font import (straight lowercase “l”)  */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&display=swap');
+
+
+ /* ===================================================================
+  * Base & Theme Overrides
+  * =================================================================== */
+
+ /* Force the browser to use a light color scheme for all default
+    UI elements (scrollbars, etc.), overriding any OS-level dark mode. */
+ :root {
+   color-scheme: light;
+
+   /* ---------- CUSTOMIZE COLORS (easy to swap)  ------------------- */
+   --color-primary:        #007A7A;   /* main site color              */
+   --color-primary-dark:   #004B55;   /* 25 % darker for borders      */
+   --color-primary-light:  #E6F2F2;   /* very light tint for sidebar  */
+   --color-accent:         #F48B34;   /* highlight color              */
+ }
+
+ /* ===================================================================
+  * Streamlit Chrome & Layout Hiding
+  * =================================================================== */
+
+ #MainMenu, header, footer, .stDeployButton {
+   visibility: hidden;
+ }
+
+ /* Hide the toolbar that appears on hover over certain elements. */
+ [data-testid="stToolbar"],
+ [data-testid="stStatusWidget"] {
+   display: none !important;
+ }
+
+ /* Hide all controls related to collapsing the sidebar. */
+ button[aria-label*="sidebar"],
+ [data-testid="stSidebarCollapseControl"],
+ [data-testid="collapsedControl"],
+ [data-testid="baseButton-header"] {
+   display: none !important;
+   visibility: hidden !important;
+   opacity: 0 !important;
+   pointer-events: none !important;
+ }
+
+
+ /* ===================================================================
+  * Core Layout & Typography
+  * =================================================================== */
+
+ /* Style the main sidebar container. */
+ section[data-testid="stSidebar"] {
+   width: 280px !important;
+   background: var(--color-primary-light);   /* MODIFIED */
+   padding-top: 0.5rem;
+   border-right: 2px solid var(--color-primary-dark) !important; /* MODIFIED */
+ }
+
+ /* Style the main content area. */
+ .main .block-container {
+   background: white;
+   padding: 2rem 2rem 2rem 0;
+   max-width: 1200px;
+ }
+
+ /* Increase the base font size for chat messages for better readability. */
+ .stChatMessage p,
+ .stChatMessage li,
+ .stChatMessage blockquote,
+ .stChatMessage code,
+ .stChatInput textarea {
+   font-size: 1.125rem !important;
+ }
+
+
+ /* ===================================================================
+  * Custom Branded Components
+  * =================================================================== */
+
+ /* --- Logo (sidebar) & Welcome Text (main panel) ------------------ */
+
+/* Sidebar butterfly logo + wordmark */
+.ephemeral-logo {
+  text-align: center;
+  margin: 0 0 5rem 0;
+  padding: 0 1rem;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+/* CUSTOMIZE: you can safely delete these this rule if you never plan on text logo. Unused in default */
+.ephemeral-logo .ephemer {          /* First half of text logo in teal */
+  font-size: 5em;
+  font-weight: 800;
+  color: var(--color-primary);
+  letter-spacing: -1px;
+  line-height: 1;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+}
+/* CUSTOMIZE: you can safely delete these this rule if you never plan on text logo. Unused in default */
+.ephemeral-logo .al {               /* Second half of text logo in accent colour */
+  font-size: 5em;
+  font-weight: 800;
+  color: var(--color-accent);
+  letter-spacing: -1px;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+  margin-left: 2px;
+}
+
+/* Centre‑screen welcome banner */
+.welcome-text {
+  text-align: center;
+  padding: 3rem 0;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+.welcome-text .prefix {            /* CUSTOMIZE: “Welcome to” size boost */
+  font-size: 1.6em;                /* adjust up/down to taste            */
+  font-weight: 600;
+}
+.welcome-text .ephemer {
+  font-size: 2.2em;
+  font-weight: 800;
+  color: var(--color-primary);
+  letter-spacing: -1px;
+}
+.welcome-text .al {
+  font-size: 2.2em;
+  font-weight: 800;
+  color: var(--color-accent);
+  letter-spacing: -1px;
+  margin-left: 2px;
+}
+
+ /* ===================================================================
+  * Sidebar Buttons
+  * =================================================================== */
+
+ .stButton > button {
+   width: 100%;
+   background: white;
+   color: #333;
+   border: 2px solid var(--color-primary-dark);
+   font-weight: 600;
+   font-size: .95rem;
+   font-family: "Inter", system-ui, sans-serif;
+   padding: 0.75rem;
+   margin-bottom: 0.5rem;
+   transition: all .2s;
+   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+ }
+ .stButton > button:hover {
+   background: var(--color-primary);
+   color: white;
+   transform: translateY(-1px);
+ }
+ .stButton > button:active {
+   background: var(--color-primary-dark) !important;
+   color: white !important;
+   border: 2px solid var(--color-primary-dark) !important;
+ }
+ .stButton > button:focus {
+   background: white !important;
+   color: var(--color-primary-dark) !important;
+   border: 2px solid var(--color-primary-dark) !important;
+   box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.15) !important;
+   outline: none !important;
+ }
+ .stButton > button:focus:not(:focus-visible) {
+   box-shadow: none !important;
+ }
+
+
+ /* ===================================================================
+  * Chat Elements
+  * =================================================================== */
+
+ .stChatMessage {
+   background: white;
+   border-radius: 8px;
+   margin: 0.5rem 0;
+   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+ }
+
+ [data-testid="chatAvatarIcon-user"] {
+   background-color: var(--color-primary-dark) !important;
+ }
+
+ [data-testid="chatAvatarIcon-assistant"] {
+   background-color: var(--color-accent) !important;
+ }
+
+ .stChatInput {
+   border: none !important;
+   background: transparent !important;
+   padding: 0 !important;
+ }
+ .stChatInput > div {
+   background: white !important;
+   border: 2px solid #8a8a8a !important;
+   border-radius: 4px !important;
+   margin: 0 !important;
+   padding: 0 !important;
+ }
+ .stChatInput textarea {
+   border: none !important;
+   background: white !important;
+   padding: 0.75rem !important;
+   margin: 0 !important;
+ }
+ .stChatInput > div:focus-within {
+   border-color: var(--color-primary) !important;
+   box-shadow: 0 0 0 1px var(--color-primary) !important;
+ }
+
+
+ /* ===================================================================
+  * File Uploader & Attachments
+  * =================================================================== */
+
+ [data-testid="stFileUploader"] > div {
+   background: white;
+   border: 2px solid var(--color-primary-dark);
+   border-radius: 4px;
+   padding: 1rem;
+ }
+ .attached-file {
+   background: white;
+   padding: 0.5rem 1rem;
+   border-radius: 4px;
+   margin: 0.5rem 0;
+   font-size: 0.95em;
+   border: 1px solid #E0E0E0;
+ }
+
+ /* Equal top/bottom margins for logo */
+ section[data-testid="stSidebar"] img:first-of-type {
+   margin-bottom: 50px; /* space above buttons */
+ }
+
+ /* ===== Utility tweaks ===== */
+
+ /* Hide the entire hover-toolbar (incl. “View fullscreen” button) inside the sidebar only */
+ section[data-testid="stSidebar"] [data-testid="stElementToolbar"],
+ section[data-testid="stSidebar"] button[title="View fullscreen"] {
+   display: none !important;
+   visibility: hidden !important;
+   pointer-events: none !important;   /* just in case the icon is cached */
+ }
+
+ /* === instruction block (centered) ============================== */
+ .right-align-block {
+   text-align: center;
+   margin-top: 0.0rem;
+   line-height: 0.75;
+   font-family: "Inter", system-ui, -apple-system, 'Segoe UI', 'Roboto', sans-serif;
+   font-size: 16.2px;
+   color: var(--color-primary-dark);
+   font-weight: 400;
+   font-style: italic;
+   letter-spacing: 0.25px;

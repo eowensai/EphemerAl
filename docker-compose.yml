@@ -1,0 +1,99 @@
+###############################################################################
+# docker-compose.yml – EphemerAl demo stack
+#
+# Three‑service layout:
+#   • ollama        – serves the LLM (GPU / CUDA)
+#   • tika-server   – parses >100 document types
+#   • ephemeral-app – Streamlit front‑end website
+#
+# CUSTOMIZE comments below flag the lines that most people tweak:
+#   • GPU settings (single‑GPU vs multi‑GPU)
+#   • LLM model name (12b vs 27b)
+#   • Service / container names if you prefer different labels
+###############################################################################
+
+services:
+  # --------------------------------------------------------------------------
+  # Large‑language‑model back‑end (Ollama)
+  # --------------------------------------------------------------------------
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    networks: [llm-net]
+
+    # Model weights live here; bind to a fast disk if possible
+    volumes:
+      - ollama-models:/root/.ollama
+
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all   # CUSTOMIZE: set to a specific GPU ID if needed
+      - OLLAMA_NUM_GPU=2             # CUSTOMIZE: 1 for a single‑GPU host
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_ORIGINS=*
+      - OLLAMA_MAX_LOADED_MODELS=1
+      - OLLAMA_FORCE_CUBLAS_LT=1
+      - OLLAMA_KEEP_ALIVE=-1
+      - OLLAMA_FLASH_ATTENTION=1
+
+    # Expose Ollama’s API port to the host
+    ports: ["11434:11434"]
+
+    # GPU reservation for Docker Compose v3+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 2              # CUSTOMIZE: match OLLAMA_NUM_GPU above
+              capabilities: [gpu]
+
+  # --------------------------------------------------------------------------
+  # Apache Tika – document parsing
+  # --------------------------------------------------------------------------
+  tika-server:
+    image: apache/tika:latest-full
+    container_name: tika-server
+    restart: unless-stopped
+    networks: [llm-net]
+    environment:
+      - JAVA_TOOL_OPTIONS=-Xmx2g -Xms512m
+    ports: ["9998:9998"]
+
+  # --------------------------------------------------------------------------
+  # Streamlit front‑end (EphemerAl)
+  # --------------------------------------------------------------------------
+  ephemeral-app:
+    build: .                              # uses local Dockerfile
+    container_name: ephemeral-app
+    restart: unless-stopped
+    networks: [llm-net]
+
+    ports: ["0.0.0.0:8501:8501"]
+
+    environment:
+      - LLM_BASE_URL=http://ollama:11434/v1
+      - LLM_MODEL_NAME=gemma3-12b-prod     # CUSTOMIZE: change 12b→27b for Gemma 3 27B
+      - TIKA_URL=http://tika-server:9998
+      - TIKA_CLIENT_ONLY=true
+      - STREAMLIT_SERVER_HEADLESS=true
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+
+    depends_on: [ollama, tika-server]
+
+    # Static assets (logo, CSS) mounted read‑only
+    volumes:
+      - ./static:/app/static:ro
+
+# --------------------------------------------------------------------------
+# Shared network – keeps container DNS simple (ollama, tika-server, etc.)
+# --------------------------------------------------------------------------
+networks:
+  llm-net:
+    driver: bridge
+
+# --------------------------------------------------------------------------
+# Named volume for Ollama models (survives container rebuilds)
+# --------------------------------------------------------------------------
+volumes:
+  ollama-models: {}
