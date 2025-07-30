@@ -6,6 +6,8 @@ EphemerAl is a lightweight, self-hosted AI interface designed with local data pr
 
 This project began as a personal effort to solve a problem at my workplace. I’m not a developer by trade, but I used AI tools to help bring it to life. While it wasn’t built for broad distribution, I’m sharing this generalized version in case it helps others looking for a secure, account-free, multimodal LLM interface. . . whether for internal tools, training environments, or experimentation.
 
+If you prefer a full-featured UI solution instead, Open WebUI seems great: https://github.com/open-webui/open-webui
+
 ---
 
 ## Core Features of the solution:
