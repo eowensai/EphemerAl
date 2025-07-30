@@ -223,7 +223,7 @@ docker compose build ephemeral-app
 docker compose up -d --force-recreate ephemeral-app
 ```
 
-**Firewall rule (run once)**
+**Firewall rule (run once to share website to other computers on your network)**
 
 ```powershell
 # Admin PowerShell - Open another Powershell terminal and paste in this single command:
