@@ -249,8 +249,8 @@ New-NetFirewallRule -DisplayName "EphemerAl Port 8501" -Direction Inbound `
 
 ### 7  Networking & Auto‑Start (Windows)
 
-We built a dedicated desktop to house this application, and wanted it to start whenever the machine was rebooted.
-The best I've been able to do was to configure a local admin 'AI' account in windows that auto logged in (use google/ai for instructions), which triggered WSL (and the applications) to start automatically via the following script.
+A dedicated desktop was built to house this application, and I wanted the website and its services to start whenever the machine was rebooted.
+The best I've been able to get working is to configure a local admin 'AI' account in windows that auto logs in (use google/ai for instructions), triggering WSL (and the applications) to start automatically via the following script.
 
 If you prefer to log in manually, I still recommend setting this up as it checks the networking of WSL at start (WSL can change IP address per boot and this script updates the connection to the Windows host IP address).
 
