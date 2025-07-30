@@ -42,37 +42,56 @@ Once deployed, the system runs entirely on your local hardware—no cloud connec
 
 ## System Requirements & Setup
 
-Windows 11 Pro or Enterprise, fully updated.
-At least one discrete Nvidia GPU (30-series or newer recommended with 12GB+ VRAM, for Gemma 3 12B to perform well).
-Latest WHQL Nvidia GPU driver (you can skip optional installs like the Control Panel).
+* **OS:** Windows 11 Pro or Enterprise (fully updated)
+* **GPU:** At least one discrete NVIDIA GPU
+
+  * 30-series or newer strongly recommended
+  * 12GB+ VRAM suggested for smooth performance with Gemma 3 12B
+* **Driver:** Latest WHQL NVIDIA GPU driver (you can skip optional installs like the Control Panel)
 
 ## Deployment
 
-Follow the steps in the included System Deployment Guide. Most commands can be copy/pasted into PowerShell.
-Setup includes instructions on how to auto-launch at login (for easy recovery after reboot).
-A headless WSL setup was attempted but ultimately abandoned to prioritize operational use.
+Follow the step-by-step instructions in the included **System Deployment Guide**. Most commands are ready to copy and paste into PowerShell.
+Setup includes optional instructions for launching the app automatically at login (useful for unattended or kiosk-style deployments).
 
-## Access the Interface:
+> A fully headless WSL setup was attempted but ultimately abandoned in favor of simplicity and reliability during operation.
 
-From the server: open a browser and go to http://localhost:8501
-From another machine on the network: go to http://<windows_host_ip_address>:8501
+## Access the Interface
+
+* **From the server:**
+  Visit [http://localhost:8501](http://localhost:8501)
+
+* **From another machine on your network:**
+  Replace `<windows_host_ip_address>` with the correct IP:
+  `http://<windows_host_ip_address>:8501`
 
 ## Stopping the Application
 
-Open an elevated (admin) PowerShell window on the host and run:
+To stop the application, open an elevated (Administrator) PowerShell window on the host and run:
+
+```powershell
 wsl --shutdown
-To restart: either reboot and log back in, or run wsl again in PowerShell and leave the window open or minimized.
+```
+
+To restart, either:
+
+* Reboot and log in, or
+* Run `wsl` again from PowerShell and leave the window open or minimized
 
 ## Support
 
-No official support is provided.
-I recommend pasting error messages or issues into an AI assistant, along with a screenshot and a description of your technical level. This will help the AI tailor troubleshooting guidance more effectively.
+No official support is provided. If you run into issues, I recommend:
+
+* Pasting the error message into an AI assistant
+* Including a screenshot and a brief description of your technical level
+
+This improves the chances of getting helpful troubleshooting advice.
 
 ## Known Issues
 
-* The UI is not rendered correctly in mobile.
-* Minimizing the sidebar (where the logo lives) can't be undone, you have to refresh to get it back. I chose to live with it than spend more time troubleshooting.
-* User text will type under the arrow in the far right side of the text window for a bit before starting a new line.
-* Attachments disappear (visually) after being submitted in a query.  Again, not a big deal to me so didn't spend more time on it.  Confirmed the full text remains in context the whole conversation (relying on Gemma 3's attention).
-* There isn't a guardrail if the user submits a query larger than available ctx.  Gemma 3 supports large ctx, and I punted trying to handle this cleanly until/if it becomes a problem.
+* The UI doesn't render correctly on mobile.
+* Minimizing the sidebar (where the logo lives) can't be undone without a refresh.
+* User text may initially appear under the right arrow icon in the input box before wrapping correctly.
+* Attachments disappear visually after submission, but their content remains in context for the model throughout the conversation.
+* There is no guardrail for exceeding the model's `ctx` limit. Gemma 3 supports very long context windows, and I chose to defer graceful error handling unless this becomes a problem.
 
