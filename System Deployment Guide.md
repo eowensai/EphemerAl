@@ -320,9 +320,16 @@ Click 'OK'
 
 **Access the Interface**
 
-From the server: Visit http://localhost:8501
+From the server:
+```
+http://localhost:8501)
+```
 
-From another machine on your network: Replace <windows_host_ip_address> with the correct IP: http://<windows_host_ip_address>:8501
+From another machine on your network: 
+```
+#Replace <windows_host_ip_address> with the correct IP:
+http://<windows_host_ip_address>:8501
+```
 
 **Note**
 
