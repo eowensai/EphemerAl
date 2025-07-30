@@ -85,6 +85,7 @@ No official support is provided. If you run into issues, I recommend:
 
 * Pasting the error message into an AI assistant
 * Including a screenshot and a brief description of your technical level
+* Attaching the relevant files listed in section 4 of the Setup guide for the AI to reverse engineer
 
 This improves the chances of getting helpful troubleshooting advice.
 
