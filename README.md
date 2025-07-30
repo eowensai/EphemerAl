@@ -83,7 +83,7 @@ To restart, either:
 
 ## Support
 
-No official support is provided. If you run into issues, I recommend:
+No official support is provided. If you run into issues, I recommend (and this isn't meant to sound snarky):
 
 * Pasting the error message into an AI assistant
 * Including a screenshot and a brief description of your technical level
