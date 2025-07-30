@@ -322,7 +322,7 @@ Click 'OK'
 
 From the server:
 ```
-http://localhost:8501)
+http://localhost:8501
 ```
 
 From another machine on your network: 
