@@ -318,6 +318,14 @@ Click 'OK'
 
 **Congrats!  Upon reboot and login, WSL2 and all the applications should start up automatically. They are not visible on the desktop**
 
+**Access the Interface**
+
+From the server: Visit http://localhost:8501
+
+From another machine on your network: Replace <windows_host_ip_address> with the correct IP: http://<windows_host_ip_address>:8501
+
+**Note**
+
 I haven't tried it, but to avoid a logged in computer, you could Google the powershell command to lock the desktop and add that to the end of the Start-EphemerAl.ps1 script.
 
 ---
