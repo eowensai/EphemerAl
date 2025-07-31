@@ -70,7 +70,7 @@ These may be addressed if needed in the future.
 - Minimizing the sidebar requires a page refresh to restore.
 - Extended input text may overlap the submission arrow before line wrapping occurs.
 - Uploaded files are no longer visible after submission, though their content remains available to the model during the conversation.
-- There is no automatic enforcement of context length limits; Gemma 3 accommodates substantial inputs, but monitor GPU usage for extended sessions.
+- There is no automatic enforcement of context length limits. Gemma 3 accommodates substantial ctx, so gracefully handling this has been deferred to see if it occurs.
 
 ## Support
 
