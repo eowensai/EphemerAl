@@ -50,7 +50,7 @@ For automatic startup, utilize the provided PowerShell script.
 
 - **Local Access:** Navigate to http://localhost:8501
 
-- **Network Access:** Use http://<windows_host_ip_address>:8501
+- **Network Access:** Use http://windows_host_ip_address:8501
 
 ## Stopping the Application
 
