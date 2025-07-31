@@ -4,6 +4,8 @@ EphemerAl is a lightweight, open-source web interface for interacting with Googl
 
 While it wasn’t built for broad distribution, I’m sharing this generalized version in case it helps others looking for a local-only, account-free, multimodal LLM interface. . . whether to provide an operational tool, a staff learning environment, or bragging rights when friends visit on your home network.
 
+[View the full source code on GitHub](https://github.com/eowensai/EphemerAl)
+
 ![A screenshot of EphemerAl, a Docker-based self-hosted AI assistant for local LLM document Q&A and image analysis using Ollama](Ephemeral%20Screenshot.jpg)
 
 ---
