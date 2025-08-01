@@ -194,7 +194,7 @@ You can choose to use lower values, or experiment with higher ones.  Rerun this 
 | 16        | 50000       | NA          |
 | 24        | 128000      | 30000 *     |
 | 32        | 128000      | 75000 *     |
-* = Ollama doesn't split Gemma 3 27b well between multiple cards, so 2x 12gb or 2x 16gb gpus may need lower values.  Start smaller, look at gpu memory usage in task manager.
+"*" = Ollama doesn't split Gemma 3 27b well between multiple cards, so 2x 12gb or 2x 16gb gpus may need lower values.  Start smaller, look at gpu memory usage in task manager.
 
 Copy the whole command (starting with "cat") and paste into the Ollama prompt to have it generate the config file.
 
