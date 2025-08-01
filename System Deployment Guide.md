@@ -216,7 +216,6 @@ exit
 ```
 
 Rebuild front‑end to pick up the model name:
-**Use these same commands to enact any changes to application files**
 
 ```bash
 # Inside WSL - Ensure you're in 'cd /home/<USER>/ephemeral-llm'
