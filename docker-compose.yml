@@ -27,7 +27,7 @@ services:
       - ollama-models:/root/.ollama
 
     environment:
-      - CUDA_VISIBLE_DEVICES=all   # CUSTOMIZE: set to a specific GPU ID if needed
+      - NVIDIA_VISIBLE_DEVICES=all   # CUSTOMIZE: set to a specific GPU ID if needed
       - OLLAMA_NUM_GPU=2             # CUSTOMIZE: 1 for a single‑GPU host
       - OLLAMA_HOST=0.0.0.0
       - OLLAMA_ORIGINS=*
