@@ -90,6 +90,8 @@ curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-contai
 sudo apt update && sudo apt install -y nvidia-container-toolkit
 ```
 
+Apply Docker configuration for GPU access:
+
 ```bash
 # Inside WSL - Copy/run everything below (down to, and including, "EOF") as a single command
 sudo tee /etc/docker/daemon.json > /dev/null <<EOF
