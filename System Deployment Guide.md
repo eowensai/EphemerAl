@@ -116,52 +116,40 @@ sudo systemctl restart docker
 
 ### 4  Application Project Setup
 
-**Purpose:** Create directories and add project files.
+**Purpose:** Install project files.
 
 ```bash
-# Inside WSL - replace <USER> with actual account name
-mkdir -p /home/<USER>/ephemeral-llm/static
+# Inside WSL
+cd ~
 
-cd /home/<USER>/ephemeral-llm
+git clone https://github.com/eowensai/EphemerAl.git ~/ephemeral-llm
+
+cd ephemeral-llm
 ```
 
-**Create these files** open each file on Github and copy the full contents (https://github.com/eowensai/EphemerAl)
+**Review and Customize** 
+Everyone is going to have a different equipment and goals. This step is to review the default settings and modify for yours.
 
 ```bash
-# Inside WSL - replace <FILENAME> with the file being created
+# Inside WSL - replace <FILENAME> with the file being opened
 nano <FILENAME>
 ```
 
-Then paste the text you copied from Github via right click. Then save and close via Ctrl-X -> 'Yes'.
+The following files have settings to review 
 
-Complete for each file below:
+* `docker-compose.yml` - Review "#CUSTOMIZE" comments to modify for your hardware.
+* `ephemeral_app.py` - Review "#CUSTOMIZE" comments to modify branding and time zone.
+* `theme.css` - Review "#CUSTOMIZE" comments to modify colors and (optional) add text logo.
+* `system_prompt_template.md` - Instructions sent to LLM each conversation - Modify for your goals/environment.
 
-* `ephemeral_app.py` - Search+Review "#CUSTOMIZE" comments to modify branding and time zone.
-* `theme.css` - Search+Review "#CUSTOMIZE" comments to modify colors and (optional) add text logo.
-* `system_prompt_template.md` - Instructions sent to LLM each conversation - modify for your goals/environment.
-* `requirements.txt`
-* `Dockerfile`
-* `docker-compose.yml` - Search+Review "#CUSTOMIZE" comments to modify for your hardware.
+To save: Close via Ctrl+X -> 'Yes' -> hit enter to accept filename
+To exit without save: Ctrl+X -> 'No' (if asked)
 
-**Add a logo** (or use provided placeholder named ephemeral_logo.png).  It should be a 240x240 pixel, transparent-background PNG.
-Website currently fails to load without a logo file. If a logo isn't desired, I'd generate an empty png (just the transparent background).
+**Modify Logo (optional)** It should be a 240x240 pixel, transparent-background PNG. The default placeholder is ephemeral_logo.png.
 
-```bash
-# Inside WSL - Note <USER> - Assuming you have the image in Windows in C:\temp
-cp /mnt/c/temp/ephemeral_logo.png /home/<USER>/ephemeral-llm/static/
-```
+The site will fail to load without a logo file defined and in place. 
 
-# Try to get gibhub working:
-# Inside WSL
-
-# Make sure git is installed
-sudo apt install -y git
-
-# Clone the project repository (creates the 'ephemeral-llm' directory and all files)
-git clone https://github.com/eowensai/EphemerAl.git ephemeral-llm
-
-# Navigate into the new project directory
-cd ephemeral-llm
+If a logo isn't desired, I'd generate an empty png that's just a transparent background and save + overwrite ephemeral_logo.png.
 
 ---
 
