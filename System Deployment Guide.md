@@ -186,7 +186,7 @@ docker exec -it ollama bash
 
 The amount of context (ctx), which is a measure of how much information the model can remember in a conversation, depends on your GPU(s).
 **Identify the conservative ctx value for your system and replace "XXXXX" with it in the following command**
-You can choose to use lower values, or experiment with higher ones.  Rerun this 'Create production Modelfile' section to update the value.
+You can choose to use lower values, or experiment with higher ones.  **Rerun this 'Create production Modelfile' section to update the value.**
 
 | VRAM (GB) | Gemma 3 12B | Gemma 3 27B |
 |-----------|-------------|-------------|
