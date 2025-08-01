@@ -189,7 +189,7 @@ The amount of context (ctx), which is a measure of how much information the mode
 You can choose to use lower values, or experiment with higher ones.  Rerun this 'Create production Modelfile' section to update the value.
 
 | VRAM (GB) | Gemma 3 12B | Gemma 3 27B |
-|-----------|--------------|--------------|
+|-----------|--------------|------------|
 | 12        | 12000       | NA          |
 | 16        | 50000       | NA          |
 | 24        | 128000      | 30000       |
@@ -203,6 +203,11 @@ cat > Modelfile <<EOF
 FROM gemma3:12b-it-qat
 PARAMETER num_ctx XXXXX
 PARAMETER num_gpu 99
+PARAMETER temperature 1.0
+PARAMETER top_k 64
+PARAMETER top_p 0.95
+PARAMETER repeat_penalty 1.0
+PARAMETER min_p 0.0
 EOF
 ```
 
