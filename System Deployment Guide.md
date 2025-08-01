@@ -186,14 +186,16 @@ docker exec -it ollama bash
 
 The amount of context (ctx), which is a measure of how much information the model can remember in a conversation, depends on your GPU(s).
 **Identify the conservative ctx value for your system and replace "XXXXX" with it in the following command**
-You can choose to use lower values, or experiment with higher ones.  Rerun this 'Create production Modelfile' section to update the value.
+You can choose to use lower values, or experiment with higher ones.  **Rerun this 'Create production Modelfile' section to update the value.**
 
 | VRAM (GB) | Gemma 3 12B | Gemma 3 27B |
-|-----------|--------------|------------|
+|-----------|-------------|-------------|
 | 12        | 12000       | NA          |
 | 16        | 50000       | NA          |
-| 24        | 128000      | 30000       |
-| 32        | 128000      | 75000       |
+| 24        | 128000      | 30000 *     |
+| 32        | 128000      | 75000 *     |
+
+"*" = Ollama doesn't split Gemma 3 27b well between multiple cards, so 2x 12gb or 2x 16gb gpus may need lower values.  Start smaller, look at gpu memory usage in task manager.
 
 Copy the whole command (starting with "cat") and paste into the Ollama prompt to have it generate the config file.
 
@@ -203,11 +205,6 @@ cat > Modelfile <<EOF
 FROM gemma3:12b-it-qat
 PARAMETER num_ctx XXXXX
 PARAMETER num_gpu 99
-PARAMETER temperature 1.0
-PARAMETER top_k 64
-PARAMETER top_p 0.95
-PARAMETER repeat_penalty 1.0
-PARAMETER min_p 0.0
 EOF
 ```
 
@@ -219,7 +216,6 @@ exit
 ```
 
 Rebuild front‑end to pick up the model name:
-**Use these same commands to enact any changes to application files**
 
 ```bash
 # Inside WSL - Ensure you're in 'cd /home/<USER>/ephemeral-llm'
