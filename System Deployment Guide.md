@@ -156,9 +156,7 @@ If a logo isn't desired, I'd generate an empty png that's just a transparent bac
 ### 5  Build & Deploy Containers
 
 ```bash
-# Inside WSL - Note <USER>
-cd /home/<USER>/ephemeral-llm
-
+# Inside WSL
 docker compose up -d --build
 ```
 
