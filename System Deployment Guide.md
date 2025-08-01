@@ -90,16 +90,9 @@ curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-contai
 sudo apt update && sudo apt install -y nvidia-container-toolkit
 ```
 
-The following will create a file and open an editor.
-
 ```bash
-# Inside WSL
-sudo nano /etc/docker/daemon.json
-```
-
-Enter the contents of the file by copying below (including starting/ending {}), then right clicking in the WSL window/editor:
-
-```json
+# Inside WSL - Copy/run everything below (down to, and including, "EOF") as a single command
+sudo tee /etc/docker/daemon.json > /dev/null <<EOF
 {
   "default-runtime": "nvidia",
   "runtimes": { "nvidia": { "path": "/usr/bin/nvidia-container-runtime", "runtimeArgs": [] } },
@@ -107,9 +100,8 @@ Enter the contents of the file by copying below (including starting/ending {}), 
   "log-driver": "json-file",
   "log-opts": { "max-size": "10m", "max-file": "3" }
 }
+EOF
 ```
-
-Press ctrl+X to exit, Y to save, enter to accept filename. 
 
 Restart Docker:
 
@@ -157,6 +149,18 @@ Website currently fails to load without a logo file. If a logo isn't desired, I'
 cp /mnt/c/temp/ephemeral_logo.png /home/<USER>/ephemeral-llm/static/
 ```
 
+# Try to get gibhub working:
+# Inside WSL
+
+# Make sure git is installed
+sudo apt install -y git
+
+# Clone the project repository (creates the 'ephemeral-llm' directory and all files)
+git clone https://github.com/eowensai/EphemerAl.git ephemeral-llm
+
+# Navigate into the new project directory
+cd ephemeral-llm
+
 ---
 
 ### 5  Build & Deploy Containers
@@ -165,9 +169,7 @@ cp /mnt/c/temp/ephemeral_logo.png /home/<USER>/ephemeral-llm/static/
 # Inside WSL - Note <USER>
 cd /home/<USER>/ephemeral-llm
 
-docker compose build
-
-docker compose up -d
+docker compose up -d --build
 ```
 
 #### Download base model inside the `ollama` container
@@ -192,8 +194,8 @@ You can choose to use lower values, or experiment with higher ones.  **Rerun thi
 |-----------|-------------|-------------|
 | 12        | 12000       | NA          |
 | 16        | 50000       | NA          |
-| 24        | 128000      | 30000 *     |
-| 32        | 128000      | 75000 *     |
+| 24        | 131072      | 30000 *     |
+| 32        | 131072      | 75000 *     |
 
 "*" = Ollama doesn't split Gemma 3 27b well between multiple cards, so 2x 12gb or 2x 16gb gpus may need lower values.  Start smaller, look at gpu memory usage in task manager.
 
@@ -205,6 +207,11 @@ cat > Modelfile <<EOF
 FROM gemma3:12b-it-qat
 PARAMETER num_ctx XXXXX
 PARAMETER num_gpu 99
+PARAMETER temperature 1.0
+PARAMETER top_k 64
+PARAMETER top_p 0.95
+PARAMETER repeat_penalty 1.0
+PARAMETER min_p 0.0
 EOF
 ```
 
@@ -213,15 +220,6 @@ EOF
 ollama create gemma3-12b-prod -f Modelfile
 
 exit
-```
-
-Rebuild front‑end to pick up the model name:
-
-```bash
-# Inside WSL - Ensure you're in 'cd /home/<USER>/ephemeral-llm'
-docker compose build ephemeral-app
-
-docker compose up -d --force-recreate ephemeral-app
 ```
 
 **Firewall rule (run once to share website to other computers on your network)**
