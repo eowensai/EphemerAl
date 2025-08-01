@@ -21,8 +21,10 @@ load_css()
 
 # ── Constants ─────────────────────────────────────────────────────
 LLM_BASE_URL     = os.getenv("LLM_BASE_URL",   "http://ollama:11434/v1")
+
+# CUSTOMIZE: If you want to use Gemma 3 27B, change '12b' to '27b'  
 MODEL_NAME       = os.getenv("LLM_MODEL_NAME", "gemma3-12b-prod")  
-                                              # CUSTOMIZE: If you want to use Gemma 3 27B, change '12b' to '27b'  
+
 TIKA_URL         = os.getenv("TIKA_URL",       "http://tika-server:9998")
 
 # ── Helpers ───────────────────────────────────────────────────────
