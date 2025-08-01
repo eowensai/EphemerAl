@@ -17,7 +17,7 @@ services:
   # Large‑language‑model back‑end (Ollama)
   # --------------------------------------------------------------------------
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.10.1
     container_name: ollama
     restart: unless-stopped
     networks: [llm-net]
@@ -27,7 +27,7 @@ services:
       - ollama-models:/root/.ollama
 
     environment:
-      - NVIDIA_VISIBLE_DEVICES=all   # CUSTOMIZE: set to a specific GPU ID if needed
+      - CUDA_VISIBLE_DEVICES=all   # CUSTOMIZE: set to a specific GPU ID if needed
       - OLLAMA_NUM_GPU=2             # CUSTOMIZE: 1 for a single‑GPU host
       - OLLAMA_HOST=0.0.0.0
       - OLLAMA_ORIGINS=*
@@ -52,7 +52,7 @@ services:
   # Apache Tika – document parsing
   # --------------------------------------------------------------------------
   tika-server:
-    image: apache/tika:latest-full
+    image: apache/tika:3.2.1.0-full
     container_name: tika-server
     restart: unless-stopped
     networks: [llm-net]
