@@ -25,8 +25,6 @@ MODEL_NAME       = os.getenv("LLM_MODEL_NAME", "gemma3-12b-prod")
                                               # CUSTOMIZE: If you want to use Gemma 3 27B, change '12b' to '27b'  
 TIKA_URL         = os.getenv("TIKA_URL",       "http://tika-server:9998")
 
-TEMPERATURE, TOP_K, TOP_P, REPEAT_PENALTY = 1.0, 64, 0.95, 1.0
-
 # ── Helpers ───────────────────────────────────────────────────────
 def tika_alive():
     try:
@@ -180,12 +178,6 @@ if prompt_in is not None:
                 model=MODEL_NAME,
                 messages=payload,
                 stream=True,
-                temperature=TEMPERATURE,
-                top_p=TOP_P,
-                extra_body={
-                    "top_k": TOP_K,
-                    "repeat_penalty": REPEAT_PENALTY
-                },
             )
             acc, box = "", st.empty()
             for chunk in stream:
