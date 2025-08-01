@@ -189,11 +189,12 @@ The amount of context (ctx), which is a measure of how much information the mode
 You can choose to use lower values, or experiment with higher ones.  Rerun this 'Create production Modelfile' section to update the value.
 
 | VRAM (GB) | Gemma 3 12B | Gemma 3 27B |
-|-----------|--------------|--------------|
+|-----------|-------------|-------------|
 | 12        | 12000       | NA          |
 | 16        | 50000       | NA          |
 | 24        | 128000      | 30000 *     |
 | 32        | 128000      | 75000 *     |
+
 "*" = Ollama doesn't split Gemma 3 27b well between multiple cards, so 2x 12gb or 2x 16gb gpus may need lower values.  Start smaller, look at gpu memory usage in task manager.
 
 Copy the whole command (starting with "cat") and paste into the Ollama prompt to have it generate the config file.
