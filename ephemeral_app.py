@@ -10,7 +10,7 @@ from openai import OpenAI
 st.set_page_config(
     page_title="EphemerAl",                     # CUSTOMIZE: Change this to your app’s name
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="auto"
 )
 
 def load_css(path="theme.css"):
