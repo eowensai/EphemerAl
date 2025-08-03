@@ -66,10 +66,7 @@ To restart, either run `wsl` or reboot the system if you have the startup script
 
 These may be addressed if needed in the future.
 
-- The interface doesn't reliably render on mobile.
-- Minimizing the sidebar requires a page refresh to restore.
-- Extended input text may overlap the submission arrow before line wrapping occurs.
-- Uploaded files are no longer visible after submission, though their content remains available to the model during the conversation.
+- Extended input text goes under the submission arrow for a few characters until line wrapping occurs.
 - There is no automatic enforcement of context length limits. Gemma 3 accommodates substantial ctx, so gracefully handling this has been deferred to see if it occurs.
 
 ## Support
