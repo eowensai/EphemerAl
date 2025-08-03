@@ -8,7 +8,7 @@
     color-scheme: light;
     /* ---------- CUSTOMIZE COLORS (easy to swap)  ------------------- */
     --color-primary:        #007A7A;   /* main site color              */
-    --color-primary-dark:   #004B55;   /* 25 % darker for borders      */
+    --color-primary-dark:   #004B55;   /* 25 % darker for borders      */
     --color-primary-light:  #E6F2F2;   /* very light tint for sidebar  */
     --color-accent:         #F48B34;   /* highlight color              */
 }
@@ -16,7 +16,6 @@
 /* ===================================================================
  * Hide Streamlit Chrome
  * =================================================================== */
-/* Hide main Streamlit menu, header, footer, deploy button, toolbar, status widget */
 #MainMenu, header, footer, .stDeployButton,
 [data-testid="stToolbar"],
 [data-testid="stStatusWidget"] {
@@ -31,22 +30,20 @@ html, body {
     -webkit-text-size-adjust: 100%;
 }
 
-/* Style the main sidebar container. */
 section[data-testid="stSidebar"] {
     width: 280px !important;
-    background: var(--color-primary-light);   /* MODIFIED */
+    background: var(--color-primary-light);
     padding-top: 0.5rem;
     border-right: 2px solid var(--color-primary-dark) !important;
 }
 
-/* Style the main content area. */
 .main .block-container {
     background: white;
     padding: 2rem 2rem 2rem 0;
     max-width: 1200px;
 }
 
-/* Increase the base font size for chat messages for better readability. */
+/* Increase the base font size for chat messages */
 .stChatMessage p,
 .stChatMessage li,
 .stChatMessage blockquote,
@@ -63,7 +60,6 @@ section[data-testid="stSidebar"] {
     padding: 3rem 0;
     font-family: "Inter", system-ui, -apple-system, sans-serif;
 }
-/* CUSTOMIZE: two-tone branding on "EphemerAl" name in welcome banner */
 .welcome-text .ephemer {
     font-size: 2.2em;
     font-weight: 800;
@@ -118,9 +114,23 @@ section[data-testid="stSidebar"] {
 [data-testid="chatAvatarIcon-user"] {
     background-color: var(--color-primary-dark) !important;
 }
-
 [data-testid="chatAvatarIcon-assistant"] {
     background-color: var(--color-accent) !important;
+}
+
+/* --- Thumbnail size & styling (50 % wider) ----------------------- */
+.stChatMessage img {
+    max-width: 180px;          /* was 120px */
+    border-radius: 4px;
+    margin: .25rem 0;
+}
+
+/* --- Remove fullscreen button inside chat bubbles --------------- */
+.stChatMessage [data-testid="stElementToolbar"],
+.stChatMessage button[title="View fullscreen"] {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
 }
 
 .stChatInput {
@@ -149,24 +159,22 @@ section[data-testid="stSidebar"] {
 /* ===================================================================
  * Other Elements
  * =================================================================== */
-
-/* Equal top/bottom margins for logo */
 section[data-testid="stSidebar"] img:first-of-type {
     margin-bottom: 50px;
 }
 
-/* Hide the entire hover-toolbar (incl. “View fullscreen” button) inside the sidebar only */
+/* Hide hover-toolbar in sidebar (unchanged) */
 section[data-testid="stSidebar"] [data-testid="stElementToolbar"],
 section[data-testid="stSidebar"] button[title="View fullscreen"] {
     display: none !important;
     visibility: hidden !important;
-    pointer-events: none !important;   /* just in case the icon is cached */
+    pointer-events: none !important;
 }
 
-/* === instruction block (centered) ============================== */
+/* Instruction block */
 .right-align-block {
     text-align: center;
-    margin-top: 0.0rem;
+    margin-top: 0;
     line-height: 1.5;
     font-family: "Inter", system-ui, -apple-system, 'Segoe UI', 'Roboto', sans-serif;
     font-size: 16.2px;
@@ -180,30 +188,12 @@ section[data-testid="stSidebar"] button[title="View fullscreen"] {
  * Mobile Responsiveness
  * =================================================================== */
 @media screen and (max-width: 768px) {
-    /* Hide sidebar on mobile */
-    section[data-testid="stSidebar"] {
-        display: none !important;
-    }
-    
-    /* Adjust content padding - removed excessive bottom padding */
-    .main .block-container {
-        padding: 1rem;
-    }
-    
-    /* Scale down fonts */
-    .welcome-text {
-        padding: 1.5rem 0;
-    }
+    section[data-testid="stSidebar"] { display: none !important; }
+    .main .block-container { padding: 1rem; }
+    .welcome-text { padding: 1.5rem 0; }
     .welcome-text .ephemer,
-    .welcome-text .al {
-        font-size: 1.5em;
-    }
+    .welcome-text .al { font-size: 1.5em; }
     .stChatMessage p,
-    .stChatInput textarea {
-        font-size: 1rem !important;
-    }
-    .right-align-block {
-        font-size: 14px;
-        padding: 0 1rem;
-    }
+    .stChatInput textarea { font-size: 1rem !important; }
+    .right-align-block { font-size: 14px; padding: 0 1rem; }
 }
