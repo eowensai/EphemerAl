@@ -1,4 +1,4 @@
-import os, base64, pathlib, string
+import os, base64, pathlib
 from datetime import datetime
 
 import streamlit as st
@@ -10,14 +10,26 @@ from openai import OpenAI
 st.set_page_config(
     page_title="EphemerAl",                     # CUSTOMIZE: Change this to your app’s name
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="auto"
 )
 
+# Load CSS FIRST before any widgets
 def load_css(path="theme.css"):
-    p = pathlib.Path(path)
-    if p.exists():
-        st.markdown(f"<style>{p.read_text()}</style>", unsafe_allow_html=True)
+    css_path = pathlib.Path(path)
+    if css_path.exists():
+        st.markdown(f"<style>{css_path.read_text()}</style>", unsafe_allow_html=True)
 load_css()
+
+# Log Streamlit version for debugging (HTML comment in DOM, not visible)
+st.write(f"<!-- Streamlit version: {st.__version__} -->", unsafe_allow_html=True)
+
+# Try to import device detection - fallback if not available
+try:
+    from streamlit_browser_engine import device
+    HAS_DEVICE_DETECTION = True
+except ImportError:
+    HAS_DEVICE_DETECTION = False
+    device = None
 
 # ── Constants ─────────────────────────────────────────────────────
 LLM_BASE_URL     = os.getenv("LLM_BASE_URL",   "http://ollama:11434/v1")
@@ -61,10 +73,13 @@ def timestamp_local():
 
 # ── System prompt template ────────────────────────────────────────
 # Load your external prompt template; this will throw an error if the file is missing
-tmpl_path   = pathlib.Path(__file__).parent / "system_prompt_template.md"
-SYSTEM_TMPL = string.Template(
-    tmpl_path.read_text(encoding="utf-8")
-)
+tmpl_path = pathlib.Path(__file__).parent / "system_prompt_template.md"
+if tmpl_path.exists():
+    import string
+    SYSTEM_TMPL = string.Template(tmpl_path.read_text(encoding="utf-8"))
+else:
+    st.error("System prompt template not found!")
+    st.stop()
 
 # ── Session defaults ──────────────────────────────────────────────
 st.session_state.setdefault("messages", [])
@@ -73,7 +88,14 @@ st.session_state.setdefault("show_welcome", True)
 # ── Sidebar ───────────────────────────────────────────────────────
 # Logo requirements: PNG, JPG/JPEG, GIF
 with st.sidebar:
-    st.image("static/ephemeral_logo.png", use_container_width=True)  # CUSTOMIZE: Use your own logo file
+    # Safe logo loading with fallback
+    try:
+        logo_path = pathlib.Path("static/ephemeral_logo.png")
+        if logo_path.exists():
+            st.image(str(logo_path), use_container_width=True)  # CUSTOMIZE: Use your own logo file
+    except Exception:
+        st.markdown("**EphemerAl**")  # Fallback text if logo fails
+
     if not llm_alive():
         st.error("⚠️ LLM backend offline")
     if not TIKA_OK:
@@ -96,9 +118,9 @@ if st.session_state.show_welcome:
         <div class="right-align-block">
           I understand images and most document types. Attach one per message.<br>
           <div style="text-align:center;margin:0.7rem 0;font-size:7px;color:#6B5B95;letter-spacing:10px;">• • •</div>
-          Conversations are erased when you refresh or hit “New Conversation.”<br>
+          Conversations are erased when you refresh or hit "New Conversation."<br>
           <div style="text-align:center;margin:0.7rem 0;font-size:7px;color:#6B5B95;letter-spacing:10px;">• • •</div>
-          I try to be helpful, but sometimes I’m wrong. Please double‑check important answers!
+          I try to be helpful, but sometimes I'm wrong. Please double‑check important answers!
         </div>
         """,
         unsafe_allow_html=True,
@@ -121,7 +143,13 @@ for m in st.session_state.messages:
         else:
             st.markdown(last_user_text(m["content"]))
 
-# ── Chat input handling ───────────────────────────────────────────
+# ── Mobile-Only Button (only renders on mobile devices) ──────────
+if HAS_DEVICE_DETECTION and device and device.is_mobile:
+    if st.button("🔄 New Conversation", key="mobile_new", use_container_width=True):
+        st.session_state.clear()
+        st.rerun()
+
+# ── Chat input handling - MUST BE LAST ────────────────────────────
 prompt_in = st.chat_input("Ask me anything…", accept_file=True)
 prompt_in = st.session_state.pop("_first_prompt_pending", None) or prompt_in
 
