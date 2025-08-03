@@ -8,22 +8,19 @@ from openai import OpenAI
 
 # ── Page config ───────────────────────────────────────────────────
 st.set_page_config(
-    page_title="EphemerAl",                     # CUSTOMIZE: Change this to your app’s name
+    page_title="EphemerAl",
     layout="wide",
-    initial_sidebar_state="auto"
+    initial_sidebar_state="auto",
 )
 
-# Load CSS FIRST before any widgets
 def load_css(path="theme.css"):
     css_path = pathlib.Path(path)
     if css_path.exists():
         st.markdown(f"<style>{css_path.read_text()}</style>", unsafe_allow_html=True)
 load_css()
 
-# Log Streamlit version for debugging (HTML comment in DOM, not visible)
 st.write(f"<!-- Streamlit version: {st.__version__} -->", unsafe_allow_html=True)
 
-# Try to import device detection - fallback if not available
 try:
     from streamlit_browser_engine import device
     HAS_DEVICE_DETECTION = True
@@ -31,15 +28,10 @@ except ImportError:
     HAS_DEVICE_DETECTION = False
     device = None
 
-# ── Constants ─────────────────────────────────────────────────────
-LLM_BASE_URL     = os.getenv("LLM_BASE_URL",   "http://ollama:11434/v1")
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://ollama:11434/v1")
+MODEL_NAME   = os.getenv("LLM_MODEL_NAME", "gemma3-12b-prod")
+TIKA_URL     = os.getenv("TIKA_URL", "http://tika-server:9998")
 
-# CUSTOMIZE: If you want to use Gemma 3 27B, change '12b' to '27b'  
-MODEL_NAME       = os.getenv("LLM_MODEL_NAME", "gemma3-12b-prod")  
-
-TIKA_URL         = os.getenv("TIKA_URL",       "http://tika-server:9998")
-
-# ── Helpers ───────────────────────────────────────────────────────
 def tika_alive():
     try:
         return requests.get(TIKA_URL, timeout=2).ok
@@ -54,25 +46,14 @@ def llm_alive():
     except Exception:
         return False
 
-# ── Timezone configuration ────────────────────────────────────────
-# CUSTOMIZE - Set your local timezone here for LLM system prompt use. Replace "America/Los_Angeles" with your own if not in Pacific.
-# You can find the correct string at https://data.iana.org/time-zones/data/zone.tab
-# Eastern: "America/New_York"
-# Central: "America/Chicago"
-# Mountain: "America/Denver"
-
-TIMEZONE = pytz.timezone("America/Los_Angeles")  # CUSTOMIZE: e.g. "Europe/Berlin", "Australia/Sydney", etc.
-
+TIMEZONE = pytz.timezone("America/Los_Angeles")
 def timestamp_local():
-    now = datetime.now(TIMEZONE)  # uses the TIMEZONE constant above
+    now = datetime.now(TIMEZONE)
     fmt = "%-I:%M %p on %A, %B %-d, %Y"
     if os.name == "nt":
-        # On Windows, use %#I and %#d instead of %-I and %-d
         fmt = fmt.replace("%-I", "%#I").replace("%-d", "%#d")
     return now.strftime(fmt)
 
-# ── System prompt template ────────────────────────────────────────
-# Load your external prompt template; this will throw an error if the file is missing
 tmpl_path = pathlib.Path(__file__).parent / "system_prompt_template.md"
 if tmpl_path.exists():
     import string
@@ -81,20 +62,17 @@ else:
     st.error("System prompt template not found!")
     st.stop()
 
-# ── Session defaults ──────────────────────────────────────────────
 st.session_state.setdefault("messages", [])
 st.session_state.setdefault("show_welcome", True)
 
 # ── Sidebar ───────────────────────────────────────────────────────
-# Logo requirements: PNG, JPG/JPEG, GIF
 with st.sidebar:
-    # Safe logo loading with fallback
     try:
         logo_path = pathlib.Path("static/ephemeral_logo.png")
         if logo_path.exists():
-            st.image(str(logo_path), use_container_width=True)  # CUSTOMIZE: Use your own logo file
+            st.image(str(logo_path), use_container_width=True)
     except Exception:
-        st.markdown("**EphemerAl**")  # Fallback text if logo fails
+        st.markdown("**EphemerAl**")
 
     if not llm_alive():
         st.error("⚠️ LLM backend offline")
@@ -109,7 +87,7 @@ if st.session_state.show_welcome:
     st.markdown(
         "<div class='welcome-text'>"
         "<span style='font-size:1.6em;font-weight:600;'>Welcome&nbsp;to</span> "
-        "<span class='ephemer'>Ephemer</span><span class='al'>Al</span>"    # CUSTOMIZE name after 'Welcome to:' in conversation window. Default = two tone, all text can be in a single class to avoid.
+        "<span class='ephemer'>Ephemer</span><span class='al'>Al</span>"
         "</div>",
         unsafe_allow_html=True,
     )
@@ -120,36 +98,44 @@ if st.session_state.show_welcome:
           <div style="text-align:center;margin:0.7rem 0;font-size:7px;color:#6B5B95;letter-spacing:10px;">• • •</div>
           Conversations are erased when you refresh or hit "New Conversation."<br>
           <div style="text-align:center;margin:0.7rem 0;font-size:7px;color:#6B5B95;letter-spacing:10px;">• • •</div>
-          I try to be helpful, but sometimes I'm wrong. Please double‑check important answers!
+          I try to be helpful, but sometimes I'm wrong. Please double-check important answers!
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-# ── Chat history renderer ─────────────────────────────────────────
-def last_user_text(parts):
-    """Return last text part that is NOT the auto-generated Context blob."""
-    txts = [p["text"] for p in parts
-            if isinstance(p, dict) and p.get("type") == "text"]
-    for t in reversed(txts):
-        if not t.startswith("Context:"):
-            return t
-    return txts[-1] if txts else ""
+# ── Helper: render chat content ───────────────────────────────────
+def render_content(content):
+    if isinstance(content, list):
+        for part in content:
+            if part.get("type") == "text":
+                if not part["text"].startswith("Context:"):
+                    st.markdown(part["text"])
+            elif part.get("type") == "image":
+                try:
+                    st.image(part["data"], width=180)
+                except Exception:
+                    st.error(f"Failed to display {part.get('filename','image')}")
+            elif part.get("type") == "image_url":
+                try:
+                    st.image(part["image_url"]["url"], width=180)
+                except Exception:
+                    st.error("Failed to display image from assistant")
+    else:
+        st.markdown(content)
 
+# ── Render chat history ───────────────────────────────────────────
 for m in st.session_state.messages:
     with st.chat_message(m["role"]):
-        if isinstance(m["content"], str):
-            st.markdown(m["content"])
-        else:
-            st.markdown(last_user_text(m["content"]))
+        render_content(m["content"])
 
-# ── Mobile-Only Button (only renders on mobile devices) ──────────
+# ── Mobile button ────────────────────────────────────────────────
 if HAS_DEVICE_DETECTION and device and device.is_mobile:
     if st.button("🔄 New Conversation", key="mobile_new", use_container_width=True):
         st.session_state.clear()
         st.rerun()
 
-# ── Chat input handling - MUST BE LAST ────────────────────────────
+# ── Chat input ───────────────────────────────────────────────────
 prompt_in = st.chat_input("Ask me anything…", accept_file=True)
 prompt_in = st.session_state.pop("_first_prompt_pending", None) or prompt_in
 
@@ -167,21 +153,31 @@ if prompt_in is not None:
 
     parts, doc_ctx = [], []
     for f in files:
-        data = f.getvalue()
         if f.type.startswith("image/"):
+            if f.size > 50 * 1024 * 1024:
+                st.warning(f"📷 {f.name} is {f.size/1e6:.1f} MB – may be slow to process")
+
+            f.seek(0)
+            img_bytes = f.getvalue()
+            parts.append({"type": "text", "text": f"📷 *{f.name}*"})
             parts.append({
-                "type": "image_url",
-                "image_url": {"url": f"data:{f.type};base64,"
-                                       f"{base64.b64encode(data).decode()}"}
+                "type": "image",
+                "data": img_bytes,
+                "mime_type": f.type,
+                "filename": f.name,
             })
         else:
+            # --- NEW: show filename badge for non-image files ------------
+            parts.append({"type": "text", "text": f"📄 *{f.name}*"})
+
             if not TIKA_OK:
                 st.warning(f"📄 Parsing unavailable for {f.name}")
                 continue
             with st.spinner(f"Parsing {f.name}…"):
                 try:
-                    txt = parser.from_buffer(
-                        data, serverEndpoint=TIKA_URL).get("content", "").strip()
+                    f.seek(0)
+                    data = f.getvalue()
+                    txt = parser.from_buffer(data, serverEndpoint=TIKA_URL).get("content", "").strip()
                     if txt:
                         doc_ctx.append(f"--- {f.name} ---\n{txt}")
                 except Exception as e:
@@ -194,13 +190,34 @@ if prompt_in is not None:
 
     st.session_state.messages.append({"role": "user", "content": content_for_llm})
 
-    # ── LLM call ──────────────────────────────────────────────────
-    sys_prompt = SYSTEM_TMPL.safe_substitute(
-        current_time_local=timestamp_local()
-    )
-    payload = [{"role": "system", "content": sys_prompt},
-               *st.session_state.messages]
+    # ── LLM payload ───────────────────────────────────────────────
+    sys_prompt = SYSTEM_TMPL.safe_substitute(current_time_local=timestamp_local())
 
+    messages_for_api = []
+    for msg in st.session_state.messages:
+        if isinstance(msg["content"], list):
+            api_parts = []
+            for part in msg["content"]:
+                if part.get("type") == "text":
+                    api_parts.append(part)
+                elif part.get("type") == "image":
+                    if "b64" not in part:
+                        part["b64"] = base64.b64encode(part["data"]).decode()
+                    api_parts.append({
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:{part.get('mime_type','image/jpeg')};base64,{part['b64']}"
+                        },
+                    })
+                elif part.get("type") == "image_url":
+                    api_parts.append(part)
+            messages_for_api.append({"role": msg["role"], "content": api_parts})
+        else:
+            messages_for_api.append(msg)
+
+    payload = [{"role": "system", "content": sys_prompt}, *messages_for_api]
+
+    # ── Call LLM ───────────────────────────────────────────────────
     with st.chat_message("assistant"), st.spinner("Thinking…"):
         try:
             client = OpenAI(base_url=LLM_BASE_URL, api_key="not-needed")
@@ -214,8 +231,7 @@ if prompt_in is not None:
                 acc += chunk.choices[0].delta.content or ""
                 box.markdown(acc + "▌")
             box.markdown(acc)
-            st.session_state.messages.append(
-                {"role": "assistant", "content": acc})
+            st.session_state.messages.append({"role": "assistant", "content": acc})
             st.rerun()
         except Exception as e:
             st.error(f"❌ LLM Error: {e}")
