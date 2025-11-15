@@ -137,7 +137,7 @@ nano <FILENAME>
 
 The following files have settings to review 
 
-* `docker-compose.yml` - Review "#CUSTOMIZE" comments to modify for your hardware.
+* `docker-compose.yml` - Review "#CUSTOMIZE" comments to modify for your hardware. As of November 2025 this file pins `ollama/ollama:0.12.10` and `apache/tika:3.2.3.0-full`; you can update these tags in the future as newer stable images are released.
 * `ephemeral_app.py` - Review "#CUSTOMIZE" comments to modify branding and time zone.
 * `theme.css` - Review "#CUSTOMIZE" comments to modify colors and (optional) add text logo.
 * `system_prompt_template.md` - Instructions sent to LLM each conversation - Modify for your goals/environment.
