@@ -17,7 +17,7 @@ services:
   # Large‑language‑model back‑end (Ollama)
   # --------------------------------------------------------------------------
   ollama:
-    image: ollama/ollama:0.10.1
+    image: ollama/ollama:0.12.10
     container_name: ollama
     restart: unless-stopped
     networks: [llm-net]
@@ -52,7 +52,7 @@ services:
   # Apache Tika – document parsing
   # --------------------------------------------------------------------------
   tika-server:
-    image: apache/tika:3.2.1.0-full
+    image: apache/tika:3.2.3.0-full
     container_name: tika-server
     restart: unless-stopped
     networks: [llm-net]
