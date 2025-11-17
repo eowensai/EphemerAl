@@ -31,6 +31,18 @@ EphemerAl leverages a straightforward application stack to ensure reliability an
 - **Containerization:** Docker and Docker Compose for isolated deployment.
 - **Dependencies:** Essential libraries such as requests, pytz, tika, openai client, and pillow.
 
+## 🗺️ Project Vision & Roadmap
+
+I've spent a good bit of time thinking about use cases for this app stack and mapping out a long-term vision for it. If I didn't have a day job, I'd be working on the items I've discovered to make EphemerAl "institution-ready" for places like schools and small businesses that can't risk sending data to the cloud.
+
+To keep myself organized and show where this project could be heading, I've compiled a detailed "uber-document" that includes:
+
+* The core **Design Principles** (e.g., "Local only," "Ephemeral by default").
+* Summaries of the **Research** that informed the possible future functionality (e.g., PII filtering, accessibility, and RAG).
+* A non-prioritized **Feature Backlog** in JSON for this possible future work.
+
+You can read the full **[Project Vision, Research, and Backlog here](./MASTER-BACKLOG.md)**.
+
 ## System Requirements
 
 To run this interface effectively, the following specifications are recommended.
