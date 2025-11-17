@@ -74,13 +74,6 @@ wsl --shutdown
 
 To restart, either run `wsl` or reboot the system if you have the startup script installed.
 
-## Known Issues
-
-These may be addressed if needed in the future.
-
-- Extended input text goes under the submission arrow for a few characters until line wrapping occurs.
-- There is no automatic enforcement of context length limits. Gemma 3 accommodates substantial ctx, so gracefully handling this has been deferred to see if it occurs.
-
 ## Support
 
 This project is provided as a resource for the community as-is. I hope it solves a problem or provides value outside my environment.
