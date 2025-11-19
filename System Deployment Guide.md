@@ -68,11 +68,18 @@ We will now install the software that manages the AI applications.
     sudo apt update && sudo apt full-upgrade -y
     ```
 
-3.  Install required utilities:
+3.  Install required utilities and enable auto-updates:
 
     ```bash
     sudo apt install -y build-essential curl unattended-upgrades
     ```
+
+    ```bash
+    sudo dpkg-reconfigure -plow unattended-upgrades
+    ```
+
+    > **Attention:** A pink/blue screen will pop up.
+    > Ensure **Yes** is highlighted and press **Enter**. This ensures Linux will automatically install important security updates in the background.
 
 4.  Install Docker (The container system):
 
@@ -155,6 +162,7 @@ We will now install the software that manages the AI applications.
 ## Phase 4: Configure the AI Model
 
 We need to download the "Brain" (Gemma 3) and configure its memory.
+
 **Choose ONLY ONE path below based on your hardware.**
 
 ### Path A: Standard (12GB - 24GB Cards)
