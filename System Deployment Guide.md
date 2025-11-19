@@ -165,7 +165,7 @@ We need to download the "Brain" (Gemma 3) and configure its memory.
 
 **Choose ONLY ONE path below based on your hardware.**
 
-### Path A: Standard (12GB - 24GB Cards)
+### Path A: Standard (GPU VRAM = 12GB+)
 *Best for RTX 3060, 4060 Ti, 5060 Ti, 3090, 4090.*
 
 1.  **Download the 12B Model:**
@@ -211,8 +211,9 @@ We need to download the "Brain" (Gemma 3) and configure its memory.
     exit
     ```
 
-### Path B: High Performance (32GB+ or Multi-GPU)
-*Best for RTX 5090, Dual 5060 Ti (16GB x2), or Enterprise Cards.*
+### Path B: Higher Performance (Combined GPU VRAM = 24GB+)
+*For RTX 5090, Dual GPU (12/16GB x2), or Enterprise Cards.*
+*Note: Higher VRAM allows this larger version of Gemma 3 to run, but if its answers are too slow, use Path A*
 
 1.  **Download the 27B Model:**
     ```bash
