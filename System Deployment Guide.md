@@ -185,7 +185,7 @@ We need to download the "Brain" (Gemma 3) and configure its memory.
     | :--- | :--- |
     | 12 GB VRAM | `12000` |
     | 16 GB VRAM | `50000` |
-    | 24 GB VRAM | `131072` |
+    | 24+ GB VRAM | `131072` |
 
     ```bash
     cat > Modelfile <<EOF
@@ -231,7 +231,7 @@ We need to download the "Brain" (Gemma 3) and configure its memory.
     | Your Card | Value |
     | :--- | :--- |
     | 24 GB VRAM (Total) | `30000` |
-    | 32 GB+ VRAM (Total) | `131072` |
+    | 32+ GB VRAM (Total) | `131072` |
 
     ```bash
     cat > Modelfile <<EOF
