@@ -13,7 +13,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # --- Application code --------------------------------------------
 COPY . .
-
 # --- Streamlit config --------------------------------------------
 RUN mkdir -p .streamlit && cat > .streamlit/config.toml <<'EOF'
 [server]
