@@ -1,333 +1,305 @@
-| Placeholder     | Meaning                                                            |
-| --------------- | ------------------------------------------------------------------ |
-| `<USER>`        | The Linux username you create on first launch of Ubuntu 24.04      |
-| `<PROJECT_DIR>` | `/home/<USER>/ephemeral-llm` = The folder that will hold your app  |
-| `<HOST_IP>`     | The Windows host’s LAN IP (run `ipconfig` in cmd to find it)       |
+# EphemerAl: System Deployment Guide
+
+## 📋 System Requirements
+
+This software runs inside a "Linux Subsystem" on Windows (technically called **WSL2**). You do not need to know Linux to install it; simply follow the instructions below.
+
+**OS Requirements:**
+*   **Supported:** Windows 11 (Pro or Enterprise recommended, Home is supported).
+*   **Version:** 21H2 or higher (Fully updated).
+*   *Note: Windows Server 2019/2022 is NOT covered by this specific guide due to installation differences.*
+
+**Hardware Requirements:**
+*   **Entry Level:** NVIDIA RTX 3060 (12GB)
+*   **Mid Range:** NVIDIA RTX 5060 Ti (16GB)
+*   **Value King:** NVIDIA RTX 3090 (24GB)
+*   **Max Performance:** NVIDIA RTX 5090 (32GB) **OR** Dual 5060 Ti (16GB x 2)
 
 ---
 
-## 1  Initial System Setup
-All commands are meant to be copy/pasted into the application defined (#Admin PowerShell, #Inside WSL, etc).
-Commands separated by a blank line mean the first should be pasted and run (enter key), then followed by the next one, etc.
+## Phase 1: Install the Foundation (WSL2)
 
-**Purpose:** Install required Windows features and Ubuntu 24.04 under WSL2.
-Run in an **Administrator PowerShell** window: Win button -> type 'powershell' -> click the 'run as administrator' option.
+We need to enable the subsystem that allows Windows to run Linux applications.
+
+1.  Right-click the **Windows Start Button** and select **PowerShell (Admin)**.
+2.  Copy the command below and paste it into PowerShell. Press Enter.
+
+    ```powershell
+    dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
+    ```
+
+3.  Copy and paste the second command:
+
+    ```powershell
+    dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
+    ```
+
+4.  **Reboot your computer.**
+5.  Log back in. Open **PowerShell (Admin)** again.
+6.  Install Ubuntu:
+
+    ```powershell
+    wsl --install -d Ubuntu-24.04
+    ```
+
+    > **What happens next:** A new window will open installing Ubuntu.
+    > **Action Required:** It will ask you to create a `Unix username` and `password`.
+    > *   **Username:** simple (e.g., `aiadmin`).
+    > *   **Password:** secure. **Write this down.** You won't see stars/dots when typing it.
+
+---
+
+## Phase 2: Install the Engine (Docker & NVIDIA)
+
+We will now install the software that manages the AI applications.
+
+> **Concept Check:**
+> Throughout this section, we will be working inside **Ubuntu**.
+> *   **PowerShell** is the blue/black window for Windows commands.
+> *   **Bash** is the command language used inside the Ubuntu window.
+> *   If you ever get lost, open PowerShell and type `wsl` to enter Ubuntu, or `exit` to leave it.
+
+1.  Open your Windows Start Menu, search for **Ubuntu**, and open it.
+    *(From now on, this black window is referred to as the **Ubuntu Terminal**)*.
+
+2.  Update the system tools. Copy/Paste this into the Ubuntu Terminal (enter your password if asked):
+
+    ```bash
+    sudo apt update && sudo apt full-upgrade -y
+    ```
+
+3.  Install required utilities:
+
+    ```bash
+    sudo apt install -y build-essential curl unattended-upgrades
+    ```
+
+4.  Install Docker (The container system):
+
+    ```bash
+    curl -fsSL https://get.docker.com | sudo sh
+    ```
+
+5.  Enable Docker and add permissions:
+
+    ```bash
+    sudo systemctl enable --now docker
+    ```
+
+    ```bash
+    sudo usermod -aG docker $USER
+    ```
+
+    > **STOP:** Close the Ubuntu window completely. Open a new Ubuntu window from the Start menu. This applies the permission changes.
+
+6.  Install the NVIDIA Toolkit (Allows AI to see your GPU). Run these 3 commands one by one:
+
+    ```bash
+    curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+    ```
+
+    ```bash
+    curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+    ```
+
+    ```bash
+    sudo apt update && sudo apt install -y nvidia-container-toolkit
+    ```
+
+7.  Configure Docker for GPU access and Privacy (Disabling logs). Copy this entire block and paste it:
+
+    ```bash
+    sudo tee /etc/docker/daemon.json > /dev/null <<EOF
+    {
+      "default-runtime": "nvidia",
+      "runtimes": { "nvidia": { "path": "/usr/bin/nvidia-container-runtime", "runtimeArgs": [] } },
+      "storage-driver": "overlay2",
+      "log-driver": "json-file",
+      "log-opts": { "max-size": "10m", "max-file": "3" }
+    }
+    EOF
+    ```
+
+8.  Restart the engine:
+
+    ```bash
+    sudo systemctl restart docker
+    ```
+
+---
+
+## Phase 3: Deploy EphemerAl
+
+1.  Download the application code into Ubuntu:
+
+    ```bash
+    git clone https://github.com/eowensai/EphemerAl.git ~/ephemeral-llm
+    ```
+
+2.  Enter the folder:
+
+    ```bash
+    cd ~/ephemeral-llm
+    ```
+
+3.  Start the application:
+    *(This will take 5-10 minutes to download the base layers)*.
+
+    ```bash
+    docker compose up -d --build
+    ```
+
+4.  **Verification:** Type `docker ps`. You should see 3 items listed as "Up".
+
+---
+## Phase 4: Configure the AI Model
+
+We need to download the "Brain" (Gemma 3) and configure its memory.
+**Choose ONLY ONE path below based on your hardware.**
+
+### Path A: Standard (12GB - 24GB Cards)
+*Best for RTX 3060, 4060 Ti, 5060 Ti, 3090, 4090.*
+
+1.  **Download the 12B Model:**
+    ```bash
+    docker exec -it ollama ollama pull gemma3:12b-it-qat
+    ```
+
+2.  **Enter the Container:**
+    ```bash
+    docker exec -it ollama bash
+    ```
+
+3.  **Create the Config:**
+    *Identify your Context Limit below. Copy the code block, replace `12000` with your value, and paste it into the container window.*
+
+    | Your Card | Value |
+    | :--- | :--- |
+    | 12 GB VRAM | `12000` |
+    | 16 GB VRAM | `50000` |
+    | 24 GB VRAM | `131072` |
+
+    ```bash
+    cat > Modelfile <<EOF
+    FROM gemma3:12b-it-qat
+    PARAMETER num_ctx 12000
+    PARAMETER num_gpu 99
+    PARAMETER temperature 0.8
+    PARAMETER top_k 64
+    PARAMETER top_p 0.95
+    PARAMETER repeat_penalty 1.0
+    PARAMETER min_p 0.0
+    EOF
+    ```
+
+4.  **Activate and Exit:**
+    *(Run these two commands one by one)*.
+
+    ```bash
+    ollama create gemma3-prod -f Modelfile
+    ```
+
+    ```bash
+    exit
+    ```
+
+### Path B: High Performance (32GB+ or Multi-GPU)
+*Best for RTX 5090, Dual 5060 Ti (16GB x2), or Enterprise Cards.*
+
+1.  **Download the 27B Model:**
+    ```bash
+    docker exec -it ollama ollama pull gemma3:27b-it-qat
+    ```
+
+2.  **Enter the Container:**
+    ```bash
+    docker exec -it ollama bash
+    ```
+
+3.  **Create the Config:**
+    *Identify your Context Limit below. Copy the code block, replace `30000` with your value, and paste it into the container window.*
+
+    | Your Card | Value |
+    | :--- | :--- |
+    | 24 GB VRAM (Total) | `30000` |
+    | 32 GB+ VRAM (Total) | `131072` |
+
+    ```bash
+    cat > Modelfile <<EOF
+    FROM gemma3:27b-it-qat
+    PARAMETER num_ctx 30000
+    PARAMETER num_gpu 99
+    PARAMETER temperature 0.8
+    PARAMETER top_k 64
+    PARAMETER top_p 0.95
+    PARAMETER repeat_penalty 1.0
+    PARAMETER min_p 0.0
+    EOF
+    ```
+
+4.  **Activate and Exit:**
+    *(Run these two commands one by one)*.
+
+    ```bash
+    ollama create gemma3-prod -f Modelfile
+    ```
+
+    ```bash
+    exit
+    ```
+
+---
+
+## Phase 5: Networking & Auto-Start (Windows)
+
+These steps make the website accessible on your network and ensure it starts automatically.
+
+> **Important:** This application runs as a **User Task**, not a System Service.
+> This means the application will ONLY start **after** a specific user logs into Windows. It will not run while the computer is sitting at the Lock Screen after a reboot.
+> *Tip for Dedicated Machines:* You can configure Windows to automatically log in a specific user on boot (search "netplwiz auto login") if you want a true "Appliance" feel.
+
+**1. Open Windows Firewall**
+Open **PowerShell (Admin)** in Windows and paste:
+
 ```powershell
-# Admin PowerShell
-dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
-
-dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
+New-NetFirewallRule -DisplayName "EphemerAl Port 8501" -Direction Inbound -Protocol TCP -LocalPort 8501 -Action Allow
 ```
 
-Reboot Windows, then install Ubuntu 24.04 into WSL:
+**2. Create the Startup Script**
+1.  Open **Notepad** in Windows.
+2.  Paste the code below:
 
-```powershell
-# Admin PowerShell
-wsl --install -d Ubuntu-24.04
-```
+    ```powershell
+    $wslIP = (wsl -- hostname -I).Split()[0]
+    netsh interface portproxy delete v4tov4 listenport=8501 listenaddress=0.0.0.0 2>$null
+    netsh interface portproxy add v4tov4 listenport=8501 listenaddress=0.0.0.0 connectport=8501 connectaddress=$wslIP
+    wsl -- sleep infinity
+    ```
+3.  Save the file as: `C:\Scripts\Start-EphemerAl.ps1`
+    *(Create the Scripts folder on your C: drive if it doesn't exist)*.
 
-On first launch, WSL prompts you to create a Unix user. Use any short name and write it down. 
+**3. Schedule it to Run**
+1.  Search Windows for **Task Scheduler** -> Right-click **Run as Administrator**.
+2.  Click **Create Task** (Right sidebar).
+3.  **General:** Name it `Ephemeral Auto-Start`. Select **Run only when user is logged on** AND **Run with highest privileges**.
+4.  **Triggers:** New -> Begin the task: **At log on**. Delay task for: **30 seconds**.
+5.  **Actions:** New -> Program/script: `powershell.exe`.
+    Add arguments:
+    `-ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\Scripts\Start-EphemerAl.ps1"`
+6.  Click **OK**.
 
 ---
 
-## 2  WSL Environment Configuration
-
-**Purpose:** Update Ubuntu, install build tools.
-
-If you were asked to create an account, you're already 'within' WSL and can skip the next command.
-If it didn't automatically launch, type the following command:
-
-```powershell
-# Admin PowerShell
-wsl -d Ubuntu-24.04 
-```
-
-```bash
-# Inside WSL
-sudo apt update
-
-sudo apt full-upgrade -y
-
-# Install build tools and automatic security update manager
-sudo apt install -y build-essential curl unattended-upgrades
-
-# Enable automatic security updates (Select 'Yes' if prompted)
-sudo dpkg-reconfigure -plow unattended-upgrades
-```
-
----
-
-## 3  Docker + NVIDIA Container Toolkit
-
-**Purpose:** Install Docker Engine and enable GPU acceleration.
-
-```bash
-# Inside WSL - wait out 20s timer about 'docker desktop' upon the curl command execution
-curl -fsSL https://get.docker.com | sudo sh
-
-sudo systemctl enable --now docker
-
-# Reminder to replace '<USER> with the account name generated previously:
-sudo usermod -aG docker <USER>                     
-
-exit
-```
-
-Re-enter WSL to install NVIDIA Container Toolkit:
-
-```powershell
-# Admin PowerShell
-wsl -d Ubuntu-24.04
-```
-
-```bash
-# Inside WSL
-distribution=$(. /etc/os-release; echo ${ID}${VERSION_ID})
-
-curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey \
- | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
-
-curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list \
- | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' \
- | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
-
-sudo apt update && sudo apt install -y nvidia-container-toolkit
-```
-
-Apply Docker configuration for GPU access:
-
-```bash
-# Inside WSL - Copy/run everything below (down to, and including, "EOF") as a single command
-sudo tee /etc/docker/daemon.json > /dev/null <<EOF
-{
-  "default-runtime": "nvidia",
-  "runtimes": { "nvidia": { "path": "/usr/bin/nvidia-container-runtime", "runtimeArgs": [] } },
-  "storage-driver": "overlay2",
-  "log-driver": "json-file",
-  "log-opts": { "max-size": "10m", "max-file": "3" }
-}
-EOF
-```
-
-Restart Docker:
-
-```bash
-# Inside WSL
-sudo systemctl restart docker
-```
-
----
-
-### 4  Application Project Setup
-
-**Purpose:** Install project files.
-
-```bash
-# Inside WSL
-cd ~
-
-git clone https://github.com/eowensai/EphemerAl.git ~/ephemeral-llm
-
-cd ephemeral-llm
-```
-
-**Review and Customize** 
-Everyone is going to have a different equipment and goals. This step is to review the default settings and modify for yours.
-
-```bash
-# Inside WSL - replace <FILENAME> with the file being opened
-nano <FILENAME>
-```
-
-The following files have settings to review 
-
-* `docker-compose.yml` - Review "#CUSTOMIZE" comments to modify for your hardware. As of November 2025 this file pins `ollama/ollama:0.12.10` and `apache/tika:3.2.3.0-full`; you can update these tags in the future as newer stable images are released.
-* `ephemeral_app.py` - Review "#CUSTOMIZE" comments to modify branding and time zone.
-* `theme.css` - Review "#CUSTOMIZE" comments to modify colors and (optional) add text logo.
-* `system_prompt_template.md` - Instructions sent to LLM each conversation - Modify for your goals/environment.
-
-To save: Close via Ctrl+X -> 'Yes' -> hit enter to accept filename
-To exit without save: Ctrl+X -> 'No' (if asked)
-
-**Modify Logo (optional)** It should be a 240x240 pixel, transparent-background PNG. The default placeholder is ephemeral_logo.png.
-
-The site will fail to load without a logo file defined and in place. 
-
-If a logo isn't desired, I'd generate an empty png that's just a transparent background and save + overwrite ephemeral_logo.png.
-
----
-
-### 5  Build & Deploy Containers
-
-```bash
-# Inside WSL
-docker compose up -d --build
-```
-
-#### Download base model inside the `ollama` container
-
-```bash
-# Inside WSL - Change 12b to 27b if desired and understand hardware requirements
-docker exec -it ollama ollama pull gemma3:12b-it-qat
-```
-
-#### Create production Modelfile
-
-```bash
-# Inside WSL - This command puts you inside Ollama and results in a prompt like 'root@f4b449c261f7:/#'
-docker exec -it ollama bash
-```
-
-The amount of context (ctx), which is a measure of how much information the model can remember in a conversation, depends on your GPU(s).
-**Identify the conservative ctx value for your system and replace "XXXXX" with it in the following command**
-You can choose to use lower values, or experiment with higher ones.  
-
-| VRAM (GB) | Gemma 3 12B | Gemma 3 27B |
-|-----------|-------------|-------------|
-| 12        | 12000       | NA          |
-| 16        | 50000       | NA          |
-| 24        | 131072      | 30000 *     |
-| 32        | 131072      | 75000 *     |
-
-"*" = Ollama doesn't split Gemma 3 27b well between multiple cards, so 2x 12gb or 2x 16gb gpus may need lower values.  Start smaller (even as low as 1000), look at gpu memory usage in task manager for both cards. Increase until memory in one of the cards is 0.5 to 1.0GB from full.
-
-Copy the whole command (starting with "cat") and paste into the Ollama prompt to have it generate the config file.
-
-```bash
-# Inside Ollama - Note 12b or 27b in model name - and replace XXXXX
-cat > Modelfile <<EOF
-FROM gemma3:12b-it-qat
-PARAMETER num_ctx XXXXX
-PARAMETER num_gpu 99
-PARAMETER temperature 1.0
-PARAMETER top_k 64
-PARAMETER top_p 0.95
-PARAMETER repeat_penalty 1.0
-PARAMETER min_p 0.0
-EOF
-```
-
-```bash
-# Inside Ollama - Note 12b or 27b
-ollama create gemma3-12b-prod -f Modelfile
-
-exit
-```
-
-**Rerun the 'Create production Modelfile' section to update the value, for example if updating the ctx value.**
-
-**Firewall rule** - Run once to share website to other computers on your network
-> **Security Note:** This command opens port 8501 to your entire local network. Ensure this device is on a trusted LAN (like a school or office subnet) and not directly connected to the open internet.
-
-```powershell
-# Admin PowerShell - Open another Powershell terminal and paste in this single command:
-New-NetFirewallRule -DisplayName "EphemerAl Port 8501" -Direction Inbound `
-  -Protocol TCP -LocalPort 8501 -Action Allow
-```
-
----
-
-### 6  Verification
-
-* Open a browser in Windows and visit **http://localhost:8501**.
-
-* If unreachable, run:
-
-  ```powershell
-  netstat -ano | findstr :8501
-  ```
-
-  You should see `0.0.0.0:8501 … LISTENING`. If it shows `127.0.0.1`, ensure the **IP Helper** service is running, then reboot.
-
----
-
-### 7  Networking & Auto‑Start (Windows)
-
-A dedicated desktop was built to house this application, and I wanted the website and its services to start whenever the machine was rebooted.
-The best I've been able to get working is to configure a local admin 'AI' account in windows that auto logs in (use google/ai for instructions), triggering WSL (and the applications) to start automatically via the following script.
-
-If you prefer to log in manually, I still recommend setting this up as it checks the networking of WSL at start (WSL can change IP address per boot and this script updates the connection to the Windows host IP address).
-
-#### Startup script
-
-```powershell
-# Admin PowerShell - Feel free to modify this path where you want the script to live in Windows.
-notepad c:\Scripts\Start-EphemerAl.ps1
-```
-
-Paste in the 4 lines of code from the github repostory
-
-```bash
-# Admin PowerShell - The following is the contents of Start-EphemerAl.ps1 as of launch of this repository. Check online to verify:
-$wslIP = (wsl -- hostname -I).Split()[0]
-netsh interface portproxy delete v4tov4 listenport=8501 listenaddress=0.0.0.0 2>$null
-netsh interface portproxy add v4tov4 listenport=8501 listenaddress=0.0.0.0 connectport=8501 connectaddress=$wslIP
-wsl -- sleep infinity
-```
-
-Save and close Notepad
-
-
-**Create the Scheduled Task:**
-
-Open Task Scheduler: windows button -> 'task scheduler' -> Run as administrator
-
-In the Action menu in the top left, click 'Create Task'
-
-**General Tab:**
-
-Name: Ephemeral WSL Auto-Launcher
-
-Select: "Run only when user is logged on"
-
-Check: "Run with highest privileges"
-
-**Triggers Tab:**
-
-Click 'New', then in the dropdown at the top next to Begin the task:, select "At log on".
-
-Set a delay of 30 seconds: check the box next to 'Delay task for' and select 30 seconds from the dropdown.
-
-Click 'OK'
-
-**Actions Tab:**
-
-Click 'New', then in the 'Program/script:' field enter 
-```
-powershell.exe
-```
-
-In the 'Add arguments (optional):' field enter: 
-```
--ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\Scripts\Start-EphemerAl.ps1"
-```
-
- Click 'OK'
- 
-**Settings Tab:**
-
-Uncheck 'Stop the task if it runs longer than...'
-
-Click 'OK'
-
-**Congrats!  Upon reboot and login, WSL2 and all the applications should start up automatically. They are not visible on the desktop**
-
-**Access the Interface**
-
-From the server:
-```
-http://localhost:8501
-```
-
-From another machine on your network: 
-```
-#Replace <windows_host_ip_address> with the correct IP:
-http://<windows_host_ip_address>:8501
-```
-
-**Note**
-
-I haven't tried it, but to avoid a logged in computer, you could Google the powershell command to lock the desktop and add that to the end of the Start-EphemerAl.ps1 script.
-
----
-
+## ✅ Success!
+
+1.  Reboot your computer.
+2.  Log in to Windows and wait 30 seconds.
+3.  **Find your IP Address:**
+    Open PowerShell and type `ipconfig`. Look for the **IPv4 Address** (e.g., `192.168.1.50`).
+4.  **Test from another computer:**
+    On a different device connected to the same network (WiFi/LAN), open a browser and type:
+    `http://<YOUR_IP_ADDRESS>:8501`
+    *(Example: http://192.168.1.50:8501)*
+
+**Troubleshooting:**
+If the page loads locally (`http://localhost:8501`) but not from another computer, ensure your computer is set to **"Private Network"** in Windows Network Settings, or double-check the Firewall Rule command in Phase 5.
