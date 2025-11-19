@@ -81,7 +81,7 @@ We will now install the software that manages the AI applications.
     > **Attention:** A pink/blue screen will pop up.
     > Ensure **Yes** is highlighted and press **Enter**. This ensures Linux will automatically install important security updates in the background.
 
-4.  Install Docker (The container system):
+4.  Install Docker (The container system). Wait out the 20 second delay if displayed:
 
     ```bash
     curl -fsSL https://get.docker.com | sudo sh
