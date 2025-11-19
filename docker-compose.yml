@@ -85,7 +85,7 @@ services:
 
     environment:
       - LLM_BASE_URL=http://ollama:11434/v1
-      - LLM_MODEL_NAME=gemma3-12b-prod     # CUSTOMIZE: change 12b→27b for Gemma 3 27B
+      - LLM_MODEL_NAME=gemma3-prod         # CUSTOMIZE: Matches the generic name created in deployment guide
       - TIKA_URL=http://tika-server:9998
       - TIKA_CLIENT_ONLY=true
       - STREAMLIT_SERVER_HEADLESS=true
