@@ -24,8 +24,9 @@ port = 8501
 address = "0.0.0.0"
 
 [browser]
-serverAddress = "0.0.0.0"
-serverPort   = 8501
+serverAddress     = "0.0.0.0"
+serverPort        = 8501
+gatherUsageStats  = false
 
 [theme]
 base = "light"

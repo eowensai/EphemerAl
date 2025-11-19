@@ -13,6 +13,16 @@ st.set_page_config(
     initial_sidebar_state="auto",
 )
 
+# ── Anti-caching meta tags (hint browsers not to cache this page) ─
+st.markdown(
+    """
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    """,
+    unsafe_allow_html=True,
+)
+
 def load_css(path="theme.css"):
     css_path = pathlib.Path(path)
     if css_path.exists():
@@ -94,7 +104,7 @@ if st.session_state.show_welcome:
     st.markdown(
         """
         <div class="right-align-block">
-          I understand images and most document types. Attach one per message.<br>
+          I understand images and most document types. Attach images and documents to help ground my answers.<br>
           <div style="text-align:center;margin:0.7rem 0;font-size:7px;color:#6B5B95;letter-spacing:10px;">• • •</div>
           Conversations are erased when you refresh or hit "New Conversation."<br>
           <div style="text-align:center;margin:0.7rem 0;font-size:7px;color:#6B5B95;letter-spacing:10px;">• • •</div>
@@ -136,7 +146,7 @@ if HAS_DEVICE_DETECTION and device and device.is_mobile:
         st.rerun()
 
 # ── Chat input ───────────────────────────────────────────────────
-prompt_in = st.chat_input("Ask me anything…", accept_file=True)
+prompt_in = st.chat_input("Ask me anything…", accept_file="multiple")
 prompt_in = st.session_state.pop("_first_prompt_pending", None) or prompt_in
 
 if prompt_in is not None:
@@ -169,7 +179,6 @@ if prompt_in is not None:
         else:
             # --- NEW: show filename badge for non-image files ------------
             parts.append({"type": "text", "text": f"📄 *{f.name}*"})
-
             if not TIKA_OK:
                 st.warning(f"📄 Parsing unavailable for {f.name}")
                 continue

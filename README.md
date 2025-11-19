@@ -15,7 +15,7 @@ While it wasn’t built for broad distribution, I’m sharing this generalized v
 This tool offers a straightforward set of capabilities to facilitate interaction with local LLM models.
 
 - **Local AI Interaction:** Engage in real-time conversations powered by Google's Gemma 3 model (12B or 27B variants) through Ollama, supporting tasks such as question answering and idea generation without requiring an internet connection.
-- **Document and Image Uploads:** Submit files including PDFs, documents, and spreadsheets (handling over 100 formats via Apache Tika), allowing the model to incorporate user content into its responses.
+- **Document and Image Uploads:** Submit one or more files (including PDFs, documents, and spreadsheets, handling over 100 formats via Apache Tika), allowing the model to incorporate user content into its responses.
 - **Multimodal Functionality:** Leverage Gemma 3's ability to process images in conjunction with text, enabling analysis of visual elements like diagrams or photographs.
 - **Customizable Interface:** Incorporate a personal logo or adjust the appearance if desired using Streamlit, maintaining a clean and user-friendly design.
 - **Ephemeral Nature:** Conversations are not retained after a refresh or new session, which prevents sensitive information from accumulating on the system (as it would if chat histories were retained).
