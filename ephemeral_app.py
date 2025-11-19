@@ -29,8 +29,6 @@ def load_css(path="theme.css"):
         st.markdown(f"<style>{css_path.read_text()}</style>", unsafe_allow_html=True)
 load_css()
 
-st.write(f"", unsafe_allow_html=True)
-
 try:
     from streamlit_browser_engine import device
     HAS_DEVICE_DETECTION = True
@@ -69,8 +67,12 @@ if tmpl_path.exists():
     import string
     SYSTEM_TMPL = string.Template(tmpl_path.read_text(encoding="utf-8"))
 else:
-    st.error("System prompt template not found!")
-    st.stop()
+    # Fallback system prompt if file is missing
+    import string
+    SYSTEM_TMPL = string.Template(
+        "You are a helpful AI assistant. The current local time is ${current_time_local}. "
+        "Answer concisely and accurately based on the context provided."
+    )
 
 st.session_state.setdefault("messages", [])
 st.session_state.setdefault("show_welcome", True)
@@ -177,7 +179,6 @@ if prompt_in is not None:
                 "filename": f.name,
             })
         else:
-            # --- NEW: show filename badge for non-image files ------------
             parts.append({"type": "text", "text": f"📄 *{f.name}*"})
             if not TIKA_OK:
                 st.warning(f"📄 Parsing unavailable for {f.name}")
