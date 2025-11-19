@@ -29,7 +29,7 @@ def load_css(path="theme.css"):
         st.markdown(f"<style>{css_path.read_text()}</style>", unsafe_allow_html=True)
 load_css()
 
-st.write(f"<!-- Streamlit version: {st.__version__} -->", unsafe_allow_html=True)
+st.write(f"", unsafe_allow_html=True)
 
 try:
     from streamlit_browser_engine import device
@@ -39,7 +39,7 @@ except ImportError:
     device = None
 
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://ollama:11434/v1")
-MODEL_NAME   = os.getenv("LLM_MODEL_NAME", "gemma3-12b-prod")
+MODEL_NAME   = os.getenv("LLM_MODEL_NAME", "gemma3-prod")
 TIKA_URL     = os.getenv("TIKA_URL", "http://tika-server:9998")
 
 def tika_alive():
