@@ -1,11 +1,3 @@
-This is a much more grounded approach. You are right—complex JSON metadata is useful for a team of 10 engineers arguing over velocity points; for a single "Vibe Coding" PM, it’s just noise.
-
-I have rewritten the backlog to align with your actual motivations: **Cost Control** (avoiding the $20/user/month trap), **Practical Privacy** (protecting PII from the cloud), and **Workplace Optics** (no history for the boss to judge).
-
-Here is the simplified, human-readable `MASTER-BACKLOG.md`.
-
----
-
 # EphemerAl – Project Roadmap & Design Context
 _Last updated: 2025-11-18_
 
