@@ -1,20 +1,20 @@
 ###############################################################################
 # docker-compose.yml – EphemerAl demo stack
 #
-# Three‑service layout:
+# Three-service layout:
 #   • ollama        – serves the LLM (GPU / CUDA)
-#   • tika-server   – parses >100 document types
-#   • ephemeral-app – Streamlit front‑end website
+#   • tika-server   – parses over 100 document types
+#   • ephemeral-app – Streamlit front-end website
 #
 # CUSTOMIZE comments below flag the lines that most people tweak:
-#   • GPU settings (single‑GPU vs multi‑GPU)
+#   • GPU settings (single-GPU vs multi-GPU)
 #   • LLM model name (12b vs 27b)
 #   • Service / container names if you prefer different labels
 ###############################################################################
 
 services:
   # --------------------------------------------------------------------------
-  # Large‑language‑model back‑end (Ollama)
+  # Large-language-model back-end (Ollama)
   # --------------------------------------------------------------------------
   ollama:
     image: ollama/ollama:0.12.10
@@ -28,7 +28,7 @@ services:
 
     environment:
       - NVIDIA_VISIBLE_DEVICES=all   # CUSTOMIZE: set to a specific GPU ID if needed
-      - OLLAMA_NUM_GPU=2             # CUSTOMIZE: 1 for a single‑GPU host
+      - OLLAMA_NUM_GPU=2             # CUSTOMIZE: 1 for a single-GPU host
       - OLLAMA_HOST=0.0.0.0
       - OLLAMA_ORIGINS=*
       - OLLAMA_MAX_LOADED_MODELS=1
@@ -48,8 +48,12 @@ services:
               count: 2              # CUSTOMIZE: match OLLAMA_NUM_GPU above
               capabilities: [gpu]
 
+    # Disable Docker logs for this container (privacy)
+    logging:
+      driver: "none"
+
   # --------------------------------------------------------------------------
-  # Apache Tika – document parsing
+  # Apache Tika – document parsing
   # --------------------------------------------------------------------------
   tika-server:
     image: apache/tika:3.2.3.0-full
@@ -60,8 +64,16 @@ services:
       - JAVA_TOOL_OPTIONS=-Xmx2g -Xms512m
     ports: ["9998:9998"]
 
+    # Keep /tmp in RAM so uploaded docs never touch disk inside the container
+    tmpfs:
+      - /tmp
+
+    # Disable Docker logs for this container (privacy)
+    logging:
+      driver: "none"
+
   # --------------------------------------------------------------------------
-  # Streamlit front‑end (EphemerAl)
+  # Streamlit front-end (EphemerAl)
   # --------------------------------------------------------------------------
   ephemeral-app:
     build: .                              # uses local Dockerfile
@@ -73,7 +85,7 @@ services:
 
     environment:
       - LLM_BASE_URL=http://ollama:11434/v1
-      - LLM_MODEL_NAME=gemma3-12b-prod     # CUSTOMIZE: change 12b→27b for Gemma 3 27B
+      - LLM_MODEL_NAME=gemma3-12b-prod     # CUSTOMIZE: change 12b→27b for Gemma 3 27B
       - TIKA_URL=http://tika-server:9998
       - TIKA_CLIENT_ONLY=true
       - STREAMLIT_SERVER_HEADLESS=true
@@ -81,9 +93,21 @@ services:
 
     depends_on: [ollama, tika-server]
 
-    # Static assets (logo, CSS) mounted read‑only
+    # Static assets (logo, CSS) mounted read-only
     volumes:
       - ./static:/app/static:ro
+
+    # Keep /tmp in RAM for any temporary upload buffers
+    tmpfs:
+      - /tmp
+
+    # Tiny rotated log for Python/Streamlit tracebacks while you’re iterating.
+    # For a final kiosk box, you can change driver: "local" → "none".
+    logging:
+      driver: "local"
+      options:
+        max-size: "2m"
+        max-file: "3"
 
 # --------------------------------------------------------------------------
 # Shared network – keeps container DNS simple (ollama, tika-server, etc.)
