@@ -48,7 +48,11 @@ sudo apt update
 
 sudo apt full-upgrade -y
 
-sudo apt install -y build-essential curl
+# Install build tools and automatic security update manager
+sudo apt install -y build-essential curl unattended-upgrades
+
+# Enable automatic security updates (Select 'Yes' if prompted)
+sudo dpkg-reconfigure -plow unattended-upgrades
 ```
 
 ---
@@ -210,9 +214,10 @@ ollama create gemma3-12b-prod -f Modelfile
 exit
 ```
 
-**Rerun the 'Create production Modelfile' section to update the value.**
+**Rerun the 'Create production Modelfile' section to update the value, for example if updating the ctx value.**
 
-**Firewall rule** - Run once to share website to other computers on your network)
+**Firewall rule** - Run once to share website to other computers on your network
+> **Security Note:** This command opens port 8501 to your entire local network. Ensure this device is on a trusted LAN (like a school or office subnet) and not directly connected to the open internet.
 
 ```powershell
 # Admin PowerShell - Open another Powershell terminal and paste in this single command:
