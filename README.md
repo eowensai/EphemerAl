@@ -56,8 +56,6 @@ To run this interface effectively, the following specifications are recommended.
 
 Refer to the [System Deployment Guide](https://github.com/eowensai/EphemerAl/blob/main/System%20Deployment%20Guide.md) for detailed, step-by-step instructions, which include copy-paste commands suitable for beginners.
 
-For automatic startup, utilize the provided PowerShell script.
-
 ## Accessing the EphemerAl website
 
 - **Local Access:** Navigate to http://localhost:8501
