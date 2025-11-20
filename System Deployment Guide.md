@@ -124,7 +124,7 @@ We will now install the software that manages the AI applications.
     sudo apt update && sudo apt install -y nvidia-container-toolkit
     ```
 
-7.  Configure Docker for GPU access and Privacy (Disabling logs). Copy this entire block and paste it:
+7.  Configure Docker for GPU access and Log Rotation (Prevents disk usage issues). Copy this entire block and paste it:
 
     ```bash
     sudo tee /etc/docker/daemon.json > /dev/null <<EOF
