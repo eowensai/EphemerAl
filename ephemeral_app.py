@@ -106,9 +106,9 @@ if st.session_state.show_welcome:
     st.markdown(
         """
         <div class="right-align-block">
-          I understand images and most document types. Attach images and documents to help ground my answers.<br>
+          I understand image files and most (100+!) document types.<br>
           <div style="text-align:center;margin:0.7rem 0;font-size:7px;color:#6B5B95;letter-spacing:10px;">• • •</div>
-          Conversations are erased when you refresh or hit "New Conversation."<br>
+          Conversations are erased when you refresh, hit "New Conversation", or close your browser.<br>
           <div style="text-align:center;margin:0.7rem 0;font-size:7px;color:#6B5B95;letter-spacing:10px;">• • •</div>
           I try to be helpful, but sometimes I'm wrong. Please double-check important answers!
         </div>
