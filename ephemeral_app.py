@@ -29,8 +29,6 @@ def load_css(path="theme.css"):
         st.markdown(f"<style>{css_path.read_text()}</style>", unsafe_allow_html=True)
 load_css()
 
-st.write(f"<!-- Streamlit version: {st.__version__} -->", unsafe_allow_html=True)
-
 try:
     from streamlit_browser_engine import device
     HAS_DEVICE_DETECTION = True
@@ -39,7 +37,7 @@ except ImportError:
     device = None
 
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://ollama:11434/v1")
-MODEL_NAME   = os.getenv("LLM_MODEL_NAME", "gemma3-12b-prod")
+MODEL_NAME   = os.getenv("LLM_MODEL_NAME", "gemma3-prod")
 TIKA_URL     = os.getenv("TIKA_URL", "http://tika-server:9998")
 
 def tika_alive():
@@ -69,8 +67,12 @@ if tmpl_path.exists():
     import string
     SYSTEM_TMPL = string.Template(tmpl_path.read_text(encoding="utf-8"))
 else:
-    st.error("System prompt template not found!")
-    st.stop()
+    # Fallback system prompt if file is missing
+    import string
+    SYSTEM_TMPL = string.Template(
+        "You are a helpful AI assistant. The current local time is ${current_time_local}. "
+        "Answer concisely and accurately based on the context provided."
+    )
 
 st.session_state.setdefault("messages", [])
 st.session_state.setdefault("show_welcome", True)
@@ -104,9 +106,9 @@ if st.session_state.show_welcome:
     st.markdown(
         """
         <div class="right-align-block">
-          I understand images and most document types. Attach images and documents to help ground my answers.<br>
+          I understand image files and most (100+!) document types.<br>
           <div style="text-align:center;margin:0.7rem 0;font-size:7px;color:#6B5B95;letter-spacing:10px;">• • •</div>
-          Conversations are erased when you refresh or hit "New Conversation."<br>
+          Conversations are erased when you refresh, hit "New Conversation", or close your browser.<br>
           <div style="text-align:center;margin:0.7rem 0;font-size:7px;color:#6B5B95;letter-spacing:10px;">• • •</div>
           I try to be helpful, but sometimes I'm wrong. Please double-check important answers!
         </div>
@@ -177,7 +179,6 @@ if prompt_in is not None:
                 "filename": f.name,
             })
         else:
-            # --- NEW: show filename badge for non-image files ------------
             parts.append({"type": "text", "text": f"📄 *{f.name}*"})
             if not TIKA_OK:
                 st.warning(f"📄 Parsing unavailable for {f.name}")

@@ -7,7 +7,6 @@
 #   • ephemeral-app – Streamlit front-end website
 #
 # CUSTOMIZE comments below flag the lines that most people tweak:
-#   • GPU settings (single-GPU vs multi-GPU)
 #   • LLM model name (12b vs 27b)
 #   • Service / container names if you prefer different labels
 ###############################################################################
@@ -27,8 +26,8 @@ services:
       - ollama-models:/root/.ollama
 
     environment:
-      - NVIDIA_VISIBLE_DEVICES=all   # CUSTOMIZE: set to a specific GPU ID if needed
-      - OLLAMA_NUM_GPU=2             # CUSTOMIZE: 1 for a single-GPU host
+      # NVIDIA_VISIBLE_DEVICES=all lets the container see every GPU the host has.
+      - NVIDIA_VISIBLE_DEVICES=all
       - OLLAMA_HOST=0.0.0.0
       - OLLAMA_ORIGINS=*
       - OLLAMA_MAX_LOADED_MODELS=1
@@ -45,7 +44,8 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              count: 2              # CUSTOMIZE: match OLLAMA_NUM_GPU above
+              # "count: all" automatically uses all available GPUs detected by Docker.
+              count: all
               capabilities: [gpu]
 
     # Disable Docker logs for this container (privacy)
@@ -85,7 +85,7 @@ services:
 
     environment:
       - LLM_BASE_URL=http://ollama:11434/v1
-      - LLM_MODEL_NAME=gemma3-12b-prod     # CUSTOMIZE: change 12b→27b for Gemma 3 27B
+      - LLM_MODEL_NAME=gemma3-prod         # CUSTOMIZE: Matches the generic name created in deployment guide
       - TIKA_URL=http://tika-server:9998
       - TIKA_CLIENT_ONLY=true
       - STREAMLIT_SERVER_HEADLESS=true
@@ -101,7 +101,7 @@ services:
     tmpfs:
       - /tmp
 
-    # Tiny rotated log for Python/Streamlit tracebacks while you’re iterating.
+    # Rotated logs for debugging.
     # For a final kiosk box, you can change driver: "local" → "none".
     logging:
       driver: "local"
