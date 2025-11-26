@@ -130,25 +130,15 @@ section[data-testid="stSidebar"] {
     pointer-events: none !important;
 }
 
-.stChatInput {
-    border: none !important;
-    background: transparent !important;
-    padding: 0 !important;
-}
-.stChatInput > div {
-    background: white !important;
-    border: 2px solid #8a8a8a !important;
-    border-radius: 4px !important;
-    margin: 0 !important;
-    padding: 0 !important;
-}
-.stChatInput textarea {
-    border: none !important;
-    background: white !important;
-    padding: 0.75rem !important;
-    margin: 0 !important;
-}
-.stChatInput > div:focus-within {
+/* ===================================================================
+ * Chat Input - Streamlit 1.51 compatible
+ * 
+ * Strategy: Only customize colors, let Streamlit handle layout.
+ * This avoids fighting with the multiline expansion feature.
+ * =================================================================== */
+
+/* Target the chat input container for focus color only */
+[data-testid="stChatInput"] > div:focus-within {
     border-color: var(--color-primary) !important;
     box-shadow: 0 0 0 1px var(--color-primary) !important;
 }

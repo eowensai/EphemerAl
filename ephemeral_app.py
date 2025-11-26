@@ -74,6 +74,21 @@ else:
         "Answer concisely and accurately based on the context provided."
     )
 
+
+# ── Cached Tika parsing ───────────────────────────────────────────
+@st.cache_data(ttl=3600, show_spinner="Parsing document…")
+def parse_with_tika(data: bytes, filename: str) -> str:
+    """Parse document bytes with Tika. Results cached for 1 hour."""
+    return parser.from_buffer(data, serverEndpoint=TIKA_URL).get("content", "").strip()
+
+
+# ── Cached OpenAI client ──────────────────────────────────────────
+@st.cache_resource
+def get_llm_client():
+    """Return a cached OpenAI client instance."""
+    return OpenAI(base_url=LLM_BASE_URL, api_key="not-needed")
+
+
 st.session_state.setdefault("messages", [])
 st.session_state.setdefault("show_welcome", True)
 
@@ -90,7 +105,7 @@ with st.sidebar:
         st.error("⚠️ LLM backend offline")
     if not TIKA_OK:
         st.warning("⚠️ Document parsing offline")
-    if st.button("New Conversation", use_container_width=True):
+    if st.button("New Conversation", key="sidebar_new", use_container_width=True):
         st.session_state.clear()
         st.rerun()
 
@@ -148,7 +163,7 @@ if HAS_DEVICE_DETECTION and device and device.is_mobile:
         st.rerun()
 
 # ── Chat input ───────────────────────────────────────────────────
-prompt_in = st.chat_input("Ask me anything…", accept_file="multiple")
+prompt_in = st.chat_input("Ask me anything…", accept_file="multiple", key="main_chat")
 prompt_in = st.session_state.pop("_first_prompt_pending", None) or prompt_in
 
 if prompt_in is not None:
@@ -183,15 +198,14 @@ if prompt_in is not None:
             if not TIKA_OK:
                 st.warning(f"📄 Parsing unavailable for {f.name}")
                 continue
-            with st.spinner(f"Parsing {f.name}…"):
-                try:
-                    f.seek(0)
-                    data = f.getvalue()
-                    txt = parser.from_buffer(data, serverEndpoint=TIKA_URL).get("content", "").strip()
-                    if txt:
-                        doc_ctx.append(f"--- {f.name} ---\n{txt}")
-                except Exception as e:
-                    st.error(f"❌ {f.name}: {e}")
+            try:
+                f.seek(0)
+                data = f.getvalue()
+                txt = parse_with_tika(data, f.name)
+                if txt:
+                    doc_ctx.append(f"--- {f.name} ---\n{txt}")
+            except Exception as e:
+                st.error(f"❌ {f.name}: {e}")
 
     if doc_ctx:
         parts.insert(0, {"type": "text", "text": "Context:\n" + "\n\n".join(doc_ctx)})
@@ -230,7 +244,7 @@ if prompt_in is not None:
     # ── Call LLM ───────────────────────────────────────────────────
     with st.chat_message("assistant"), st.spinner("Thinking…"):
         try:
-            client = OpenAI(base_url=LLM_BASE_URL, api_key="not-needed")
+            client = get_llm_client()
             stream = client.chat.completions.create(
                 model=MODEL_NAME,
                 messages=payload,
