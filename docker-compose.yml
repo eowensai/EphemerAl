@@ -1,10 +1,10 @@
 ###############################################################################
-# docker-compose.yml – EphemerAl demo stack
+# docker-compose.yml — EphemerAl demo stack
 #
 # Three-service layout:
-#   • ollama        – serves the LLM (GPU / CUDA)
-#   • tika-server   – parses over 100 document types
-#   • ephemeral-app – Streamlit front-end website
+#   • ollama        — serves the LLM (GPU / CUDA)
+#   • tika-server   — parses over 100 document types
+#   • ephemeral-app — Streamlit front-end website
 #
 # CUSTOMIZE comments below flag the lines that most people tweak:
 #   • LLM model name (12b vs 27b)
@@ -35,7 +35,7 @@ services:
       - OLLAMA_KEEP_ALIVE=-1
       - OLLAMA_FLASH_ATTENTION=1
 
-    # Expose Ollama’s API port to the host
+    # Expose Ollama's API port to the host
     ports: ["11434:11434"]
 
     # GPU reservation for Docker Compose v3+
@@ -53,7 +53,7 @@ services:
       driver: "none"
 
   # --------------------------------------------------------------------------
-  # Apache Tika – document parsing
+  # Apache Tika — document parsing
   # --------------------------------------------------------------------------
   tika-server:
     image: apache/tika:3.2.3.0-full
@@ -90,6 +90,7 @@ services:
       - TIKA_CLIENT_ONLY=true
       - STREAMLIT_SERVER_HEADLESS=true
       - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+      # - EPHEMERAL_TIMEZONE=America/New_York   # CUSTOMIZE: Override system timezone (optional)
 
     depends_on: [ollama, tika-server]
 
@@ -110,7 +111,7 @@ services:
         max-file: "3"
 
 # --------------------------------------------------------------------------
-# Shared network – keeps container DNS simple (ollama, tika-server, etc.)
+# Shared network — keeps container DNS simple (ollama, tika-server, etc.)
 # --------------------------------------------------------------------------
 networks:
   llm-net:
