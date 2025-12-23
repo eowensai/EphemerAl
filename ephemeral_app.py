@@ -1,4 +1,4 @@
-import os, base64, pathlib, string
+import os, base64, pathlib, string, re
 from datetime import datetime, tzinfo
 from typing import Union
 
@@ -11,6 +11,8 @@ from openai import OpenAI
 # - Provides an ephemeral chat UI for working with uploaded documents and images.
 # - Talks to an LLM backend and an Apache Tika server over HTTP endpoints configured via environment variables.
 # - Uses Streamlit's in-memory session_state only; this script does not write chat content or uploads to disk.
+
+APP_VERSION = "1.1.0"
 
 # ── Page config ───────────────────────────────────────────────────
 st.set_page_config(
@@ -159,6 +161,100 @@ def get_llm_client() -> OpenAI:
     return OpenAI(base_url=LLM_BASE_URL, api_key="not-needed")
 
 
+# ── Export helpers ────────────────────────────────────────────────
+def _extract_attachment_info(content: list) -> tuple[list[str], list[str], str]:
+    """
+    Parse structured message content to extract attachment info and user text.
+
+    Returns:
+        (doc_attachments, image_attachments, user_text)
+        - doc_attachments: list of "📎 filename (X characters extracted)"
+        - image_attachments: list of "📷 filename"
+        - user_text: the actual user message text
+    """
+    doc_attachments = []
+    image_attachments = []
+    user_text = ""
+
+    for part in content:
+        part_type = part.get("type")
+
+        if part_type == "text":
+            text = part["text"]
+            if text.startswith("Context:\n"):
+                # Parse the context block to extract filenames and character counts.
+                # Format is: "Context:\n--- filename ---\n<extracted text>\n\n--- filename2 ---\n..."
+                blocks = re.split(r"---\s*(.+?)\s*---", text[len("Context:\n"):])
+                # blocks alternates: ['', 'filename1', 'content1', 'filename2', 'content2', ...]
+                for i in range(1, len(blocks), 2):
+                    fname = blocks[i].strip()
+                    extracted = blocks[i + 1] if i + 1 < len(blocks) else ""
+                    char_count = len(extracted.strip())
+                    doc_attachments.append(f"📎 {fname} ({char_count:,} characters extracted)")
+            elif text.startswith("📷 *") or text.startswith("📄 *"):
+                # These are inline attachment indicators, skip them in export
+                # (we rebuild from the actual image parts)
+                continue
+            else:
+                user_text = text
+
+        elif part_type == "image":
+            fname = part.get("filename", "image")
+            image_attachments.append(f"📷 {fname}")
+
+    return doc_attachments, image_attachments, user_text
+
+
+def generate_markdown_export() -> bytes:
+    """
+    Generate a Markdown export of the current conversation.
+
+    This function is called only when the user clicks the download button
+    (deferred download pattern). It snapshots session_state.messages at
+    call time and produces a clean, paste-friendly Markdown transcript.
+    """
+    # Snapshot messages to avoid any race conditions
+    messages = list(st.session_state.get("messages", []))
+
+    now = datetime.now(TIMEZONE)
+    if os.name == "nt":
+        date_fmt = "%B %#d, %Y at %#I:%M %p"
+    else:
+        date_fmt = "%B %-d, %Y at %-I:%M %p"
+
+    lines = [
+        "# EphemerAl Conversation",
+        f"Exported: {now.strftime(date_fmt)}",
+        "",
+        "---",
+        "",
+    ]
+
+    for msg in messages:
+        role = "User" if msg["role"] == "user" else "Assistant"
+        lines.append(f"**{role}**")
+
+        content = msg["content"]
+        if isinstance(content, list):
+            doc_atts, img_atts, text = _extract_attachment_info(content)
+            # List attachments first
+            for att in doc_atts:
+                lines.append(att)
+            for att in img_atts:
+                lines.append(att)
+            # Then the message text
+            if text:
+                lines.append("")
+                lines.append(text)
+        else:
+            lines.append("")
+            lines.append(content)
+
+        lines.extend(["", "---", ""])
+
+    return "\n".join(lines).encode("utf-8")
+
+
 # Initialize in-memory conversation state. Streamlit clears this when the browser
 # session ends or when we explicitly clear it; there is no persistent database.
 st.session_state.setdefault("messages", [])
@@ -185,6 +281,22 @@ with st.sidebar:
     if st.button("New Conversation", key="sidebar_new", use_container_width=True):
         st.session_state.clear()
         st.rerun()
+
+    # Export button: only shown when there are messages to export.
+    if st.session_state.messages:
+        st.download_button(
+            label="Export Conversation",
+            data=generate_markdown_export,
+            file_name="ephemeral_conversation.md",
+            mime="text/markdown",
+            key="sidebar_export",
+            use_container_width=True,
+            help=(
+                "Exported files retain full conversation detail, including any PII or "
+                "proprietary information discussed. Handle exported files according to "
+                "your organization's data policies."
+            ),
+        )
 
 # ── Welcome banner ────────────────────────────────────────────────
 if st.session_state.show_welcome:
