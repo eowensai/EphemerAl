@@ -1,9 +1,16 @@
-import os, base64, pathlib, string, re
+import os
+import base64
+import pathlib
+import re
+import string
 from datetime import datetime, tzinfo
-from typing import Union
+from html import escape as html_escape
+from typing import Union, Tuple, List
 
 import streamlit as st
-import requests, pytz
+import streamlit.components.v1 as components
+import requests
+import pytz
 from tika import parser
 from openai import OpenAI
 
@@ -11,8 +18,12 @@ from openai import OpenAI
 # - Provides an ephemeral chat UI for working with uploaded documents and images.
 # - Talks to an LLM backend and an Apache Tika server over HTTP endpoints configured via environment variables.
 # - Uses Streamlit's in-memory session_state only; this script does not write chat content or uploads to disk.
+#
+# Notes:
+# - “Ephemeral” here is about app storage. Browser caching and Streamlit caching are separate concerns.
+# - We avoid browser downloads for transcript export to dodge Chrome's insecure-download blocking on HTTP sites.
 
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.6.1"
 
 # ── Page config ───────────────────────────────────────────────────
 st.set_page_config(
@@ -44,15 +55,17 @@ def load_css(path: str = "theme.css") -> None:
 
 load_css()
 
+# ── Optional device detection ─────────────────────────────────────
+# Device detection is optional; the app still works without it.
 try:
     from streamlit_browser_engine import device
     HAS_DEVICE_DETECTION = True
 except ImportError:
-    # Device detection is optional; the app still works without it.
     HAS_DEVICE_DETECTION = False
     device = None
 
-# HTTP endpoints and model name are configurable so the app can talk to different
+# ── Backend configuration ─────────────────────────────────────────
+# Endpoints and model name are configurable so the app can talk to different
 # backends (e.g. local Docker containers or remote services).
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://ollama:11434/v1")
 MODEL_NAME = os.getenv("LLM_MODEL_NAME", "gemma3-prod")
@@ -86,6 +99,9 @@ def get_local_timezone() -> tzinfo:
     Priority:
       1. EPHEMERAL_TIMEZONE env var (e.g. "America/Los_Angeles") if set and valid.
       2. The system's local timezone as reported by datetime.now().astimezone().
+
+    This matches the older fork behavior and makes the docker-compose comment about
+    EPHEMERAL_TIMEZONE functional.
     """
     env_tz = os.getenv("EPHEMERAL_TIMEZONE")
     if env_tz:
@@ -100,9 +116,10 @@ def get_local_timezone() -> tzinfo:
                     "falling back to system local timezone."
                 )
             except Exception:
-                # If Streamlit is not ready yet, ignore the warning.
                 pass
-    return datetime.now().astimezone().tzinfo
+
+    sys_tz = datetime.now().astimezone().tzinfo
+    return sys_tz or pytz.UTC
 
 
 TIMEZONE = get_local_timezone()
@@ -135,7 +152,6 @@ else:
         "Answer concisely and accurately based on the context provided."
     )
 
-
 # ── Cached Tika parsing ───────────────────────────────────────────
 @st.cache_data(ttl=3600, show_spinner="Parsing document…")
 def parse_with_tika(data: bytes, filename: str) -> str:
@@ -154,107 +170,433 @@ def get_llm_client() -> OpenAI:
     """
     Return a cached OpenAI client instance.
 
-    The client is configured to talk to LLM_BASE_URL (typically an Ollama‑compatible
+    The client is configured to talk to LLM_BASE_URL (typically an Ollama-compatible
     endpoint). The api_key value is a placeholder because most local backends
     ignore it, but the OpenAI client requires something to be set.
     """
     return OpenAI(base_url=LLM_BASE_URL, api_key="not-needed")
 
 
-# ── Export helpers ────────────────────────────────────────────────
-def _extract_attachment_info(content: list) -> tuple[list[str], list[str], str]:
+# ── Copy helpers (sidebar-only) ───────────────────────────────────
+# We avoid downloads entirely to sidestep Chrome’s insecure-download blocking on HTTP.
+# We also avoid rendering a full transcript “preview” in the main pane, which duplicates
+# the chat and gets clunky as conversations grow.
+def _extract_export_info(content: Union[str, list]) -> Tuple[List[str], List[str], str]:
     """
-    Parse structured message content to extract attachment info and user text.
+    Extract (doc_lines, img_lines, message_text) from message content.
 
-    Returns:
-        (doc_attachments, image_attachments, user_text)
-        - doc_attachments: list of "📎 filename (X characters extracted)"
-        - image_attachments: list of "📷 filename"
-        - user_text: the actual user message text
+    Notes:
+    - We do NOT export the full extracted document text from Context:, only filenames and counts.
+    - We DO include document filenames even if Tika is offline (📄 *filename* markers).
     """
-    doc_attachments = []
-    image_attachments = []
-    user_text = ""
+    doc_lines: List[str] = []
+    img_lines: List[str] = []
+    text_chunks: List[str] = []
+
+    if not isinstance(content, list):
+        return doc_lines, img_lines, "" if content is None else str(content)
+
+    doc_seen = set()
+    img_seen = set()
+    img_marker_names: List[str] = []
 
     for part in content:
-        part_type = part.get("type")
+        ptype = part.get("type")
 
-        if part_type == "text":
-            text = part["text"]
+        if ptype == "text":
+            text = part.get("text", "")
+
             if text.startswith("Context:\n"):
-                # Parse the context block to extract filenames and character counts.
-                # Format is: "Context:\n--- filename ---\n<extracted text>\n\n--- filename2 ---\n..."
-                blocks = re.split(r"---\s*(.+?)\s*---", text[len("Context:\n"):])
+                ctx = text[len("Context:\n"):]
+                blocks = re.split(r"---\s*(.+?)\s*---", ctx)
                 # blocks alternates: ['', 'filename1', 'content1', 'filename2', 'content2', ...]
                 for i in range(1, len(blocks), 2):
-                    fname = blocks[i].strip()
+                    fname = (blocks[i] or "").strip()
                     extracted = blocks[i + 1] if i + 1 < len(blocks) else ""
-                    char_count = len(extracted.strip())
-                    doc_attachments.append(f"📎 {fname} ({char_count:,} characters extracted)")
-            elif text.startswith("📷 *") or text.startswith("📄 *"):
-                # These are inline attachment indicators, skip them in export
-                # (we rebuild from the actual image parts)
-                continue
+                    char_count = len((extracted or "").strip())
+                    if fname and fname not in doc_seen:
+                        doc_seen.add(fname)
+                        doc_lines.append(f"- 📄 {fname} ({char_count:,} characters extracted)")
+
+            elif text.startswith("📄 *") and text.endswith("*"):
+                fname = text[len("📄 *"):-1].strip()
+                if fname and fname not in doc_seen:
+                    doc_seen.add(fname)
+                    doc_lines.append(f"- 📄 {fname}")
+
+            elif text.startswith("📷 *") and text.endswith("*"):
+                fname = text[len("📷 *"):-1].strip()
+                if fname:
+                    img_marker_names.append(fname)
+
             else:
-                user_text = text
+                if text and text.strip():
+                    text_chunks.append(text.strip())
 
-        elif part_type == "image":
-            fname = part.get("filename", "image")
-            image_attachments.append(f"📷 {fname}")
+        elif ptype == "image":
+            fname = (part.get("filename") or "image").strip()
+            if fname and fname not in img_seen:
+                img_seen.add(fname)
+                img_lines.append(f"- 📷 {fname}")
 
-    return doc_attachments, image_attachments, user_text
+    for fname in img_marker_names:
+        if fname not in img_seen:
+            img_seen.add(fname)
+            img_lines.append(f"- 📷 {fname}")
+
+    message_text = "\n\n".join(text_chunks).strip()
+    return doc_lines, img_lines, message_text
 
 
-def generate_markdown_export() -> bytes:
+def build_conversation_markdown(messages: List[dict]) -> str:
     """
-    Generate a Markdown export of the current conversation.
-
-    This function is called only when the user clicks the download button
-    (deferred download pattern). It snapshots session_state.messages at
-    call time and produces a clean, paste-friendly Markdown transcript.
+    Build a Markdown transcript used as plain-text clipboard fallback.
     """
-    # Snapshot messages to avoid any race conditions
-    messages = list(st.session_state.get("messages", []))
-
-    now = datetime.now(TIMEZONE)
-    if os.name == "nt":
-        date_fmt = "%B %#d, %Y at %#I:%M %p"
-    else:
-        date_fmt = "%B %-d, %Y at %-I:%M %p"
-
-    lines = [
-        "# EphemerAl Conversation",
-        f"Exported: {now.strftime(date_fmt)}",
-        "",
-        "---",
-        "",
-    ]
+    lines: List[str] = ["# EphemerAl Conversation", ""]
 
     for msg in messages:
-        role = "User" if msg["role"] == "user" else "Assistant"
-        lines.append(f"**{role}**")
+        role = msg.get("role", "assistant")
+        role_title = "User" if role == "user" else "Assistant"
+        lines.append(f"**{role_title}**")
 
-        content = msg["content"]
-        if isinstance(content, list):
-            doc_atts, img_atts, text = _extract_attachment_info(content)
-            # List attachments first
-            for att in doc_atts:
-                lines.append(att)
-            for att in img_atts:
-                lines.append(att)
-            # Then the message text
-            if text:
-                lines.append("")
-                lines.append(text)
-        else:
+        doc_lines, img_lines, message_text = _extract_export_info(msg.get("content", ""))
+
+        if doc_lines or img_lines:
             lines.append("")
-            lines.append(content)
+            lines.append("Attachments:")
+            lines.extend(doc_lines)
+            lines.extend(img_lines)
 
-        lines.extend(["", "---", ""])
+        if message_text:
+            lines.append("")
+            lines.append(message_text)
 
-    return "\n".join(lines).encode("utf-8")
+        lines.append("")
+        lines.append("---")
+        lines.append("")
+
+    return "\n".join(lines).rstrip() + "\n"
 
 
+def _inline_md_to_html(text: str) -> str:
+    """
+    Minimal inline Markdown -> HTML for clipboard friendliness.
+    """
+    t = html_escape(text)
+    t = re.sub(r"`([^`]+)`", r"<code>\1</code>", t)
+    t = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", t)
+    t = re.sub(r"(?<!\*)\*([^*]+)\*(?!\*)", r"<em>\1</em>", t)
+    return t
+
+
+def _md_block_to_html(md_block: str) -> str:
+    """
+    Minimal block Markdown -> HTML.
+    Handles headings, lists, horizontal rules, and paragraphs.
+    """
+    md_block = (md_block or "").replace("\r\n", "\n")
+    lines = md_block.split("\n")
+
+    out: List[str] = []
+    para: List[str] = []
+    in_ul = False
+    in_ol = False
+
+    def flush_para() -> None:
+        nonlocal para
+        if para:
+            out.append("<p>" + "<br>".join(para) + "</p>")
+            para = []
+
+    def close_lists() -> None:
+        nonlocal in_ul, in_ol
+        if in_ul:
+            out.append("</ul>")
+        if in_ol:
+            out.append("</ol>")
+        return
+
+    for raw in lines:
+        stripped = (raw or "").strip()
+
+        if stripped == "":
+            flush_para()
+            continue
+
+        if stripped in {"---", "***", "___"}:
+            flush_para()
+            if in_ul:
+                out.append("</ul>")
+                in_ul = False
+            if in_ol:
+                out.append("</ol>")
+                in_ol = False
+            out.append("<hr>")
+            continue
+
+        m = re.match(r"^(#{1,6})\s+(.*)$", stripped)
+        if m:
+            flush_para()
+            if in_ul:
+                out.append("</ul>")
+                in_ul = False
+            if in_ol:
+                out.append("</ol>")
+                in_ol = False
+            level = len(m.group(1))
+            out.append(f"<h{level}>" + _inline_md_to_html(m.group(2)) + f"</h{level}>")
+            continue
+
+        m = re.match(r"^[-*•]\s+(.*)$", stripped)
+        if m:
+            flush_para()
+            if in_ol:
+                out.append("</ol>")
+                in_ol = False
+            if not in_ul:
+                out.append("<ul>")
+                in_ul = True
+            out.append("<li>" + _inline_md_to_html(m.group(1)) + "</li>")
+            continue
+
+        m = re.match(r"^\d+\.\s+(.*)$", stripped)
+        if m:
+            flush_para()
+            if in_ul:
+                out.append("</ul>")
+                in_ul = False
+            if not in_ol:
+                out.append("<ol>")
+                in_ol = True
+            out.append("<li>" + _inline_md_to_html(m.group(1)) + "</li>")
+            continue
+
+        # Regular paragraph line
+        if in_ul:
+            out.append("</ul>")
+            in_ul = False
+        if in_ol:
+            out.append("</ol>")
+            in_ol = False
+        para.append(_inline_md_to_html(stripped))
+
+    flush_para()
+    if in_ul:
+        out.append("</ul>")
+    if in_ol:
+        out.append("</ol>")
+
+    return "\n".join(out)
+
+
+def _md_to_html_basic(md: str) -> str:
+    """
+    Minimal Markdown -> HTML converter for copy/paste purposes.
+    Handles fenced code blocks (```), lists, headings, hr, and inline formatting.
+    """
+    md = (md or "").replace("\r\n", "\n")
+    parts = md.split("```")
+    out: List[str] = []
+
+    for i, part in enumerate(parts):
+        if i % 2 == 1:
+            code = html_escape(part.strip("\n"))
+            out.append("<pre><code>" + code + "</code></pre>")
+        else:
+            block_html = _md_block_to_html(part)
+            if block_html.strip():
+                out.append(block_html)
+
+    return "\n".join(out).strip()
+
+
+def build_conversation_html(messages: List[dict]) -> str:
+    """
+    Rich transcript as HTML.
+    This is what the copy button tries first (best chance of bullets/bold carrying into Word/Outlook).
+    """
+    chunks: List[str] = ["<div>", "<p><strong>EphemerAl Conversation</strong></p>"]
+
+    for msg in messages:
+        role = msg.get("role", "assistant")
+        role_title = "User" if role == "user" else "Assistant"
+        chunks.append(f"<p><strong>{html_escape(role_title)}</strong></p>")
+
+        doc_lines, img_lines, message_text = _extract_export_info(msg.get("content", ""))
+
+        if doc_lines or img_lines:
+            chunks.append("<p><strong>Attachments:</strong></p>")
+            chunks.append("<ul>")
+            for line in (doc_lines + img_lines):
+                item = line.lstrip("- ").strip()
+                chunks.append("<li>" + _inline_md_to_html(item) + "</li>")
+            chunks.append("</ul>")
+
+        if message_text:
+            chunks.append(_md_to_html_basic(message_text))
+
+        chunks.append("<hr>")
+
+    chunks.append("</div>")
+    return "\n".join(chunks).strip()
+
+
+def render_copy_button(export_text_plain: str, export_html: str) -> None:
+    """
+    Sidebar-only copy button.
+
+    UI goals:
+    - Match Streamlit sidebar button width (remove iframe default margins).
+    - No persistent status text under the button.
+    - Give subtle success feedback via a short button flash.
+
+    Clipboard behavior:
+    - Attempts to copy formatted HTML first (richer paste).
+    - Falls back to plain text if rich copy is blocked.
+    - Uses selection + document.execCommand('copy'), which tends to work more reliably on HTTP.
+    """
+    safe_plain = html_escape(export_text_plain)
+
+    hover_tip = (
+        "EphemerAl forgets this chat when you refresh or start a new conversation. "
+        "Copying saves a copy wherever you paste it."
+    )
+
+    components.html(
+        f"""
+        <style>
+          html, body {{
+            margin: 0;
+            padding: 0;
+          }}
+
+          /* Match theme.css button look as closely as possible inside an iframe */
+          #copy-btn {{
+            width: 100%;
+            box-sizing: border-box;
+            background: white;
+            color: #333;
+            border: 2px solid #004B55;
+            font-weight: 600;
+            font-size: .95rem;
+            font-family: "Inter", system-ui, -apple-system, sans-serif;
+            padding: 0.75rem;
+            margin: 0;
+            transition: all .2s;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            border-radius: 6px;
+            cursor: pointer;
+            white-space: nowrap;
+          }}
+
+          #copy-btn:hover {{
+            background: #007A7A;
+            color: white;
+            transform: translateY(-1px);
+          }}
+
+          #copy-btn:active {{
+            background: #004B55 !important;
+            color: white !important;
+            border-color: #004B55 !important;
+            transform: translateY(0);
+          }}
+
+          /* Flash states */
+          #copy-btn.copied {{
+            background: #007A7A !important;
+            color: white !important;
+            border-color: #004B55 !important;
+            transform: translateY(0) !important;
+          }}
+
+          #copy-btn.failed {{
+            background: #B00020 !important;
+            color: white !important;
+            border-color: #B00020 !important;
+            transform: translateY(0) !important;
+          }}
+        </style>
+
+        <button id="copy-btn" title="{html_escape(hover_tip)}">Copy Conversation</button>
+
+        <textarea id="copy-plain"
+                  style="position:absolute; left:-9999px; top:-9999px;">{safe_plain}</textarea>
+
+        <div id="copy-rich"
+             contenteditable="true"
+             style="position:absolute; left:-9999px; top:-9999px; width:900px;">
+          {export_html}
+        </div>
+
+        <script>
+          const btn = document.getElementById("copy-btn");
+          const plain = document.getElementById("copy-plain");
+          const rich = document.getElementById("copy-rich");
+          const originalLabel = btn.textContent;
+
+          function flash(stateClass, label, ms) {{
+            btn.disabled = true;
+            btn.classList.add(stateClass);
+            btn.textContent = label;
+
+            window.setTimeout(() => {{
+              btn.disabled = false;
+              btn.classList.remove(stateClass);
+              btn.textContent = originalLabel;
+            }}, ms);
+          }}
+
+          function copySelectionFrom(el) {{
+            const selection = window.getSelection();
+            const range = document.createRange();
+            range.selectNodeContents(el);
+            selection.removeAllRanges();
+            selection.addRange(range);
+            el.focus();
+
+            let ok = false;
+            try {{
+              ok = document.execCommand("copy");
+            }} catch (e) {{
+              ok = false;
+            }}
+
+            selection.removeAllRanges();
+            return ok;
+          }}
+
+          function copyPlain() {{
+            plain.focus();
+            plain.select();
+            let ok = false;
+            try {{
+              ok = document.execCommand("copy");
+            }} catch (e) {{
+              ok = false;
+            }}
+            return ok;
+          }}
+
+          btn.addEventListener("click", () => {{
+            // Try rich first (better paste into Word/Outlook), then plain fallback.
+            const richOk = copySelectionFrom(rich);
+            const ok = richOk || copyPlain();
+
+            if (ok) {{
+              flash("copied", "Copied", 900);
+            }} else {{
+              flash("failed", "Copy failed", 1500);
+            }}
+          }});
+        </script>
+        """,
+        height=70,
+        scrolling=False,
+    )
+
+
+# ── Session state (ephemeral by default) ──────────────────────────
 # Initialize in-memory conversation state. Streamlit clears this when the browser
 # session ends or when we explicitly clear it; there is no persistent database.
 st.session_state.setdefault("messages", [])
@@ -262,8 +604,7 @@ st.session_state.setdefault("show_welcome", True)
 
 # ── Sidebar ───────────────────────────────────────────────────────
 with st.sidebar:
-    # Try to show a local logo first; fall back to text branding if the image is
-    # missing or cannot be loaded.
+    # Try to show a local logo first; fall back to text branding if missing.
     try:
         logo_path = pathlib.Path("static/ephemeral_logo.png")
         if logo_path.exists():
@@ -282,21 +623,11 @@ with st.sidebar:
         st.session_state.clear()
         st.rerun()
 
-    # Export button: only shown when there are messages to export.
+    # Copy Conversation (sidebar-only). Avoids downloads and avoids duplicating the chat in main UI.
     if st.session_state.messages:
-        st.download_button(
-            label="Export Conversation",
-            data=generate_markdown_export,
-            file_name="ephemeral_conversation.md",
-            mime="text/markdown",
-            key="sidebar_export",
-            use_container_width=True,
-            help=(
-                "Exported files retain full conversation detail, including any PII or "
-                "proprietary information discussed. Handle exported files according to "
-                "your organization's data policies."
-            ),
-        )
+        export_md = build_conversation_markdown(st.session_state.messages)
+        export_html = build_conversation_html(st.session_state.messages)
+        render_copy_button(export_md, export_html)
 
 # ── Welcome banner ────────────────────────────────────────────────
 if st.session_state.show_welcome:
@@ -319,7 +650,6 @@ if st.session_state.show_welcome:
         """,
         unsafe_allow_html=True,
     )
-
 
 # ── Helper: render chat content ───────────────────────────────────
 def render_content(content: Union[str, list]) -> None:
@@ -346,7 +676,6 @@ def render_content(content: Union[str, list]) -> None:
                     st.error("Failed to display image from assistant")
     else:
         st.markdown(content)
-
 
 # ── Render chat history ───────────────────────────────────────────
 for m in st.session_state.messages:
@@ -419,8 +748,8 @@ if prompt_in is not None:
     if doc_ctx:
         parts.insert(0, {"type": "text", "text": "Context:\n" + "\n\n".join(doc_ctx)})
     parts.append({"type": "text", "text": user_text})
-    content_for_llm = parts if len(parts) > 1 else user_text
 
+    content_for_llm = parts if len(parts) > 1 else user_text
     st.session_state.messages.append({"role": "user", "content": content_for_llm})
 
     # ── LLM payload ───────────────────────────────────────────────
