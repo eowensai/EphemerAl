@@ -3,6 +3,7 @@ import base64
 import pathlib
 import re
 import string
+import uuid
 from datetime import datetime, tzinfo
 from html import escape as html_escape
 from typing import Union, Tuple, List
@@ -20,10 +21,10 @@ from openai import OpenAI
 # - Uses Streamlit's in-memory session_state only; this script does not write chat content or uploads to disk.
 #
 # Notes:
-# - “Ephemeral” here is about app storage. Browser caching and Streamlit caching are separate concerns.
+# - "Ephemeral" here is about app storage. Browser caching and Streamlit caching are separate concerns.
 # - We avoid browser downloads for transcript export to dodge Chrome's insecure-download blocking on HTTP sites.
 
-APP_VERSION = "1.6.1"
+APP_VERSION = "1.7.0"
 
 # ── Page config ───────────────────────────────────────────────────
 st.set_page_config(
@@ -177,9 +178,33 @@ def get_llm_client() -> OpenAI:
     return OpenAI(base_url=LLM_BASE_URL, api_key="not-needed")
 
 
+# ── Chat message wrapper for CSS styling ──────────────────────────
+# Streamlit doesn't expose the message role in CSS-selectable attributes.
+# By wrapping each chat_message in a container with a key containing the role,
+# we get a class like "st-key-user-xxx" that CSS can target.
+def styled_chat_message(role: str, message_id: str = None):
+    """
+    Return a chat_message wrapped in a keyed container for CSS styling.
+
+    Usage:
+        with styled_chat_message("user", msg.get("id")):
+            st.markdown("Hello!")
+
+    This enables CSS selectors like [class*="st-key-user"] to style messages
+    differently based on role.
+
+    Args:
+        role: "user" or "assistant"
+        message_id: Stable ID for this message. If None, generates a new UUID.
+                    Using stable IDs reduces DOM churn across Streamlit reruns.
+    """
+    key = f"{role}-{message_id}" if message_id else f"{role}-{uuid.uuid4()}"
+    return st.container(key=key).chat_message(role)
+
+
 # ── Copy helpers (sidebar-only) ───────────────────────────────────
-# We avoid downloads entirely to sidestep Chrome’s insecure-download blocking on HTTP.
-# We also avoid rendering a full transcript “preview” in the main pane, which duplicates
+# We avoid downloads entirely to sidestep Chrome's insecure-download blocking on HTTP.
+# We also avoid rendering a full transcript "preview" in the main pane, which duplicates
 # the chat and gets clunky as conversations grow.
 def _extract_export_info(content: Union[str, list]) -> Tuple[List[str], List[str], str]:
     """
@@ -462,6 +487,9 @@ def render_copy_button(export_text_plain: str, export_html: str) -> None:
         "Copying saves a copy wherever you paste it."
     )
 
+    # NOTE: Colors here must be hardcoded because this runs in an iframe.
+    # Update these if you change --color-accent in theme.css.
+    # Current accent: #E1654A (coral), darker: #C4503A
     components.html(
         f"""
         <style>
@@ -475,38 +503,47 @@ def render_copy_button(export_text_plain: str, export_html: str) -> None:
             width: 100%;
             box-sizing: border-box;
             background: white;
-            color: #333;
-            border: 2px solid #004B55;
+            color: #1E242B;
+            border: 2px solid #E1654A;
             font-weight: 600;
             font-size: .95rem;
-            font-family: "Inter", system-ui, -apple-system, sans-serif;
-            padding: 0.75rem;
+            font-family:
+                ui-sans-serif,
+                system-ui,
+                -apple-system,
+                BlinkMacSystemFont,
+                "Segoe UI Variable",
+                "Segoe UI",
+                Roboto,
+                sans-serif;
+            padding: 0.7rem 1rem;
             margin: 0;
             transition: all .2s;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            border-radius: 8px;
             cursor: pointer;
             white-space: nowrap;
           }}
 
           #copy-btn:hover {{
-            background: #007A7A;
+            background: #E1654A;
             color: white;
             transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
           }}
 
           #copy-btn:active {{
-            background: #004B55 !important;
+            background: #C4503A !important;
             color: white !important;
-            border-color: #004B55 !important;
+            border-color: #C4503A !important;
             transform: translateY(0);
           }}
 
           /* Flash states */
           #copy-btn.copied {{
-            background: #007A7A !important;
+            background: #E1654A !important;
             color: white !important;
-            border-color: #004B55 !important;
+            border-color: #E1654A !important;
             transform: translateY(0) !important;
           }}
 
@@ -631,20 +668,51 @@ with st.sidebar:
 
 # ── Welcome banner ────────────────────────────────────────────────
 if st.session_state.show_welcome:
-    st.markdown(
-        "<div class='welcome-text'>"
-        "<span style='font-size:1.6em;font-weight:600;'>Welcome&nbsp;to</span> "
-        "<span class='ephemer'>Ephemer</span><span class='al'>Al</span>"
-        "</div>",
-        unsafe_allow_html=True,
-    )
+    # WORDMARK DISPLAY OPTIONS:
+    # Default: Image-based wordmark (static/ephemeral_wordmark.png or .svg)
+    #          Supports proper gradients, scales cleanly, looks polished.
+    #          Replace the image file to customize.
+    #
+    # Fallback: Text-based wordmark (uses solid colors from theme.css)
+    #           Automatically used if wordmark image file is not present.
+    #           To force text mode: delete or rename the wordmark file.
+
+    # Check for wordmark image (supports both PNG and SVG)
+    wordmark_png = pathlib.Path("static/ephemeral_wordmark.png")
+    wordmark_svg = pathlib.Path("static/ephemeral_wordmark.svg")
+    wordmark_path = wordmark_png if wordmark_png.exists() else (wordmark_svg if wordmark_svg.exists() else None)
+
+    if wordmark_path:
+        # Image-based wordmark
+        wordmark_b64 = base64.b64encode(wordmark_path.read_bytes()).decode()
+        mime_type = "image/svg+xml" if wordmark_path.suffix == ".svg" else "image/png"
+        st.markdown(
+            f"""
+            <div class='welcome-text'>
+                <span style='font-size:1.6em;font-weight:600;'>Welcome&nbsp;to</span><br>
+                <img src='data:{mime_type};base64,{wordmark_b64}'
+                     class='welcome-wordmark' alt='EphemerAl'>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    else:
+        # Text-based wordmark (fallback)
+        st.markdown(
+            "<div class='welcome-text'>"
+            "<span style='font-size:1.6em;font-weight:600;'>Welcome&nbsp;to</span> "
+            "<span class='ephemer'>Ephemer</span><span class='al'>Al</span>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+
     st.markdown(
         """
         <div class="right-align-block">
-          I understand image files and most (100+!) document types.<br>
-          <div style="text-align:center;margin:0.7rem 0;font-size:7px;color:#6B5B95;letter-spacing:10px;">• • •</div>
-          Conversations are erased when you refresh, hit "New Conversation", or close your browser.<br>
-          <div style="text-align:center;margin:0.7rem 0;font-size:7px;color:#6B5B95;letter-spacing:10px;">• • •</div>
+          I understand image files and most (100+!) document types.
+          <div class="welcome-dots">•&nbsp;&nbsp;•&nbsp;&nbsp;•</div>
+          Conversations are erased when you refresh, hit "New Conversation", or close your browser.
+          <div class="welcome-dots">•&nbsp;&nbsp;•&nbsp;&nbsp;•</div>
           I try to be helpful, but sometimes I'm wrong. Please double-check important answers!
         </div>
         """,
@@ -679,7 +747,7 @@ def render_content(content: Union[str, list]) -> None:
 
 # ── Render chat history ───────────────────────────────────────────
 for m in st.session_state.messages:
-    with st.chat_message(m["role"]):
+    with styled_chat_message(m["role"], m.get("id")):
         render_content(m["content"])
 
 # ── Mobile button ────────────────────────────────────────────────
@@ -707,7 +775,10 @@ if prompt_in is not None:
     user_text = prompt_in.text if hasattr(prompt_in, "text") else prompt_in
     files = prompt_in.files if hasattr(prompt_in, "files") else []
 
-    with st.chat_message("user"):
+    # Generate stable ID for user message
+    user_msg_id = str(uuid.uuid4())
+
+    with styled_chat_message("user", user_msg_id):
         st.markdown(user_text)
 
     parts, doc_ctx = [], []
@@ -750,7 +821,11 @@ if prompt_in is not None:
     parts.append({"type": "text", "text": user_text})
 
     content_for_llm = parts if len(parts) > 1 else user_text
-    st.session_state.messages.append({"role": "user", "content": content_for_llm})
+    st.session_state.messages.append({
+        "id": user_msg_id,
+        "role": "user",
+        "content": content_for_llm
+    })
 
     # ── LLM payload ───────────────────────────────────────────────
     # Render the system prompt (either from the template file or the fallback),
@@ -782,27 +857,35 @@ if prompt_in is not None:
                     api_parts.append(part)
             messages_for_api.append({"role": msg["role"], "content": api_parts})
         else:
-            messages_for_api.append(msg)
+            messages_for_api.append({"role": msg["role"], "content": msg["content"]})
 
     # Prepend the system message so the backend sees the time-aware instructions.
     payload = [{"role": "system", "content": sys_prompt}, *messages_for_api]
 
+    # Generate stable ID for assistant message
+    assistant_msg_id = str(uuid.uuid4())
+
     # ── Call LLM ───────────────────────────────────────────────────
-    with st.chat_message("assistant"), st.spinner("Thinking…"):
-        try:
-            client = get_llm_client()
-            stream = client.chat.completions.create(
-                model=MODEL_NAME,
-                messages=payload,
-                stream=True,
-            )
-            acc, box = "", st.empty()
-            for chunk in stream:
-                acc += chunk.choices[0].delta.content or ""
-                box.markdown(acc + "▌")
-            box.markdown(acc)
-            st.session_state.messages.append({"role": "assistant", "content": acc})
-            # Rerun to re-render full history with the new assistant message.
-            st.rerun()
-        except Exception as e:
-            st.error(f"❌ LLM Error: {e}")
+    with styled_chat_message("assistant", assistant_msg_id):
+        with st.spinner("Thinking…"):
+            try:
+                client = get_llm_client()
+                stream = client.chat.completions.create(
+                    model=MODEL_NAME,
+                    messages=payload,
+                    stream=True,
+                )
+                acc, box = "", st.empty()
+                for chunk in stream:
+                    acc += chunk.choices[0].delta.content or ""
+                    box.markdown(acc + "▌")
+                box.markdown(acc)
+                st.session_state.messages.append({
+                    "id": assistant_msg_id,
+                    "role": "assistant",
+                    "content": acc
+                })
+                # Rerun to re-render full history with the new assistant message.
+                st.rerun()
+            except Exception as e:
+                st.error(f"❌ LLM Error: {e}")
