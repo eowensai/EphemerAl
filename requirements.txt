@@ -1,6 +1,6 @@
-streamlit==1.51.0
+streamlit==1.52.2
 streamlit-browser-engine==0.0.3
-requests==2.32.4
+requests==2.32.5
 pytz==2025.2
 tika==3.1.0
 openai==1.97.2
