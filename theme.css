@@ -1,4 +1,17 @@
 /* ===================================================================
+ * EphemerAl Theme CSS
+ * Tested on: Streamlit 1.52.2
+ * 
+ * ⚠️  FRAGILE SELECTORS WARNING
+ * This file uses Streamlit internal DOM selectors that may break on upgrades:
+ *   - data-testid="stSidebar", "stBottom", "stChatMessage", etc.
+ *   - button[title="View fullscreen"] (especially brittle)
+ *   - [class*="st-key-..."] pattern for role-based message styling
+ * 
+ * Validate these selectors when upgrading Streamlit versions.
+ * =================================================================== */
+
+/* ===================================================================
  * 🎨 CUSTOMIZE YOUR COLORS
  * 
  * Change these values to match your organization's branding.
@@ -11,6 +24,9 @@
  * =================================================================== */
 :root {
     color-scheme: light;
+    
+    /* ─── LAYOUT ─── */
+    --sidebar-width: 280px;
     
     /* ─── PRIMARY ACCENT (buttons, user messages, highlights) ─── */
     --color-accent:           #E1654A;
@@ -87,7 +103,7 @@ html, body {
 
 /* Sidebar */
 section[data-testid="stSidebar"] {
-    width: 280px !important;
+    width: var(--sidebar-width) !important;
     background: var(--color-bg-sidebar) !important;
     padding-top: 0.5rem;
     border-right: 1px solid var(--color-border) !important;
@@ -217,10 +233,13 @@ section[data-testid="stSidebar"] > div {
 /* ===================================================================
  * Chat Messages - Role Distinction
  * 
- * IMPORTANT: This styling works because app.py wraps each chat_message
- * in a container with a key like "user-{id}" or "assistant-{id}".
- * Streamlit renders this as a class containing "st-key-user" or 
- * "st-key-assistant" which we can target with CSS.
+ * CSS CONTRACT: ephemeral_app.py wraps each chat_message in a container
+ * with a key formatted as "{role}-{message_id}" (e.g., "user-abc123").
+ * Streamlit renders this as a class containing "st-key-user-" or 
+ * "st-key-assistant-" which we target here.
+ * 
+ * The trailing hyphen in the selector prevents false matches on other
+ * containers that might have "user" or "assistant" elsewhere in their key.
  * =================================================================== */
 
 /* Base chat message styling */
@@ -232,13 +251,13 @@ section[data-testid="stSidebar"] > div {
 }
 
 /* User messages - warm tint with accent border */
-[class*="st-key-user"] [data-testid="stChatMessage"] {
+[class*="st-key-user-"] [data-testid="stChatMessage"] {
     background: var(--color-user-msg-bg) !important;
     border-left: 3px solid var(--color-user-msg-border);
 }
 
 /* Assistant messages - clean white with secondary accent border */
-[class*="st-key-assistant"] [data-testid="stChatMessage"] {
+[class*="st-key-assistant-"] [data-testid="stChatMessage"] {
     background: var(--color-surface) !important;
     border-left: 3px solid var(--color-asst-msg-border);
 }
@@ -291,12 +310,13 @@ section[data-testid="stSidebar"] > div {
 
 /* ===================================================================
  * Evaporation Edge - Subtle top fade
+ * Uses --sidebar-width variable to stay aligned with sidebar
  * =================================================================== */
 .main .block-container::before {
     content: "";
     position: fixed;
     top: 0;
-    left: 280px;
+    left: var(--sidebar-width);
     right: 0;
     height: 60px;
     background: linear-gradient(

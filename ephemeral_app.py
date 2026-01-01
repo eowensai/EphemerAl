@@ -1,8 +1,10 @@
 import os
 import base64
+import hashlib
 import pathlib
 import re
 import string
+import time
 import uuid
 from datetime import datetime, tzinfo
 from html import escape as html_escape
@@ -20,11 +22,21 @@ from openai import OpenAI
 # - Talks to an LLM backend and an Apache Tika server over HTTP endpoints configured via environment variables.
 # - Uses Streamlit's in-memory session_state only; this script does not write chat content or uploads to disk.
 #
-# Notes:
-# - "Ephemeral" here is about app storage. Browser caching and Streamlit caching are separate concerns.
-# - We avoid browser downloads for transcript export to dodge Chrome's insecure-download blocking on HTTP sites.
+# Privacy notes:
+# - Document parsing is cached per-session only (not shared across users/sessions).
+# - "New Conversation" clears all session state including parse cache.
+# - Browser caching depends on cache-control headers and browser behavior.
+# - Docker container logs may capture tracebacks; set logging driver to "none" for hardened deployments.
 
-APP_VERSION = "1.7.0"
+APP_VERSION = "1.8.0"
+
+# ── Constants ────────────────────────────────────────────────────────
+# Prefix used for synthetic context blocks injected into user messages.
+# We use a flag (_synthetic) to identify these, not string matching.
+CONTEXT_PREFIX = "Context:\n"
+
+# TTL for session-scoped Tika parse cache (seconds)
+TIKA_CACHE_TTL_S = 3600
 
 # ── Page config ───────────────────────────────────────────────────
 st.set_page_config(
@@ -73,22 +85,48 @@ MODEL_NAME = os.getenv("LLM_MODEL_NAME", "gemma3-prod")
 TIKA_URL = os.getenv("TIKA_URL", "http://tika-server:9998")
 
 
+# ── Health checks (cached to reduce UI jank) ──────────────────────
+@st.cache_data(ttl=5, show_spinner=False)
 def tika_alive() -> bool:
-    """Lightweight health check for the Tika server at TIKA_URL."""
+    """
+    Lightweight health check for the Tika server at TIKA_URL.
+    Cached for 5 seconds to avoid repeated network calls on reruns.
+    """
     try:
         return requests.get(TIKA_URL, timeout=2).ok
     except Exception:
         return False
 
 
-TIKA_OK = tika_alive()
-
-
+@st.cache_data(ttl=5, show_spinner=False)
 def llm_alive() -> bool:
-    """Lightweight health check for the LLM backend derived from LLM_BASE_URL."""
+    """
+    Lightweight health check for the LLM backend.
+    
+    Tries OpenAI-compatible /models endpoint first, then falls back to
+    Ollama-specific /api/tags. Cached for 5 seconds to reduce UI jank.
+    
+    Treats 401/403 as "alive" since auth errors prove the service is reachable.
+    """
     try:
-        base = LLM_BASE_URL.split("/v1")[0]
-        return requests.get(base + "/api/tags", timeout=2).ok
+        # Normalize base URL - handle both "http://host:port/v1" and "http://host:port"
+        base_url = LLM_BASE_URL.rstrip("/")
+        
+        # Try OpenAI-compatible endpoint
+        if base_url.endswith("/v1"):
+            models_url = base_url + "/models"
+        else:
+            models_url = base_url + "/v1/models"
+        
+        r = requests.get(models_url, timeout=2)
+        if r.status_code in (200, 401, 403):
+            return True
+        
+        # Ollama fallback - strip /v1 if present and try /api/tags
+        # Note: split("/v1")[0] returns the whole string if /v1 isn't present
+        ollama_base = base_url.split("/v1")[0]
+        r2 = requests.get(ollama_base + "/api/tags", timeout=2)
+        return r2.ok
     except Exception:
         return False
 
@@ -153,16 +191,53 @@ else:
         "Answer concisely and accurately based on the context provided."
     )
 
-# ── Cached Tika parsing ───────────────────────────────────────────
-@st.cache_data(ttl=3600, show_spinner="Parsing document…")
+
+# ── Session-scoped Tika parsing cache ─────────────────────────────
+# We cache parsed document text per-session (not globally) to honor the app's
+# "ephemeral" privacy posture. Keyed by SHA-256 of file bytes.
+def _get_tika_cache() -> dict:
+    """Return the session-scoped Tika parse cache, creating if needed."""
+    return st.session_state.setdefault("_tika_cache", {})
+
+
 def parse_with_tika(data: bytes, filename: str) -> str:
     """
     Parse document bytes with Tika via TIKA_URL.
-
-    Results are cached by Streamlit for 1 hour (per unique (data, filename) input),
-    which avoids repeatedly parsing the same file in one session.
+    
+    Results are cached per-session by content hash (SHA-256) with TTL.
+    This avoids repeatedly parsing the same file within a session while
+    ensuring parsed content doesn't persist across sessions or users.
+    
+    Args:
+        data: Raw file bytes
+        filename: Original filename (for logging/errors only, not part of cache key)
+    
+    Returns:
+        Extracted text content, or empty string if parsing fails
     """
-    return parser.from_buffer(data, serverEndpoint=TIKA_URL).get("content", "").strip()
+    key = hashlib.sha256(data).hexdigest()
+    cache = _get_tika_cache()
+    now = time.time()
+    
+    # Lazy TTL pruning - remove expired entries
+    expired = [k for k, (ts, _) in cache.items() if now - ts > TIKA_CACHE_TTL_S]
+    for k in expired:
+        del cache[k]
+    
+    # Return cached result if available
+    if key in cache:
+        return cache[key][1]
+    
+    # Parse and cache (don't cache failures or empty results)
+    with st.spinner("Parsing document…"):
+        parsed = parser.from_buffer(data, serverEndpoint=TIKA_URL)
+    text = (parsed.get("content") or "").strip()
+    
+    # Only cache non-empty results - empty might be a transient Tika issue
+    if text:
+        cache[key] = (now, text)
+    
+    return text
 
 
 # ── Cached OpenAI client ──────────────────────────────────────────
@@ -182,6 +257,11 @@ def get_llm_client() -> OpenAI:
 # Streamlit doesn't expose the message role in CSS-selectable attributes.
 # By wrapping each chat_message in a container with a key containing the role,
 # we get a class like "st-key-user-xxx" that CSS can target.
+#
+# CSS CONTRACT: Keys are formatted as "{role}-{message_id}".
+# theme.css uses selectors like [class*="st-key-user-"] to match.
+# This pattern depends on Streamlit's internal DOM structure and should be
+# validated when upgrading Streamlit versions.
 def styled_chat_message(role: str, message_id: str = None):
     """
     Return a chat_message wrapped in a keyed container for CSS styling.
@@ -190,7 +270,7 @@ def styled_chat_message(role: str, message_id: str = None):
         with styled_chat_message("user", msg.get("id")):
             st.markdown("Hello!")
 
-    This enables CSS selectors like [class*="st-key-user"] to style messages
+    This enables CSS selectors like [class*="st-key-user-"] to style messages
     differently based on role.
 
     Args:
@@ -213,6 +293,7 @@ def _extract_export_info(content: Union[str, list]) -> Tuple[List[str], List[str
     Notes:
     - We do NOT export the full extracted document text from Context:, only filenames and counts.
     - We DO include document filenames even if Tika is offline (📄 *filename* markers).
+    - Synthetic context parts (marked with _synthetic flag) are parsed for metadata only.
     """
     doc_lines: List[str] = []
     img_lines: List[str] = []
@@ -230,10 +311,13 @@ def _extract_export_info(content: Union[str, list]) -> Tuple[List[str], List[str
 
         if ptype == "text":
             text = part.get("text", "")
-
-            if text.startswith("Context:\n"):
-                ctx = text[len("Context:\n"):]
-                blocks = re.split(r"---\s*(.+?)\s*---", ctx)
+            
+            # Handle synthetic context blocks (flagged, not string-matched)
+            if part.get("_synthetic"):
+                # Parse the context block to extract filenames and char counts
+                ctx = text[len(CONTEXT_PREFIX):] if text.startswith(CONTEXT_PREFIX) else text
+                # Anchored regex to reduce false matches from document content
+                blocks = re.split(r"(?m)^---\s*(.+?)\s*---\s*$", ctx)
                 # blocks alternates: ['', 'filename1', 'content1', 'filename2', 'content2', ...]
                 for i in range(1, len(blocks), 2):
                     fname = (blocks[i] or "").strip()
@@ -318,6 +402,9 @@ def _md_block_to_html(md_block: str) -> str:
     """
     Minimal block Markdown -> HTML.
     Handles headings, lists, horizontal rules, and paragraphs.
+    
+    Limitations: No nested lists, no tables, no blockquotes.
+    Used for clipboard-friendly export, not full rendering.
     """
     md_block = (md_block or "").replace("\r\n", "\n")
     lines = md_block.split("\n")
@@ -337,9 +424,10 @@ def _md_block_to_html(md_block: str) -> str:
         nonlocal in_ul, in_ol
         if in_ul:
             out.append("</ul>")
+            in_ul = False
         if in_ol:
             out.append("</ol>")
-        return
+            in_ol = False
 
     for raw in lines:
         stripped = (raw or "").strip()
@@ -350,24 +438,14 @@ def _md_block_to_html(md_block: str) -> str:
 
         if stripped in {"---", "***", "___"}:
             flush_para()
-            if in_ul:
-                out.append("</ul>")
-                in_ul = False
-            if in_ol:
-                out.append("</ol>")
-                in_ol = False
+            close_lists()
             out.append("<hr>")
             continue
 
         m = re.match(r"^(#{1,6})\s+(.*)$", stripped)
         if m:
             flush_para()
-            if in_ul:
-                out.append("</ul>")
-                in_ul = False
-            if in_ol:
-                out.append("</ol>")
-                in_ol = False
+            close_lists()
             level = len(m.group(1))
             out.append(f"<h{level}>" + _inline_md_to_html(m.group(2)) + f"</h{level}>")
             continue
@@ -397,19 +475,11 @@ def _md_block_to_html(md_block: str) -> str:
             continue
 
         # Regular paragraph line
-        if in_ul:
-            out.append("</ul>")
-            in_ul = False
-        if in_ol:
-            out.append("</ol>")
-            in_ol = False
+        close_lists()
         para.append(_inline_md_to_html(stripped))
 
     flush_para()
-    if in_ul:
-        out.append("</ul>")
-    if in_ol:
-        out.append("</ol>")
+    close_lists()
 
     return "\n".join(out)
 
@@ -479,12 +549,15 @@ def render_copy_button(export_text_plain: str, export_html: str) -> None:
     - Attempts to copy formatted HTML first (richer paste).
     - Falls back to plain text if rich copy is blocked.
     - Uses selection + document.execCommand('copy'), which tends to work more reliably on HTTP.
+    
+    Note: Colors are hardcoded because this runs in an iframe that can't access
+    CSS variables. These must match --color-accent (#E1654A) in theme.css.
     """
     safe_plain = html_escape(export_text_plain)
 
     hover_tip = (
-        "EphemerAl forgets this chat when you refresh or start a new conversation. "
-        "Copying saves a copy wherever you paste it."
+        "Copy this conversation to your clipboard. "
+        "Chat content is cleared when you refresh or start a new conversation."
     )
 
     # NOTE: Colors here must be hardcoded because this runs in an iframe.
@@ -652,10 +725,10 @@ with st.sidebar:
     # Basic health indicators for the backends this UI depends on.
     if not llm_alive():
         st.error("⚠️ LLM backend offline")
-    if not TIKA_OK:
+    if not tika_alive():
         st.warning("⚠️ Document parsing offline")
 
-    # New Conversation clears all session_state (messages + welcome banner).
+    # New Conversation clears all session_state (messages + welcome banner + parse cache).
     if st.button("New Conversation", key="sidebar_new", use_container_width=True):
         st.session_state.clear()
         st.rerun()
@@ -711,7 +784,7 @@ if st.session_state.show_welcome:
         <div class="right-align-block">
           I understand image files and most (100+!) document types.
           <div class="welcome-dots">•&nbsp;&nbsp;•&nbsp;&nbsp;•</div>
-          Conversations are erased when you refresh, hit "New Conversation", or close your browser.
+          Conversations are cleared when you refresh, start a new conversation, or close your browser.
           <div class="welcome-dots">•&nbsp;&nbsp;•&nbsp;&nbsp;•</div>
           I try to be helpful, but sometimes I'm wrong. Please double-check important answers!
         </div>
@@ -724,13 +797,15 @@ def render_content(content: Union[str, list]) -> None:
     """
     Render either plain markdown or structured content (text + images)
     for a single chat message.
+    
+    Synthetic context blocks (marked with _synthetic flag) are hidden from
+    display but still sent to the model.
     """
     if isinstance(content, list):
         for part in content:
             if part.get("type") == "text":
-                # Hide the synthetic "Context:" block from display; it is meant
-                # only for the model, not the human user.
-                if not part["text"].startswith("Context:"):
+                # Hide synthetic context blocks (flagged, not string-matched)
+                if not part.get("_synthetic"):
                     st.markdown(part["text"])
             elif part.get("type") == "image":
                 try:
@@ -802,7 +877,7 @@ if prompt_in is not None:
             )
         else:
             parts.append({"type": "text", "text": f"📄 *{f.name}*"})
-            if not TIKA_OK:
+            if not tika_alive():
                 st.warning(f"📄 Parsing unavailable for {f.name}")
                 continue
             try:
@@ -815,9 +890,13 @@ if prompt_in is not None:
                 st.error(f"❌ {f.name}: {e}")
 
     # If we successfully parsed any documents, prepend them to the content that
-    # will be sent to the model as a synthetic "Context:" block.
+    # will be sent to the model as a synthetic context block (flagged, not string-matched).
     if doc_ctx:
-        parts.insert(0, {"type": "text", "text": "Context:\n" + "\n\n".join(doc_ctx)})
+        parts.insert(0, {
+            "type": "text",
+            "text": CONTEXT_PREFIX + "\n\n".join(doc_ctx),
+            "_synthetic": True  # Flag to identify synthetic blocks
+        })
     parts.append({"type": "text", "text": user_text})
 
     content_for_llm = parts if len(parts) > 1 else user_text
@@ -838,7 +917,7 @@ if prompt_in is not None:
             api_parts = []
             for part in msg["content"]:
                 if part.get("type") == "text":
-                    api_parts.append(part)
+                    api_parts.append({"type": "text", "text": part["text"]})
                 elif part.get("type") == "image":
                     # Convert raw image bytes to data: URLs that OpenAI-compatible
                     # image endpoints expect. Cache base64 on the part so repeated
