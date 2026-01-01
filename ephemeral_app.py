@@ -228,12 +228,15 @@ def parse_with_tika(data: bytes, filename: str) -> str:
     if key in cache:
         return cache[key][1]
     
-    # Parse and cache (don't cache failures - let exceptions propagate to caller)
+    # Parse and cache (don't cache failures or empty results)
     with st.spinner("Parsing document…"):
         parsed = parser.from_buffer(data, serverEndpoint=TIKA_URL)
     text = (parsed.get("content") or "").strip()
     
-    cache[key] = (now, text)
+    # Only cache non-empty results - empty might be a transient Tika issue
+    if text:
+        cache[key] = (now, text)
+    
     return text
 
 
