@@ -16,7 +16,7 @@ services:
   # Large-language-model back-end (Ollama)
   # --------------------------------------------------------------------------
   ollama:
-    image: ollama/ollama:0.12.10
+    image: ollama/ollama:0.13.5
     container_name: ollama
     restart: unless-stopped
     networks: [llm-net]
