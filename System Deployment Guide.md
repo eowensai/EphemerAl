@@ -52,30 +52,41 @@ We need to enable the subsystem that allows Windows to run Linux applications.
 
 ---
 
-## Phase 2: Install the Engine (Docker & NVIDIA)
+## Phase 2: Install the Engine (Docker & Ollama)
 
 We will now install the software that manages the AI applications.
 
 > **Concept Check:**
 > * **PowerShell:** The standard blue/black Windows terminal.
 > * **WSL/Ubuntu:** The Linux environment we enter by typing `wsl`.
+> * **Ollama:** The AI backend which we will install natively on Windows for better performance.
 
-1.  Run this command to change directories:
+### Part A: Install Ollama on Windows
+
+1.  Download **Ollama for Windows** from [ollama.com/download](https://ollama.com/download).
+2.  Run the installer.
+3.  Once installed, open **PowerShell (Admin)** in Windows and run:
+    ```powershell
+    setx OLLAMA_HOST "0.0.0.0" /m
+    ```
+4.  **Important:** You must restart the Ollama application (right-click the Ollama icon in the taskbar -> Quit, then relaunch it) or reboot your computer for this change to take effect. This allows the WSL environment to talk to Windows.
+
+### Part B: Install Docker in WSL
+
+1.  Open your **Ubuntu** terminal (type `wsl` in PowerShell).
+2.  Run this command to change directories:
 
     ```bash
     cd ~
     ```
 
-    > **Why cd ~?**
-    > By default, you start in the Windows System32 folder (`/mnt/c/Windows...`). This command moves you to your Linux "Home" folder, which is safer for installing software.
-
-2.  Update the system tools. Copy/Paste this into the terminal (enter your password if asked):
+3.  Update the system tools. Copy/Paste this into the terminal (enter your password if asked):
 
     ```bash
     sudo apt update && sudo apt full-upgrade -y
     ```
 
-3.  Install required utilities and enable auto-updates:
+4.  Install required utilities and enable auto-updates:
 
     ```bash
     sudo apt install -y build-essential curl unattended-upgrades
@@ -88,13 +99,13 @@ We will now install the software that manages the AI applications.
     > **Attention:** A pink/blue screen will pop up.
     > Ensure **Yes** is highlighted and press **Enter**. This ensures Linux will automatically install important security updates in the background.
 
-4.  Install Docker (The container system):
+5.  Install Docker (The container system):
 
     ```bash
     curl -fsSL https://get.docker.com | sudo sh
     ```
 
-5.  Enable Docker and add permissions:
+6.  Enable Docker and add permissions:
 
     ```bash
     sudo systemctl enable --now docker
@@ -110,27 +121,11 @@ We will now install the software that manages the AI applications.
     > 2. Type `wsl` and press **Enter**. *(You enter Ubuntu again)*.
     > 3. Type `cd ~` and press **Enter**. *(Return to your home folder)*.
 
-6.  Install the NVIDIA Toolkit (Allows AI to see your GPU). Run these 3 commands one by one:
-
-    ```bash
-    curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
-    ```
-
-    ```bash
-    curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
-    ```
-
-    ```bash
-    sudo apt update && sudo apt install -y nvidia-container-toolkit
-    ```
-
-7.  Configure Docker for GPU access and Log Rotation (Prevents disk usage issues). Copy this entire block and paste it:
+7.  Configure Log Rotation (Prevents disk usage issues). Copy this entire block and paste it:
 
     ```bash
     sudo tee /etc/docker/daemon.json > /dev/null <<EOF
     {
-      "default-runtime": "nvidia",
-      "runtimes": { "nvidia": { "path": "/usr/bin/nvidia-container-runtime", "runtimeArgs": [] } },
       "storage-driver": "overlay2",
       "log-driver": "json-file",
       "log-opts": { "max-size": "10m", "max-file": "3" }
@@ -169,27 +164,22 @@ We will now install the software that manages the AI applications.
 
 ---
 
-## Phase 4: Configure the AI Model
+## Phase 4: Configure the AI Model (Windows Side)
 
-We need to download the "Brain" (Gemma 3) and configure its memory.
+We need to download the "Brain" (Gemma 3) and configure its memory. Since Ollama is running on Windows, we will do this in PowerShell.
 
 **Choose ONLY ONE path below based on your hardware.**
 
 ### Path A: Standard (GPU VRAM = 12GB+)
 *Best for RTX 3060, 4060 Ti, 5060 Ti, 3090, 4090.*
 
-1.  **Download the 12B Model:**
-    ```bash
-    docker exec -it ollama ollama pull gemma3:12b-it-qat
+1.  Open **PowerShell** (not as admin is fine).
+2.  **Download the 12B Model:**
+    ```powershell
+    ollama pull gemma3:12b-it-qat
     ```
-
-2.  **Enter the Container:**
-    ```bash
-    docker exec -it ollama bash
-    ```
-
-3.  **Create the Config:**
-    *Identify your Context Limit below. Copy the code block, replace `12000` with your value, and paste it into the container window.*
+3.  **Create the Modelfile:**
+    *Identify your Context Limit below. Replace `12000` with your value in the command.*
 
     | Your Card | Value |
     | :--- | :--- |
@@ -197,76 +187,59 @@ We need to download the "Brain" (Gemma 3) and configure its memory.
     | 16 GB VRAM | `50000` |
     | 24+ GB VRAM | `131072` |
 
-    ```bash
-    cat > Modelfile <<EOF
-    FROM gemma3:12b-it-qat
-    PARAMETER num_ctx 12000
-    PARAMETER num_gpu 99
-    PARAMETER temperature 0.8
-    PARAMETER top_k 64
-    PARAMETER top_p 0.95
-    PARAMETER repeat_penalty 1.0
-    PARAMETER min_p 0.0
-    EOF
+    Paste this into PowerShell:
+    ```powershell
+@"
+FROM gemma3:12b-it-qat
+PARAMETER num_ctx 12000
+PARAMETER num_gpu 99
+PARAMETER temperature 0.8
+PARAMETER top_k 64
+PARAMETER top_p 0.95
+PARAMETER repeat_penalty 1.0
+PARAMETER min_p 0.0
+"@ | Out-File -Encoding utf8 Modelfile
     ```
 
-4.  **Activate and Exit:**
-    *(Run these two commands one by one)*.
-
-    ```bash
+4.  **Activate the Model:**
+    ```powershell
     ollama create gemma3-prod -f Modelfile
     ```
-
-    ```bash
-    exit
-    ```
-
     > **Stop Here:** You have finished the model setup. **Skip "Path B"** and proceed directly to **Phase 5**.
 
 ### Path B: Higher Performance (Combined GPU VRAM = 24GB+)
 *For RTX 5090, Dual GPU (12/16GB x2), or Enterprise Cards.*
-*Note: Higher VRAM allows this larger version of Gemma 3 to run, but if its answers are too slow, use Path A*
 
-1.  **Download the 27B Model:**
-    ```bash
-    docker exec -it ollama ollama pull gemma3:27b-it-qat
+1.  Open **PowerShell**.
+2.  **Download the 27B Model:**
+    ```powershell
+    ollama pull gemma3:27b-it-qat
     ```
-
-2.  **Enter the Container:**
-    ```bash
-    docker exec -it ollama bash
-    ```
-
-3.  **Create the Config:**
-    *Identify your Context Limit below. Copy the code block, replace `30000` with your value, and paste it into the container window.*
+3.  **Create the Modelfile:**
+    *Identify your Context Limit below. Replace `30000` with your value in the command.*
 
     | Your Card | Value |
     | :--- | :--- |
     | 24 GB VRAM (Total) | `30000` |
     | 32+ GB VRAM (Total) | `131072` |
 
-    ```bash
-    cat > Modelfile <<EOF
-    FROM gemma3:27b-it-qat
-    PARAMETER num_ctx 30000
-    PARAMETER num_gpu 99
-    PARAMETER temperature 0.8
-    PARAMETER top_k 64
-    PARAMETER top_p 0.95
-    PARAMETER repeat_penalty 1.0
-    PARAMETER min_p 0.0
-    EOF
+    Paste this into PowerShell:
+    ```powershell
+@"
+FROM gemma3:27b-it-qat
+PARAMETER num_ctx 30000
+PARAMETER num_gpu 99
+PARAMETER temperature 0.8
+PARAMETER top_k 64
+PARAMETER top_p 0.95
+PARAMETER repeat_penalty 1.0
+PARAMETER min_p 0.0
+"@ | Out-File -Encoding utf8 Modelfile
     ```
 
-4.  **Activate and Exit:**
-    *(Run these two commands one by one)*.
-
-    ```bash
+4.  **Activate the Model:**
+    ```powershell
     ollama create gemma3-prod -f Modelfile
-    ```
-
-    ```bash
-    exit
     ```
 
 ---
