@@ -600,7 +600,7 @@ def render_copy_button(export_text_plain: str, export_html: str) -> None:
 
           #copy-btn:hover {{
             background: #E1654A;
-            color: white;
+            color: #1E242B; /* Improved contrast (was white) */
             transform: translateY(-1px);
             box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
           }}
@@ -729,7 +729,7 @@ with st.sidebar:
         st.warning("⚠️ Document parsing offline")
 
     # New Conversation clears all session_state (messages + welcome banner + parse cache).
-    if st.button("New Conversation", key="sidebar_new", use_container_width=True):
+    if st.button("New Conversation", key="sidebar_new", use_container_width=True, help="Start a fresh chat. This clears all messages and uploaded files."):
         st.session_state.clear()
         st.rerun()
 
@@ -829,7 +829,7 @@ for m in st.session_state.messages:
 if HAS_DEVICE_DETECTION and device and device.is_mobile:
     # On mobile we mirror the "New Conversation" control in the main layout
     # for easier reach.
-    if st.button("🔄 New Conversation", key="mobile_new", use_container_width=True):
+    if st.button("🔄 New Conversation", key="mobile_new", use_container_width=True, help="Start a fresh chat. This clears all messages and uploaded files."):
         st.session_state.clear()
         st.rerun()
 

@@ -219,7 +219,7 @@ section[data-testid="stSidebar"] > div {
 
 .stButton > button:hover {
     background: var(--color-accent);
-    color: white;
+    color: var(--color-text);
     transform: translateY(-1px);
     box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
 }
