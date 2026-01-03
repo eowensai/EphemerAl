@@ -286,6 +286,28 @@ def styled_chat_message(role: str, message_id: str = None):
 # We avoid downloads entirely to sidestep Chrome's insecure-download blocking on HTTP.
 # We also avoid rendering a full transcript "preview" in the main pane, which duplicates
 # the chat and gets clunky as conversations grow.
+def get_cached_exports(messages: List[dict]) -> Tuple[str, str]:
+    """
+    Get conversation exports, using session-scoped cache to avoid recomputing
+    on every rerun if the message count hasn't changed.
+    """
+    # Initialize cache structure if missing
+    # We store: count (int), md (str), html (str)
+    if "_export_cache" not in st.session_state:
+        st.session_state["_export_cache"] = {"count": -1, "md": "", "html": ""}
+
+    cache = st.session_state["_export_cache"]
+    current_count = len(messages)
+
+    # If message count changed, rebuild exports
+    if current_count != cache["count"]:
+        cache["md"] = build_conversation_markdown(messages)
+        cache["html"] = build_conversation_html(messages)
+        cache["count"] = current_count
+
+    return cache["md"], cache["html"]
+
+
 def _extract_export_info(content: Union[str, list]) -> Tuple[List[str], List[str], str]:
     """
     Extract (doc_lines, img_lines, message_text) from message content.
@@ -735,8 +757,7 @@ with st.sidebar:
 
     # Copy Conversation (sidebar-only). Avoids downloads and avoids duplicating the chat in main UI.
     if st.session_state.messages:
-        export_md = build_conversation_markdown(st.session_state.messages)
-        export_html = build_conversation_html(st.session_state.messages)
+        export_md, export_html = get_cached_exports(st.session_state.messages)
         render_copy_button(export_md, export_html)
 
 # ── Welcome banner ────────────────────────────────────────────────
