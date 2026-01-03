@@ -17,6 +17,8 @@ import pytz
 from tika import parser
 from openai import OpenAI
 
+from utils import validate_file_size
+
 # EphemerAl main Streamlit application.
 # - Provides an ephemeral chat UI for working with uploaded documents and images.
 # - Talks to an LLM backend and an Apache Tika server over HTTP endpoints configured via environment variables.
@@ -858,6 +860,12 @@ if prompt_in is not None:
 
     parts, doc_ctx = [], []
     for f in files:
+        # Check file size limit before reading anything
+        valid, error_msg = validate_file_size(f)
+        if not valid:
+            st.error(error_msg)
+            continue
+
         if f.type.startswith("image/"):
             # Large images will still be accepted, but we warn that processing
             # may be slow rather than silently failing.
