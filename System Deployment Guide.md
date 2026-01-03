@@ -25,30 +25,18 @@ We need to enable the subsystem that allows Windows to run Linux applications.
 2.  Copy the command below and paste it into PowerShell. Press Enter.
 
     ```powershell
-    dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
-    ```
-
-3.  Copy and paste the second command:
-
-    ```powershell
-    dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
-    ```
-
-4.  **Reboot your computer.**
-5.  Log back in. Open **PowerShell (Admin)** again.
-6.  Install Ubuntu:
-
-    ```powershell
     wsl --install -d Ubuntu-24.04
     ```
 
-    > **What happens next:** The installation will proceed **directly inside this PowerShell window**.
-    > **Action Required:**
-    > * **Username:** It will prompt you to create a user. It generally defaults to your Windows username. You can press **Enter** to accept it, or type a new simple name (e.g., `aiadmin`).
-    > * **Password:** Create a secure password. **Write this down.** You will not see stars or dots while typing.
-    > * **Completion:** You will see a new command prompt (e.g., `username@Device:/mnt/c...`).
-    >
+    > **Troubleshooting:** If you see an error about virtualization, you may need to enable **"Intel VT-x"** or **"AMD-V"** (SVM) in your computer's BIOS/UEFI settings.
 
+3.  **Reboot your computer.**
+    *(The installation will automatically resume after you log back in. A terminal window will pop up asking for a username and password.)*
+
+4.  **Action Required:**
+    *   **Username:** It will prompt you to create a user. It generally defaults to your Windows username. You can press **Enter** to accept it, or type a new simple name (e.g., `aiadmin`).
+    *   **Password:** Create a secure password. **Write this down.** You will not see stars or dots while typing.
+    *   **Completion:** You will see a new command prompt (e.g., `username@Device:/mnt/c...`).
 
 ---
 
