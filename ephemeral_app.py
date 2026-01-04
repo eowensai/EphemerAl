@@ -38,6 +38,9 @@ CONTEXT_PREFIX = "Context:\n"
 # TTL for session-scoped Tika parse cache (seconds)
 TIKA_CACHE_TTL_S = 3600
 
+# Maximum file upload size in MB (enforced before reading into memory)
+MAX_UPLOAD_SIZE_MB = 50
+
 # ── Page config ───────────────────────────────────────────────────
 st.set_page_config(
     page_title="EphemerAl",
@@ -858,12 +861,12 @@ if prompt_in is not None:
 
     parts, doc_ctx = [], []
     for f in files:
-        if f.type.startswith("image/"):
-            # Large images will still be accepted, but we warn that processing
-            # may be slow rather than silently failing.
-            if f.size > 50 * 1024 * 1024:
-                st.warning(f"📷 {f.name} is {f.size/1e6:.1f} MB – may be slow to process")
+        # Enforce hard limit on file size to prevent OOM / DoS
+        if f.size > MAX_UPLOAD_SIZE_MB * 1024 * 1024:
+            st.error(f"❌ {f.name} is too large ({f.size/1e6:.1f} MB). Max size is {MAX_UPLOAD_SIZE_MB}MB.")
+            continue
 
+        if f.type.startswith("image/"):
             f.seek(0)
             img_bytes = f.getvalue()
             parts.append({"type": "text", "text": f"📷 *{f.name}*"})
