@@ -729,7 +729,7 @@ with st.sidebar:
         st.warning("⚠️ Document parsing offline")
 
     # New Conversation clears all session_state (messages + welcome banner + parse cache).
-    if st.button("New Conversation", key="sidebar_new", use_container_width=True):
+    if st.button("New Conversation", key="sidebar_new", use_container_width=True, help="Clears the current chat history and starts fresh"):
         st.session_state.clear()
         st.rerun()
 
@@ -829,7 +829,7 @@ for m in st.session_state.messages:
 if HAS_DEVICE_DETECTION and device and device.is_mobile:
     # On mobile we mirror the "New Conversation" control in the main layout
     # for easier reach.
-    if st.button("🔄 New Conversation", key="mobile_new", use_container_width=True):
+    if st.button("🔄 New Conversation", key="mobile_new", use_container_width=True, help="Clears the current chat history and starts fresh"):
         st.session_state.clear()
         st.rerun()
 
