@@ -735,9 +735,23 @@ with st.sidebar:
 
     # Copy Conversation (sidebar-only). Avoids downloads and avoids duplicating the chat in main UI.
     if st.session_state.messages:
-        export_md = build_conversation_markdown(st.session_state.messages)
-        export_html = build_conversation_html(st.session_state.messages)
-        render_copy_button(export_md, export_html)
+        # Cache export generation to avoid re-computing on every rerun.
+        # Signature: (message_count, last_message_id, last_message_content_length)
+        # We include content length to handle streaming updates where ID stays same but content grows.
+        last_msg = st.session_state.messages[-1]
+        current_sig = (
+            len(st.session_state.messages),
+            last_msg.get("id"),
+            len(str(last_msg.get("content")))
+        )
+        cache = st.session_state.setdefault("_export_cache", {"sig": None, "md": "", "html": ""})
+
+        if cache["sig"] != current_sig:
+            cache["md"] = build_conversation_markdown(st.session_state.messages)
+            cache["html"] = build_conversation_html(st.session_state.messages)
+            cache["sig"] = current_sig
+
+        render_copy_button(cache["md"], cache["html"])
 
 # ── Welcome banner ────────────────────────────────────────────────
 if st.session_state.show_welcome:
