@@ -1,6 +1,7 @@
 import os
 import base64
 import hashlib
+import logging
 import pathlib
 import re
 import string
@@ -37,6 +38,11 @@ CONTEXT_PREFIX = "Context:\n"
 
 # TTL for session-scoped Tika parse cache (seconds)
 TIKA_CACHE_TTL_S = 3600
+
+# ── Logging ───────────────────────────────────────────────────────
+# Initialize a simple logger to capture errors without exposing details to the UI.
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logger = logging.getLogger(__name__)
 
 # ── Page config ───────────────────────────────────────────────────
 st.set_page_config(
@@ -887,7 +893,8 @@ if prompt_in is not None:
                 if txt:
                     doc_ctx.append(f"--- {f.name} ---\n{txt}")
             except Exception as e:
-                st.error(f"❌ {f.name}: {e}")
+                logger.error(f"Failed to process {f.name}", exc_info=True)
+                st.error(f"❌ {f.name}: Processing failed due to an internal error.")
 
     # If we successfully parsed any documents, prepend them to the content that
     # will be sent to the model as a synthetic context block (flagged, not string-matched).
@@ -967,4 +974,5 @@ if prompt_in is not None:
                 # Rerun to re-render full history with the new assistant message.
                 st.rerun()
             except Exception as e:
-                st.error(f"❌ LLM Error: {e}")
+                logger.error("LLM request failed", exc_info=True)
+                st.error("❌ LLM Error: The request could not be completed.")
