@@ -83,6 +83,10 @@ except ImportError:
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://ollama:11434/v1")
 MODEL_NAME = os.getenv("LLM_MODEL_NAME", "gemma3-prod")
 TIKA_URL = os.getenv("TIKA_URL", "http://tika-server:9998")
+TIKA_TIMEOUT_S = int(os.getenv("TIKA_TIMEOUT_S", "15"))
+MAX_CONTEXT_CHARS = int(os.getenv("DOC_CONTEXT_MAX_CHARS", "12000"))
+MAX_DOC_CHARS = int(os.getenv("DOC_CONTEXT_MAX_CHARS_PER_DOC", "4000"))
+LLM_SUPPORTS_VISION = os.getenv("LLM_SUPPORTS_VISION")
 
 
 # ── Health checks (cached to reduce UI jank) ──────────────────────
@@ -93,7 +97,13 @@ def tika_alive() -> bool:
     Cached for 5 seconds to avoid repeated network calls on reruns.
     """
     try:
-        return requests.get(TIKA_URL, timeout=2).ok
+        base = TIKA_URL.rstrip("/")
+        endpoints = (base, f"{base}/version", f"{base}/tika")
+        for url in endpoints:
+            r = requests.get(url, timeout=2)
+            if r.ok:
+                return True
+        return False
     except Exception:
         return False
 
@@ -230,7 +240,11 @@ def parse_with_tika(data: bytes, filename: str) -> str:
     
     # Parse and cache (don't cache failures or empty results)
     with st.spinner("Parsing document…"):
-        parsed = parser.from_buffer(data, serverEndpoint=TIKA_URL)
+        parsed = parser.from_buffer(
+            data,
+            serverEndpoint=TIKA_URL,
+            requestOptions={"timeout": TIKA_TIMEOUT_S},
+        )
     text = (parsed.get("content") or "").strip()
     
     # Only cache non-empty results - empty might be a transient Tika issue
@@ -238,6 +252,17 @@ def parse_with_tika(data: bytes, filename: str) -> str:
         cache[key] = (now, text)
     
     return text
+
+
+def truncate_text(text: str, limit: int) -> Tuple[str, bool]:
+    """
+    Truncate text to a character limit, returning (text, did_truncate).
+    """
+    if limit <= 0:
+        return "", True
+    if len(text) <= limit:
+        return text, False
+    return text[:limit].rstrip() + "\n...[truncated]", True
 
 
 # ── Cached OpenAI client ──────────────────────────────────────────
@@ -251,6 +276,44 @@ def get_llm_client() -> OpenAI:
     ignore it, but the OpenAI client requires something to be set.
     """
     return OpenAI(base_url=LLM_BASE_URL, api_key="not-needed")
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def model_supports_images() -> bool:
+    """
+    Return True if the configured model is expected to support vision inputs.
+
+    Uses (in order):
+      1) LLM_SUPPORTS_VISION env var (true/false).
+      2) Ollama /api/show response (if available) for vision-related keys.
+      3) Model name heuristics for common vision-capable families.
+    """
+    if LLM_SUPPORTS_VISION is not None:
+        return LLM_SUPPORTS_VISION.strip().lower() in {"1", "true", "yes", "y"}
+
+    model_lower = (MODEL_NAME or "").lower()
+    vision_name_match = re.search(
+        r"(vision|llava|moondream|phi3-vision|qwen2-vl|gpt-4o|gpt-4v|gpt-4\.1|gemini|claude-3)",
+        model_lower,
+    )
+    if vision_name_match:
+        return True
+
+    try:
+        base_url = LLM_BASE_URL.rstrip("/").split("/v1")[0]
+        show_url = f"{base_url}/api/show"
+        resp = requests.post(show_url, json={"name": MODEL_NAME}, timeout=2)
+        if resp.ok:
+            payload = resp.json()
+            model_info = payload.get("model_info") or {}
+            for key in model_info.keys():
+                key_lower = key.lower()
+                if "vision" in key_lower or "clip" in key_lower or "projector" in key_lower:
+                    return True
+    except Exception:
+        pass
+
+    return False
 
 
 # ── Chat message wrapper for CSS styling ──────────────────────────
@@ -343,6 +406,11 @@ def _extract_export_info(content: Union[str, list]) -> Tuple[List[str], List[str
                     text_chunks.append(text.strip())
 
         elif ptype == "image":
+            fname = (part.get("filename") or "image").strip()
+            if fname and fname not in img_seen:
+                img_seen.add(fname)
+                img_lines.append(f"- 📷 {fname}")
+        elif ptype == "image_url":
             fname = (part.get("filename") or "image").strip()
             if fname and fname not in img_seen:
                 img_seen.add(fname)
@@ -557,7 +625,7 @@ def render_copy_button(export_text_plain: str, export_html: str) -> None:
 
     hover_tip = (
         "Copy this conversation to your clipboard. "
-        "Chat content is cleared when you refresh or start a new conversation."
+        "Chat content is cleared when you start a new conversation or close your browser."
     )
 
     # NOTE: Colors here must be hardcoded because this runs in an iframe.
@@ -784,7 +852,7 @@ if st.session_state.show_welcome:
         <div class="right-align-block">
           I understand image files and most (100+!) document types.
           <div class="welcome-dots">•&nbsp;&nbsp;•&nbsp;&nbsp;•</div>
-          Conversations are cleared when you refresh, start a new conversation, or close your browser.
+          Conversations are cleared when you start a new conversation or close your browser.
           <div class="welcome-dots">•&nbsp;&nbsp;•&nbsp;&nbsp;•</div>
           I try to be helpful, but sometimes I'm wrong. Please double-check important answers!
         </div>
@@ -848,7 +916,10 @@ if prompt_in is not None:
         st.rerun()
 
     user_text = prompt_in.text if hasattr(prompt_in, "text") else prompt_in
+    user_text = (user_text or "").strip()
     files = prompt_in.files if hasattr(prompt_in, "files") else []
+    if not user_text and files:
+        user_text = "Please analyze the uploaded files."
 
     # Generate stable ID for user message
     user_msg_id = str(uuid.uuid4())
@@ -857,6 +928,8 @@ if prompt_in is not None:
         st.markdown(user_text)
 
     parts, doc_ctx = [], []
+    doc_ctx_chars = 0
+    context_truncated = False
     for f in files:
         if f.type.startswith("image/"):
             # Large images will still be accepted, but we warn that processing
@@ -866,11 +939,12 @@ if prompt_in is not None:
 
             f.seek(0)
             img_bytes = f.getvalue()
+            img_b64 = base64.b64encode(img_bytes).decode()
             parts.append({"type": "text", "text": f"📷 *{f.name}*"})
             parts.append(
                 {
-                    "type": "image",
-                    "data": img_bytes,
+                    "type": "image_url",
+                    "image_url": {"url": f"data:{f.type};base64,{img_b64}"},
                     "mime_type": f.type,
                     "filename": f.name,
                 }
@@ -885,7 +959,26 @@ if prompt_in is not None:
                 data = f.getvalue()
                 txt = parse_with_tika(data, f.name)
                 if txt:
-                    doc_ctx.append(f"--- {f.name} ---\n{txt}")
+                    truncated_text, did_truncate = truncate_text(txt, MAX_DOC_CHARS)
+                    if did_truncate:
+                        st.warning(f"📄 Truncated {f.name} to {MAX_DOC_CHARS:,} characters for context size.")
+                    block = f"--- {f.name} ---\n{truncated_text}"
+                    remaining = MAX_CONTEXT_CHARS - doc_ctx_chars
+                    if remaining <= 0:
+                        if not context_truncated:
+                            st.warning("📄 Document context truncated to fit model limits.")
+                            context_truncated = True
+                        continue
+                    if len(block) > remaining:
+                        truncated_block, _ = truncate_text(block, remaining)
+                        doc_ctx.append(truncated_block)
+                        doc_ctx_chars += len(truncated_block)
+                        if not context_truncated:
+                            st.warning("📄 Document context truncated to fit model limits.")
+                            context_truncated = True
+                    else:
+                        doc_ctx.append(block)
+                        doc_ctx_chars += len(block)
             except Exception as e:
                 st.error(f"❌ {f.name}: {e}")
 
@@ -897,7 +990,8 @@ if prompt_in is not None:
             "text": CONTEXT_PREFIX + "\n\n".join(doc_ctx),
             "_synthetic": True  # Flag to identify synthetic blocks
         })
-    parts.append({"type": "text", "text": user_text})
+    if user_text:
+        parts.append({"type": "text", "text": user_text})
 
     content_for_llm = parts if len(parts) > 1 else user_text
     st.session_state.messages.append({
@@ -912,31 +1006,28 @@ if prompt_in is not None:
     sys_prompt = SYSTEM_TMPL.safe_substitute(current_time_local=timestamp_local())
 
     messages_for_api = []
+    vision_supported = model_supports_images()
+    skipped_images = False
     for msg in st.session_state.messages:
         if isinstance(msg["content"], list):
             api_parts = []
             for part in msg["content"]:
                 if part.get("type") == "text":
                     api_parts.append({"type": "text", "text": part["text"]})
-                elif part.get("type") == "image":
-                    # Convert raw image bytes to data: URLs that OpenAI-compatible
-                    # image endpoints expect. Cache base64 on the part so repeated
-                    # sends in the same session do not re-encode.
-                    if "b64" not in part:
-                        part["b64"] = base64.b64encode(part["data"]).decode()
-                    api_parts.append(
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:{part.get('mime_type', 'image/jpeg')};base64,{part['b64']}"
-                            },
-                        }
-                    )
                 elif part.get("type") == "image_url":
-                    api_parts.append(part)
+                    if vision_supported:
+                        api_parts.append(part)
+                    else:
+                        skipped_images = True
+                        continue
             messages_for_api.append({"role": msg["role"], "content": api_parts})
         else:
             messages_for_api.append({"role": msg["role"], "content": msg["content"]})
+
+    if skipped_images:
+        st.warning(
+            "📷 Images were not sent to the model because the selected model does not appear to support vision."
+        )
 
     # Prepend the system message so the backend sees the time-aware instructions.
     payload = [{"role": "system", "content": sys_prompt}, *messages_for_api]

@@ -18,7 +18,7 @@ This tool offers a straightforward set of capabilities to facilitate interaction
 - **Document and Image Uploads:** Submit one or more files (including PDFs, documents, and spreadsheets, handling over 100 formats via Apache Tika), allowing the model to incorporate user content into its responses.
 - **Multimodal Functionality:** Leverage Gemma 3's ability to process images in conjunction with text, enabling analysis of visual elements like diagrams or photographs.
 - **Customizable Interface:** Incorporate a personal logo or adjust the appearance if desired using Streamlit, maintaining a clean and user-friendly design.
-- **Ephemeral Sessions:** Chat content is cleared when you refresh, start a new conversation, or close your browser. No conversation history is stored in a database. Document parsing is cached only for the duration of your session to improve performance on repeated uploads.
+- **Ephemeral Sessions:** Chat content is cleared when you start a new conversation or close your browser. No conversation history is stored in a database. Document parsing is cached only for the duration of your session to improve performance on repeated uploads.
 - **Simplified Deployment:** The solution utilizes Docker Compose for containerized setup, making it accessible even for those new to such environments.
 
 ## Privacy Notes
