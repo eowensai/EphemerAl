@@ -39,6 +39,9 @@ CONTEXT_PREFIX = "Context:\n"
 # TTL for session-scoped Tika parse cache (seconds)
 TIKA_CACHE_TTL_S = 3600
 
+# Token cost approximation for a single image input.
+IMG_TOKEN_COST = 2048
+
 # ── Page config ───────────────────────────────────────────────────
 st.set_page_config(
     page_title="EphemerAl",
@@ -260,17 +263,6 @@ def parse_with_tika(data: bytes, filename: str) -> str:
     return text
 
 
-def truncate_text(text: str, limit: int) -> Tuple[str, bool]:
-    """
-    Truncate text to a character limit, returning (text, did_truncate).
-    """
-    if limit <= 0:
-        return "", True
-    if len(text) <= limit:
-        return text, False
-    return text[:limit].rstrip() + "\n...[truncated]", True
-
-
 # ── Cached OpenAI client ──────────────────────────────────────────
 @st.cache_resource
 def get_llm_client() -> OpenAI:
@@ -291,11 +283,29 @@ def model_supports_images() -> bool:
 
     Uses (in order):
       1) LLM_SUPPORTS_VISION env var (true/false).
-      2) Ollama /api/show response (if available) for vision-related keys.
-      3) Model name heuristics for common vision-capable families.
+      2) Ollama /api/show capabilities list.
+      3) Ollama model_info heuristics.
+      4) Model name heuristics for common vision-capable families.
     """
     if LLM_SUPPORTS_VISION is not None:
         return LLM_SUPPORTS_VISION.strip().lower() in {"1", "true", "yes", "y"}
+
+    try:
+        base_url = LLM_BASE_URL.rstrip("/").split("/v1")[0]
+        show_url = f"{base_url}/api/show"
+        resp = requests.post(show_url, json={"model": MODEL_NAME}, timeout=2)
+        if resp.ok:
+            payload = resp.json()
+            capabilities = payload.get("capabilities")
+            if isinstance(capabilities, list) and "vision" in capabilities:
+                return True
+            model_info = payload.get("model_info") or {}
+            for key in model_info.keys():
+                key_lower = key.lower()
+                if "vision" in key_lower or "clip" in key_lower or "projector" in key_lower:
+                    return True
+    except Exception as e:
+        logging.debug("Ollama /api/show probe failed: %s", e)
 
     model_lower = (MODEL_NAME or "").lower()
     vision_name_match = re.search(
@@ -305,21 +315,71 @@ def model_supports_images() -> bool:
     if vision_name_match:
         return True
 
+    return False
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def get_model_ctx() -> Union[int, None]:
+    """
+    Return the configured model context size, if discoverable.
+
+    Priority:
+      1) Regex parse of num_ctx from the /api/show parameters string.
+      2) Fallback to model_info context_length/num_ctx if available.
+    """
     try:
         base_url = LLM_BASE_URL.rstrip("/").split("/v1")[0]
         show_url = f"{base_url}/api/show"
-        resp = requests.post(show_url, json={"name": MODEL_NAME}, timeout=2)
+        resp = requests.post(show_url, json={"model": MODEL_NAME}, timeout=2)
         if resp.ok:
             payload = resp.json()
+            parameters = payload.get("parameters")
+            if isinstance(parameters, str):
+                match = re.search(r"\bnum_ctx\s+(\d+)", parameters)
+                if match:
+                    return int(match.group(1))
             model_info = payload.get("model_info") or {}
-            for key in model_info.keys():
-                key_lower = key.lower()
-                if "vision" in key_lower or "clip" in key_lower or "projector" in key_lower:
-                    return True
+            for key in ("num_ctx", "context_length"):
+                value = model_info.get(key)
+                if isinstance(value, int):
+                    return value
+                if isinstance(value, str) and value.isdigit():
+                    return int(value)
+            for key, value in model_info.items():
+                if isinstance(key, str) and key.endswith(".context_length"):
+                    if isinstance(value, int):
+                        return value
+                    if isinstance(value, str) and value.isdigit():
+                        return int(value)
     except Exception as e:
-        logging.debug("Ollama /api/show probe failed: %s", e)
+        logging.debug("Ollama /api/show ctx probe failed: %s", e)
 
-    return False
+    return None
+
+
+def count_text_tokens(text: str) -> int:
+    """
+    Count tokens for text using Ollama's /api/tokenize endpoint.
+    Falls back to a heuristic estimate if the API call fails.
+    """
+    if not text:
+        return 0
+    base_url = LLM_BASE_URL.rstrip("/").split("/v1")[0]
+    tokenize_url = f"{base_url}/api/tokenize"
+    try:
+        resp = requests.post(
+            tokenize_url,
+            json={"model": MODEL_NAME, "content": text},
+            timeout=5,
+        )
+        resp.raise_for_status()
+        payload = resp.json()
+        tokens = payload.get("tokens")
+        if isinstance(tokens, list):
+            return len(tokens)
+        raise ValueError("Tokenize response missing tokens list.")
+    except Exception:
+        return max(1, int(len(text) / 3.5))
 
 
 # ── Chat message wrapper for CSS styling ──────────────────────────
@@ -349,6 +409,25 @@ def styled_chat_message(role: str, message_id: str = None):
     """
     key = f"{role}-{message_id}" if message_id else f"{role}-{uuid.uuid4()}"
     return st.container(key=key).chat_message(role)
+
+
+def build_message_text(messages: List[dict]) -> str:
+    """
+    Flatten message content into text for token estimation.
+    """
+    chunks: List[str] = []
+    for msg in messages:
+        content = msg.get("content", "")
+        if isinstance(content, list):
+            for part in content:
+                if part.get("type") == "text":
+                    text = part.get("text")
+                    if text:
+                        chunks.append(text)
+        else:
+            if content:
+                chunks.append(str(content))
+    return "\n".join(chunks)
 
 
 # ── Copy helpers (sidebar-only) ───────────────────────────────────
@@ -785,8 +864,9 @@ def render_copy_button(export_text_plain: str, export_html: str) -> None:
 # session ends or when we explicitly clear it; there is no persistent database.
 st.session_state.setdefault("messages", [])
 st.session_state.setdefault("show_welcome", True)
+st.session_state.setdefault("last_token_count", 0)
 
-# ── Sidebar ───────────────────────────────────────────────────────
+# ── Sidebar ──────────────────────────────────────────────────────
 with st.sidebar:
     # Try to show a local logo first; fall back to text branding if missing.
     try:
@@ -934,10 +1014,21 @@ if prompt_in is not None:
     with styled_chat_message("user", user_msg_id):
         st.markdown(user_text)
 
+    # Render the system prompt (either from the template file or the fallback),
+    # injecting a human-readable local timestamp.
+    sys_prompt = SYSTEM_TMPL.safe_substitute(current_time_local=timestamp_local())
+
+    model_ctx = get_model_ctx()
+    if model_ctx:
+        max_ctx = int(model_ctx * 0.95)
+        warn_ctx = int(model_ctx * 0.85)
+    else:
+        max_ctx = 128000
+        warn_ctx = int(max_ctx * 0.85)
+
     parts, doc_ctx = [], []
-    doc_ctx_chars = 0
-    context_truncated = False
-    truncated_docs: List[str] = []
+    doc_entries: List[dict] = []
+    image_count = 0
     for f in files:
         if f.type.startswith("image/"):
             # Large images will still be accepted, but we warn that processing
@@ -957,6 +1048,7 @@ if prompt_in is not None:
                     "filename": f.name,
                 }
             )
+            image_count += 1
         else:
             parts.append({"type": "text", "text": f"📄 *{f.name}*"})
             if not tika_alive():
@@ -967,36 +1059,75 @@ if prompt_in is not None:
                 data = f.getvalue()
                 txt = parse_with_tika(data, f.name)
                 if txt:
-                    truncated_text, did_truncate = truncate_text(txt, DOC_CONTEXT_MAX_CHARS_PER_DOC)
-                    if did_truncate:
-                        truncated_docs.append(f.name)
-                    block = f"--- {f.name} ---\n{truncated_text}"
-                    separator_len = 2 if doc_ctx else 0
-                    remaining = DOC_CONTEXT_MAX_CHARS - doc_ctx_chars - separator_len
-                    if remaining <= 0:
-                        if not context_truncated:
-                            st.warning("📄 Document context truncated to fit model limits.")
-                            context_truncated = True
-                        continue
-                    if len(block) > remaining:
-                        truncated_block, _ = truncate_text(block, remaining)
-                        doc_ctx.append(truncated_block)
-                        doc_ctx_chars += separator_len + len(truncated_block)
-                        if not context_truncated:
-                            st.warning("📄 Document context truncated to fit model limits.")
-                            context_truncated = True
-                    else:
-                        doc_ctx.append(block)
-                        doc_ctx_chars += separator_len + len(block)
+                    block = f"--- {f.name} ---\n{txt}"
+                    doc_entries.append(
+                        {
+                            "name": f.name,
+                            "block": block,
+                        }
+                    )
             except Exception as e:
                 st.error(f"❌ {f.name}: {e}")
 
-    if truncated_docs:
-        unique_docs = ", ".join(sorted(set(truncated_docs)))
+    for entry in doc_entries:
+        entry["tokens"] = count_text_tokens(entry["block"])
+
+    def compute_pending_text(entries: List[dict]) -> str:
+        doc_blocks = "\n\n".join(entry["block"] for entry in entries)
+        markers = [part["text"] for part in parts if part.get("type") == "text"]
+        marker_text = "\n".join(markers)
+        return "\n".join([doc_blocks, marker_text, user_text]).strip()
+
+    def estimate_pending_cost(entries: List[dict]) -> int:
+        pending_text = compute_pending_text(entries)
+        text_tokens = count_text_tokens(pending_text)
+        return text_tokens + image_count * IMG_TOKEN_COST
+
+    def estimate_total(entries: List[dict]) -> int:
+        pending_tokens = estimate_pending_cost(entries)
+        if st.session_state.last_token_count == 0:
+            history_text = build_message_text(st.session_state.messages)
+            history_tokens = count_text_tokens(history_text)
+            system_tokens = count_text_tokens(sys_prompt)
+            return system_tokens + history_tokens + pending_tokens
+        return st.session_state.last_token_count + pending_tokens
+
+    total_predicted = estimate_total(doc_entries)
+
+    skipped_docs: List[str] = []
+    while doc_entries and total_predicted > max_ctx:
+        dropped = doc_entries.pop()
+        skipped_docs.append(dropped["name"])
+        total_predicted = estimate_total(doc_entries)
+
+    if skipped_docs:
+        dropped_set = set(skipped_docs)
+        parts = [
+            part for part in parts
+            if not (
+                part.get("type") == "text"
+                and part.get("text", "").strip().startswith("📄 *")
+                and part.get("text", "").strip().endswith("*")
+                and part.get("text", "").strip()[3:-1].strip() in dropped_set
+            )
+        ]
+
+    if total_predicted > max_ctx:
+        st.error("❌ Your request exceeds the model context limit even without attachments.")
+        return
+
+    if skipped_docs:
+        unique_docs = ", ".join(sorted(set(skipped_docs)))
         st.warning(
-            "📄 Truncated document text to "
-            f"{DOC_CONTEXT_MAX_CHARS_PER_DOC:,} characters per file: {unique_docs}."
+            "⚠️ Some attached documents were omitted to prevent exceeding the model's context limit: "
+            f"{unique_docs}."
         )
+
+    if total_predicted >= warn_ctx:
+        st.warning("⚠️ Your conversation, including attached files, is nearing the limit of this AI.")
+
+    for entry in doc_entries:
+        doc_ctx.append(entry["block"])
 
     # If we successfully parsed any documents, prepend them to the content that
     # will be sent to the model as a synthetic context block (flagged, not string-matched).
@@ -1015,11 +1146,6 @@ if prompt_in is not None:
         "role": "user",
         "content": content_for_llm
     })
-
-    # ── LLM payload ───────────────────────────────────────────────
-    # Render the system prompt (either from the template file or the fallback),
-    # injecting a human-readable local timestamp.
-    sys_prompt = SYSTEM_TMPL.safe_substitute(current_time_local=timestamp_local())
 
     messages_for_api = []
     vision_supported = model_supports_images()
@@ -1065,11 +1191,17 @@ if prompt_in is not None:
                     model=MODEL_NAME,
                     messages=payload,
                     stream=True,
+                    stream_options={"include_usage": True},
                 )
                 acc, box = "", st.empty()
                 for chunk in stream:
-                    acc += chunk.choices[0].delta.content or ""
-                    box.markdown(acc + "▌")
+                    if chunk.choices:
+                        delta = chunk.choices[0].delta.content
+                        if delta:
+                            acc += delta
+                            box.markdown(acc + "▌")
+                    if chunk.usage and getattr(chunk.usage, "total_tokens", None) is not None:
+                        st.session_state.last_token_count = chunk.usage.total_tokens
                 box.markdown(acc)
                 st.session_state.messages.append({
                     "id": assistant_msg_id,
