@@ -713,7 +713,7 @@ def render_copy_button(export_text_plain: str, export_html: str) -> None:
           }}
           #copy-btn:hover {{
             background: #E1654A;
-            color: white;
+            color: #1E242B;
             transform: translateY(-1px);
             box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
           }}
@@ -836,7 +836,7 @@ with st.sidebar:
     if not tika_alive():
         st.info("Document reading is temporarily unavailable. You can still chat, but uploads may not be readable.")
 
-    if st.button("New Conversation", key="sidebar_new", use_container_width=True):
+    if st.button("New Conversation", key="sidebar_new", use_container_width=True, help="Clears chat history and starts fresh"):
         st.session_state.clear()
         st.rerun()
 
