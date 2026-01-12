@@ -9,7 +9,7 @@ import uuid
 import logging
 from datetime import datetime, tzinfo
 from html import escape as html_escape
-from typing import Union, Tuple, List
+from typing import Union, Tuple, List, Dict, Optional
 
 import streamlit as st
 import streamlit.components.v1 as components
@@ -21,17 +21,10 @@ from openai import OpenAI
 # EphemerAl main Streamlit application.
 # - Provides an ephemeral chat UI for working with uploaded documents and images.
 # - Talks to an LLM backend and an Apache Tika server over HTTP endpoints configured via environment variables.
-# - Uses Streamlit's in-memory session_state only; this script does not write chat content or uploads to disk.
-#
-# Privacy notes:
-# - Document parsing is cached per-session only (not shared across users/sessions).
-# - "New Conversation" clears all session state including parse cache.
-# - Browser caching depends on cache-control headers and browser behavior.
-# - Docker container logs may capture tracebacks; set logging driver to "none" for hardened deployments.
+# - Uses Streamlit's in-memory session_state only, this script does not write chat content or uploads to disk.
 
-APP_VERSION = "1.8.0"
+APP_VERSION = "1.8.1"
 
-# ── Constants ────────────────────────────────────────────────────────
 # Prefix used for synthetic context blocks injected into user messages.
 # We use a flag (_synthetic) to identify these, not string matching.
 CONTEXT_PREFIX = "Context:\n"
@@ -39,8 +32,19 @@ CONTEXT_PREFIX = "Context:\n"
 # TTL for session-scoped Tika parse cache (seconds)
 TIKA_CACHE_TTL_S = 3600
 
-# Token cost approximation for a single image input.
-IMG_TOKEN_COST = 2048
+# Default approximation for a single image input (overridden if model metadata provides a value)
+IMG_TOKEN_COST_DEFAULT = 2048
+
+# Token estimation behavior
+TOKEN_HEURISTIC_CHARS_PER_TOKEN = 3.5
+TOKEN_CACHE_MAX_ENTRIES = 256
+TOKENIZE_TIMEOUT_S = 2.0  # keep UI snappy; budgeting degrades silently if tokenize is slow/unavailable
+
+# Debug mode (shows technical status in sidebar, and error detail expanders)
+DEBUG_MODE = os.getenv("EPHEMERAL_DEBUG", "0").strip().lower() in {"1", "true", "yes", "y", "on"}
+
+# Feature toggle (operator-only)
+ENABLE_TOKEN_BUDGETING = os.getenv("ENABLE_TOKEN_BUDGETING", "1").strip().lower() not in {"0", "false", "no"}
 
 # ── Page config ───────────────────────────────────────────────────
 st.set_page_config(
@@ -50,9 +54,6 @@ st.set_page_config(
 )
 
 # ── Anti-caching meta tags ────────────────────────────────────────
-# These headers ask the browser not to cache this page. This helps reduce the
-# chance that chat content or uploaded documents remain in browser cache on
-# shared machines, but it still depends on how the browser honors cache hints.
 st.markdown(
     """
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -73,38 +74,35 @@ def load_css(path: str = "theme.css") -> None:
 load_css()
 
 # ── Optional device detection ─────────────────────────────────────
-# Device detection is optional; the app still works without it.
 try:
-    from streamlit_browser_engine import device
+    from streamlit_browser_engine import device  # type: ignore
+
     HAS_DEVICE_DETECTION = True
 except ImportError:
     HAS_DEVICE_DETECTION = False
-    device = None
+    device = None  # type: ignore
 
 # ── Backend configuration ─────────────────────────────────────────
-# Endpoints and model name are configurable so the app can talk to different
-# backends (e.g. local Docker containers or remote services).
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://ollama:11434/v1")
 MODEL_NAME = os.getenv("LLM_MODEL_NAME", "gemma3-prod")
 TIKA_URL = os.getenv("TIKA_URL", "http://tika-server:9998")
 TIKA_TIMEOUT_S = int(os.getenv("TIKA_TIMEOUT_S", "15"))
-DOC_CONTEXT_MAX_CHARS = int(
-    os.getenv("DOC_CONTEXT_MAX_CHARS", os.getenv("MAX_CONTEXT_CHARS", "12000"))
-)
-DOC_CONTEXT_MAX_CHARS_PER_DOC = int(
-    os.getenv("DOC_CONTEXT_MAX_CHARS_PER_DOC", os.getenv("MAX_DOC_CHARS", "4000"))
-)
 DEFAULT_UPLOAD_PROMPT = os.getenv("DEFAULT_UPLOAD_PROMPT", "Please analyze the uploaded files.")
 LLM_SUPPORTS_VISION = os.getenv("LLM_SUPPORTS_VISION")
+
+
+def _ollama_base_url() -> str:
+    """
+    Convert an OpenAI-style base URL like http://host:11434/v1 into the native Ollama base http://host:11434.
+    If /v1 isn't present, returns the URL without trailing slash.
+    """
+    return LLM_BASE_URL.rstrip("/").split("/v1")[0]
 
 
 # ── Health checks (cached to reduce UI jank) ──────────────────────
 @st.cache_data(ttl=5, show_spinner=False)
 def tika_alive() -> bool:
-    """
-    Lightweight health check for the Tika server at TIKA_URL.
-    Cached for 5 seconds to avoid repeated network calls on reruns.
-    """
+    """Lightweight health check for the Tika server."""
     try:
         base = TIKA_URL.rstrip("/")
         endpoints = (f"{base}/tika", f"{base}/version", base)
@@ -121,30 +119,22 @@ def tika_alive() -> bool:
 def llm_alive() -> bool:
     """
     Lightweight health check for the LLM backend.
-    
-    Tries OpenAI-compatible /models endpoint first, then falls back to
-    Ollama-specific /api/tags. Cached for 5 seconds to reduce UI jank.
-    
+    Tries OpenAI-compatible /models endpoint first, then falls back to Ollama /api/tags.
     Treats 401/403 as "alive" since auth errors prove the service is reachable.
     """
     try:
-        # Normalize base URL - handle both "http://host:port/v1" and "http://host:port"
         base_url = LLM_BASE_URL.rstrip("/")
-        
-        # Try OpenAI-compatible endpoint
+
         if base_url.endswith("/v1"):
             models_url = base_url + "/models"
         else:
             models_url = base_url + "/v1/models"
-        
+
         r = requests.get(models_url, timeout=2)
         if r.status_code in (200, 401, 403):
             return True
-        
-        # Ollama fallback - strip /v1 if present and try /api/tags
-        # Note: split("/v1")[0] returns the whole string if /v1 isn't present
-        ollama_base = base_url.split("/v1")[0]
-        r2 = requests.get(ollama_base + "/api/tags", timeout=2)
+
+        r2 = requests.get(_ollama_base_url() + "/api/tags", timeout=2)
         return r2.ok
     except Exception:
         return False
@@ -153,28 +143,22 @@ def llm_alive() -> bool:
 def get_local_timezone() -> tzinfo:
     """
     Resolve the timezone used for UI timestamps and the system prompt.
-
     Priority:
-      1. EPHEMERAL_TIMEZONE env var (e.g. "America/Los_Angeles") if set and valid.
-      2. The system's local timezone as reported by datetime.now().astimezone().
-
-    This matches the older fork behavior and makes the docker-compose comment about
-    EPHEMERAL_TIMEZONE functional.
+      1. EPHEMERAL_TIMEZONE env var if valid.
+      2. The system's local timezone.
     """
     env_tz = os.getenv("EPHEMERAL_TIMEZONE")
     if env_tz:
         try:
             return pytz.timezone(env_tz)
         except Exception:
-            # If the configured value is invalid, log a warning in the UI if possible,
-            # then fall back to the system local timezone.
-            try:
-                st.warning(
-                    f"EPHEMERAL_TIMEZONE={env_tz!r} is not a valid timezone; "
-                    "falling back to system local timezone."
-                )
-            except Exception:
-                pass
+            if DEBUG_MODE:
+                try:
+                    st.warning(
+                        f"EPHEMERAL_TIMEZONE={env_tz!r} is not a valid timezone, falling back to system time."
+                    )
+                except Exception:
+                    pass
 
     sys_tz = datetime.now().astimezone().tzinfo
     return sys_tz or pytz.UTC
@@ -184,27 +168,18 @@ TIMEZONE = get_local_timezone()
 
 
 def timestamp_local() -> str:
-    """
-    Return a human-readable local timestamp string.
-
-    Uses TIMEZONE resolved at startup. Format is adjusted slightly for Windows
-    because strftime flags differ between platforms.
-    """
+    """Return a human-readable local timestamp string."""
     now = datetime.now(TIMEZONE)
     fmt = "%-I:%M %p on %A, %B %-d, %Y"
     if os.name == "nt":
-        # Windows strftime does not support %-I / %-d, so use %# variants.
         fmt = fmt.replace("%-I", "%#I").replace("%-d", "%#d")
     return now.strftime(fmt)
 
 
 tmpl_path = pathlib.Path(__file__).parent / "system_prompt_template.md"
 if tmpl_path.exists():
-    # If a template file is present, use it so operators can adjust tone/content
-    # without modifying this code.
     SYSTEM_TMPL = string.Template(tmpl_path.read_text(encoding="utf-8"))
 else:
-    # Fallback system prompt if the template file is missing.
     SYSTEM_TMPL = string.Template(
         "You are a helpful AI assistant. The current local time is ${current_time_local}. "
         "Answer concisely and accurately based on the context provided."
@@ -212,8 +187,6 @@ else:
 
 
 # ── Session-scoped Tika parsing cache ─────────────────────────────
-# We cache parsed document text per-session (not globally) to honor the app's
-# "ephemeral" privacy posture. Keyed by SHA-256 of file bytes.
 def _get_tika_cache() -> dict:
     """Return the session-scoped Tika parse cache, creating if needed."""
     return st.session_state.setdefault("_tika_cache", {})
@@ -222,199 +195,232 @@ def _get_tika_cache() -> dict:
 def parse_with_tika(data: bytes, filename: str) -> str:
     """
     Parse document bytes with Tika via TIKA_URL.
-    
-    Results are cached per-session by content hash (SHA-256) with TTL.
-    This avoids repeatedly parsing the same file within a session while
-    ensuring parsed content doesn't persist across sessions or users.
-    
-    Args:
-        data: Raw file bytes
-        filename: Original filename (for logging/errors only, not part of cache key)
-    
-    Returns:
-        Extracted text content, or empty string if parsing fails
+    Cached per-session by content hash (SHA-256) with TTL.
     """
     key = hashlib.sha256(data).hexdigest()
     cache = _get_tika_cache()
     now = time.time()
-    
-    # Lazy TTL pruning - remove expired entries
+
     expired = [k for k, (ts, _) in cache.items() if now - ts > TIKA_CACHE_TTL_S]
     for k in expired:
         del cache[k]
-    
-    # Return cached result if available
+
     if key in cache:
         return cache[key][1]
-    
-    # Parse and cache (don't cache failures or empty results)
-    with st.spinner("Parsing document…"):
-        parsed = parser.from_buffer(
-            data,
-            serverEndpoint=TIKA_URL,
-            requestOptions={"timeout": TIKA_TIMEOUT_S},
-        )
+
+    with st.spinner(f"Reading {filename}…"):
+        try:
+            parsed = parser.from_buffer(
+                data,
+                serverEndpoint=TIKA_URL,
+                requestOptions={"timeout": TIKA_TIMEOUT_S},
+            )
+        except TypeError:
+            parsed = parser.from_buffer(data, serverEndpoint=TIKA_URL)
+
     text = (parsed.get("content") or "").strip()
-    
-    # Only cache non-empty results - empty might be a transient Tika issue
     if text:
         cache[key] = (now, text)
-    
+
     return text
 
 
 # ── Cached OpenAI client ──────────────────────────────────────────
 @st.cache_resource
 def get_llm_client() -> OpenAI:
-    """
-    Return a cached OpenAI client instance.
-
-    The client is configured to talk to LLM_BASE_URL (typically an Ollama-compatible
-    endpoint). The api_key value is a placeholder because most local backends
-    ignore it, but the OpenAI client requires something to be set.
-    """
+    """Return a cached OpenAI client instance configured for the backend."""
     return OpenAI(base_url=LLM_BASE_URL, api_key="not-needed")
+
+
+# ── Ollama model metadata ─────────────────────────────────────────
+@st.cache_data(ttl=60, show_spinner=False)
+def _ollama_show() -> Optional[Dict]:
+    """Cached wrapper for Ollama /api/show. Returns JSON dict on success, else None."""
+    try:
+        show_url = f"{_ollama_base_url()}/api/show"
+        resp = requests.post(show_url, json={"model": MODEL_NAME}, timeout=2)
+        if resp.ok:
+            return resp.json()
+    except Exception as e:
+        logging.debug("Ollama /api/show probe failed: %s", e)
+    return None
 
 
 @st.cache_data(ttl=60, show_spinner=False)
 def model_supports_images() -> bool:
     """
-    Return True if the configured model is expected to support vision inputs.
+    Return True if the configured model appears to support vision inputs.
 
-    Uses (in order):
-      1) LLM_SUPPORTS_VISION env var (true/false).
-      2) Ollama /api/show capabilities list.
-      3) Ollama model_info heuristics.
-      4) Model name heuristics for common vision-capable families.
+    Uses:
+      1) LLM_SUPPORTS_VISION env var if provided.
+      2) Ollama /api/show capabilities (preferred).
+      3) Ollama model_info heuristics as a fallback.
     """
     if LLM_SUPPORTS_VISION is not None:
-        return LLM_SUPPORTS_VISION.strip().lower() in {"1", "true", "yes", "y"}
+        return LLM_SUPPORTS_VISION.strip().lower() in {"1", "true", "yes", "y", "on"}
 
-    try:
-        base_url = LLM_BASE_URL.rstrip("/").split("/v1")[0]
-        show_url = f"{base_url}/api/show"
-        resp = requests.post(show_url, json={"model": MODEL_NAME}, timeout=2)
-        if resp.ok:
-            payload = resp.json()
-            capabilities = payload.get("capabilities")
-            if isinstance(capabilities, list) and "vision" in capabilities:
-                return True
-            model_info = payload.get("model_info") or {}
-            for key in model_info.keys():
-                key_lower = key.lower()
-                if "vision" in key_lower or "clip" in key_lower or "projector" in key_lower:
-                    return True
-    except Exception as e:
-        logging.debug("Ollama /api/show probe failed: %s", e)
+    payload = _ollama_show()
+    if not payload:
+        return False
 
-    model_lower = (MODEL_NAME or "").lower()
-    vision_name_match = re.search(
-        r"(vision|llava|moondream|phi3-vision|qwen2-vl|gpt-4o|gpt-4v|gpt-4\.1|gemini-\d|claude-3-(opus|sonnet|haiku))",
-        model_lower,
-    )
-    if vision_name_match:
+    capabilities = payload.get("capabilities")
+    if isinstance(capabilities, list) and "vision" in capabilities:
         return True
+
+    model_info = payload.get("model_info") or {}
+    for key in model_info.keys():
+        if not isinstance(key, str):
+            continue
+        key_lower = key.lower()
+        if "vision" in key_lower or "clip" in key_lower or "projector" in key_lower:
+            return True
 
     return False
 
 
 @st.cache_data(ttl=60, show_spinner=False)
-def get_model_ctx() -> Union[int, None]:
-    """
-    Return the configured model context size, if discoverable.
+def get_model_ctx() -> Optional[int]:
+    """Return the model context size, if discoverable via /api/show."""
+    payload = _ollama_show()
+    if not payload:
+        return None
 
-    Priority:
-      1) Regex parse of num_ctx from the /api/show parameters string.
-      2) Fallback to model_info context_length/num_ctx if available.
-    """
-    try:
-        base_url = LLM_BASE_URL.rstrip("/").split("/v1")[0]
-        show_url = f"{base_url}/api/show"
-        resp = requests.post(show_url, json={"model": MODEL_NAME}, timeout=2)
-        if resp.ok:
-            payload = resp.json()
-            parameters = payload.get("parameters")
-            if isinstance(parameters, str):
-                match = re.search(r"\bnum_ctx\s+(\d+)", parameters)
-                if match:
-                    return int(match.group(1))
-            model_info = payload.get("model_info") or {}
-            for key in ("num_ctx", "context_length"):
-                value = model_info.get(key)
-                if isinstance(value, int):
-                    return value
-                if isinstance(value, str) and value.isdigit():
-                    return int(value)
-            for key, value in model_info.items():
-                if isinstance(key, str) and key.endswith(".context_length"):
-                    if isinstance(value, int):
-                        return value
-                    if isinstance(value, str) and value.isdigit():
-                        return int(value)
-    except Exception as e:
-        logging.debug("Ollama /api/show ctx probe failed: %s", e)
+    parameters = payload.get("parameters")
+    if isinstance(parameters, str):
+        match = re.search(r"\bnum_ctx\s+(\d+)", parameters)
+        if match:
+            try:
+                return int(match.group(1))
+            except Exception:
+                pass
+
+    model_info = payload.get("model_info") or {}
+
+    for key in ("num_ctx", "context_length"):
+        value = model_info.get(key)
+        if isinstance(value, int):
+            return value
+        if isinstance(value, str) and value.isdigit():
+            return int(value)
+
+    for key, value in model_info.items():
+        if isinstance(key, str) and key.endswith(".context_length"):
+            if isinstance(value, int):
+                return value
+            if isinstance(value, str) and value.isdigit():
+                return int(value)
 
     return None
 
 
+@st.cache_data(ttl=60, show_spinner=False)
+def get_image_token_cost() -> int:
+    """Return tokens-per-image if provided by model metadata, else default."""
+    payload = _ollama_show()
+    if not payload:
+        return IMG_TOKEN_COST_DEFAULT
+
+    model_info = payload.get("model_info") or {}
+    for key, value in model_info.items():
+        if not isinstance(key, str):
+            continue
+        if key.endswith("mm.tokens_per_image"):
+            if isinstance(value, int):
+                return value
+            if isinstance(value, str) and value.isdigit():
+                return int(value)
+
+    return IMG_TOKEN_COST_DEFAULT
+
+
+# ── Token counting ────────────────────────────────────────────────
+def _heuristic_token_estimate(text: str) -> int:
+    if not text:
+        return 0
+    return max(1, int(len(text) / TOKEN_HEURISTIC_CHARS_PER_TOKEN))
+
+
+def _get_token_cache() -> Dict[str, int]:
+    return st.session_state.setdefault("_token_count_cache", {})
+
+
 def count_text_tokens(text: str) -> int:
     """
-    Count tokens for text using Ollama's /api/tokenize endpoint.
-    Falls back to a heuristic estimate if the API call fails.
+    Best-effort token count for text.
+
+    If ENABLE_TOKEN_BUDGETING is on, we try Ollama /api/tokenize.
+    If unavailable or slow, we silently fall back to a heuristic.
+
+    UX rule: this function must not show user-facing warnings.
     """
     if not text:
         return 0
-    base_url = LLM_BASE_URL.rstrip("/").split("/v1")[0]
-    tokenize_url = f"{base_url}/api/tokenize"
+
+    cache = _get_token_cache()
+    if len(cache) > TOKEN_CACHE_MAX_ENTRIES:
+        cache.clear()
+
+    key = hashlib.sha256(text.encode("utf-8", errors="ignore")).hexdigest()
+    if key in cache:
+        return cache[key]
+
+    if not ENABLE_TOKEN_BUDGETING:
+        n = _heuristic_token_estimate(text)
+        cache[key] = n
+        return n
+
+    if st.session_state.get("tokenizer_available") is False:
+        n = _heuristic_token_estimate(text)
+        cache[key] = n
+        return n
+
+    tokenize_url = f"{_ollama_base_url()}/api/tokenize"
     try:
         resp = requests.post(
             tokenize_url,
             json={"model": MODEL_NAME, "content": text},
-            timeout=5,
+            timeout=TOKENIZE_TIMEOUT_S,
         )
+
+        if resp.status_code == 404:
+            st.session_state["tokenizer_available"] = False
+            n = _heuristic_token_estimate(text)
+            cache[key] = n
+            return n
+
         resp.raise_for_status()
         payload = resp.json()
+
         tokens = payload.get("tokens")
         if isinstance(tokens, list):
-            return len(tokens)
-        raise ValueError("Tokenize response missing tokens list.")
+            n = len(tokens)
+        elif isinstance(tokens, int):
+            n = tokens
+        elif isinstance(tokens, str) and tokens.isdigit():
+            n = int(tokens)
+        else:
+            st.session_state["tokenizer_available"] = False
+            n = _heuristic_token_estimate(text)
+
+        st.session_state["tokenizer_available"] = True
+        cache[key] = n
+        return n
     except Exception:
-        return max(1, int(len(text) / 3.5))
+        st.session_state["tokenizer_available"] = False
+        n = _heuristic_token_estimate(text)
+        cache[key] = n
+        return n
 
 
 # ── Chat message wrapper for CSS styling ──────────────────────────
-# Streamlit doesn't expose the message role in CSS-selectable attributes.
-# By wrapping each chat_message in a container with a key containing the role,
-# we get a class like "st-key-user-xxx" that CSS can target.
-#
-# CSS CONTRACT: Keys are formatted as "{role}-{message_id}".
-# theme.css uses selectors like [class*="st-key-user-"] to match.
-# This pattern depends on Streamlit's internal DOM structure and should be
-# validated when upgrading Streamlit versions.
 def styled_chat_message(role: str, message_id: str = None):
-    """
-    Return a chat_message wrapped in a keyed container for CSS styling.
-
-    Usage:
-        with styled_chat_message("user", msg.get("id")):
-            st.markdown("Hello!")
-
-    This enables CSS selectors like [class*="st-key-user-"] to style messages
-    differently based on role.
-
-    Args:
-        role: "user" or "assistant"
-        message_id: Stable ID for this message. If None, generates a new UUID.
-                    Using stable IDs reduces DOM churn across Streamlit reruns.
-    """
+    """Return a chat_message wrapped in a keyed container for CSS styling."""
     key = f"{role}-{message_id}" if message_id else f"{role}-{uuid.uuid4()}"
     return st.container(key=key).chat_message(role)
 
 
 def build_message_text(messages: List[dict]) -> str:
-    """
-    Flatten message content into text for token estimation.
-    """
+    """Flatten message content into text for token estimation."""
     chunks: List[str] = []
     for msg in messages:
         content = msg.get("content", "")
@@ -431,16 +437,12 @@ def build_message_text(messages: List[dict]) -> str:
 
 
 # ── Copy helpers (sidebar-only) ───────────────────────────────────
-# We avoid downloads entirely to sidestep Chrome's insecure-download blocking on HTTP.
-# We also avoid rendering a full transcript "preview" in the main pane, which duplicates
-# the chat and gets clunky as conversations grow.
 def _extract_export_info(content: Union[str, list]) -> Tuple[List[str], List[str], str]:
     """
     Extract (doc_lines, img_lines, message_text) from message content.
 
     Notes:
     - We do NOT export the full extracted document text from Context:, only filenames and counts.
-    - We DO include document filenames even if Tika is offline (📄 *filename* markers).
     - Synthetic context parts (marked with _synthetic flag) are parsed for metadata only.
     """
     doc_lines: List[str] = []
@@ -459,14 +461,10 @@ def _extract_export_info(content: Union[str, list]) -> Tuple[List[str], List[str
 
         if ptype == "text":
             text = part.get("text", "")
-            
-            # Handle synthetic context blocks (flagged, not string-matched)
+
             if part.get("_synthetic"):
-                # Parse the context block to extract filenames and char counts
-                ctx = text[len(CONTEXT_PREFIX):] if text.startswith(CONTEXT_PREFIX) else text
-                # Anchored regex to reduce false matches from document content
+                ctx = text[len(CONTEXT_PREFIX) :] if text.startswith(CONTEXT_PREFIX) else text
                 blocks = re.split(r"(?m)^---\s*(.+?)\s*---\s*$", ctx)
-                # blocks alternates: ['', 'filename1', 'content1', 'filename2', 'content2', ...]
                 for i in range(1, len(blocks), 2):
                     fname = (blocks[i] or "").strip()
                     extracted = blocks[i + 1] if i + 1 < len(blocks) else ""
@@ -476,13 +474,13 @@ def _extract_export_info(content: Union[str, list]) -> Tuple[List[str], List[str
                         doc_lines.append(f"- 📄 {fname} ({char_count:,} characters extracted)")
 
             elif text.startswith("📄 *") and text.endswith("*"):
-                fname = text[len("📄 *"):-1].strip()
+                fname = text[len("📄 *") : -1].strip()
                 if fname and fname not in doc_seen:
                     doc_seen.add(fname)
                     doc_lines.append(f"- 📄 {fname}")
 
             elif text.startswith("📷 *") and text.endswith("*"):
-                fname = text[len("📷 *"):-1].strip()
+                fname = text[len("📷 *") : -1].strip()
                 if fname:
                     img_marker_names.append(fname)
 
@@ -495,6 +493,7 @@ def _extract_export_info(content: Union[str, list]) -> Tuple[List[str], List[str
             if fname and fname not in img_seen:
                 img_seen.add(fname)
                 img_lines.append(f"- 📷 {fname}")
+
         elif ptype == "image_url":
             fname = (part.get("filename") or "image").strip()
             if fname and fname not in img_seen:
@@ -511,9 +510,7 @@ def _extract_export_info(content: Union[str, list]) -> Tuple[List[str], List[str
 
 
 def build_conversation_markdown(messages: List[dict]) -> str:
-    """
-    Build a Markdown transcript used as plain-text clipboard fallback.
-    """
+    """Build a Markdown transcript used as plain-text clipboard fallback."""
     lines: List[str] = ["# EphemerAl Conversation", ""]
 
     for msg in messages:
@@ -541,9 +538,7 @@ def build_conversation_markdown(messages: List[dict]) -> str:
 
 
 def _inline_md_to_html(text: str) -> str:
-    """
-    Minimal inline Markdown -> HTML for clipboard friendliness.
-    """
+    """Minimal inline Markdown -> HTML for clipboard friendliness."""
     t = html_escape(text)
     t = re.sub(r"`([^`]+)`", r"<code>\1</code>", t)
     t = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", t)
@@ -552,13 +547,7 @@ def _inline_md_to_html(text: str) -> str:
 
 
 def _md_block_to_html(md_block: str) -> str:
-    """
-    Minimal block Markdown -> HTML.
-    Handles headings, lists, horizontal rules, and paragraphs.
-    
-    Limitations: No nested lists, no tables, no blockquotes.
-    Used for clipboard-friendly export, not full rendering.
-    """
+    """Minimal block Markdown -> HTML for clipboard friendliness."""
     md_block = (md_block or "").replace("\r\n", "\n")
     lines = md_block.split("\n")
 
@@ -627,21 +616,16 @@ def _md_block_to_html(md_block: str) -> str:
             out.append("<li>" + _inline_md_to_html(m.group(1)) + "</li>")
             continue
 
-        # Regular paragraph line
         close_lists()
         para.append(_inline_md_to_html(stripped))
 
     flush_para()
     close_lists()
-
     return "\n".join(out)
 
 
 def _md_to_html_basic(md: str) -> str:
-    """
-    Minimal Markdown -> HTML converter for copy/paste purposes.
-    Handles fenced code blocks (```), lists, headings, hr, and inline formatting.
-    """
+    """Minimal Markdown -> HTML converter for copy/paste purposes."""
     md = (md or "").replace("\r\n", "\n")
     parts = md.split("```")
     out: List[str] = []
@@ -659,10 +643,7 @@ def _md_to_html_basic(md: str) -> str:
 
 
 def build_conversation_html(messages: List[dict]) -> str:
-    """
-    Rich transcript as HTML.
-    This is what the copy button tries first (best chance of bullets/bold carrying into Word/Outlook).
-    """
+    """Rich transcript as HTML for clipboard copy."""
     chunks: List[str] = ["<div>", "<p><strong>EphemerAl Conversation</strong></p>"]
 
     for msg in messages:
@@ -690,22 +671,7 @@ def build_conversation_html(messages: List[dict]) -> str:
 
 
 def render_copy_button(export_text_plain: str, export_html: str) -> None:
-    """
-    Sidebar-only copy button.
-
-    UI goals:
-    - Match Streamlit sidebar button width (remove iframe default margins).
-    - No persistent status text under the button.
-    - Give subtle success feedback via a short button flash.
-
-    Clipboard behavior:
-    - Attempts to copy formatted HTML first (richer paste).
-    - Falls back to plain text if rich copy is blocked.
-    - Uses selection + document.execCommand('copy'), which tends to work more reliably on HTTP.
-    
-    Note: Colors are hardcoded because this runs in an iframe that can't access
-    CSS variables. These must match --color-accent (#E1654A) in theme.css.
-    """
+    """Sidebar-only copy button that tries rich HTML copy first, then plain text."""
     safe_plain = html_escape(export_text_plain)
 
     hover_tip = (
@@ -713,9 +679,6 @@ def render_copy_button(export_text_plain: str, export_html: str) -> None:
         "Chat content is cleared when you start a new conversation or close your browser."
     )
 
-    # NOTE: Colors here must be hardcoded because this runs in an iframe.
-    # Update these if you change --color-accent in theme.css.
-    # Current accent: #E1654A (coral), darker: #C4503A
     components.html(
         f"""
         <style>
@@ -723,8 +686,6 @@ def render_copy_button(export_text_plain: str, export_html: str) -> None:
             margin: 0;
             padding: 0;
           }}
-
-          /* Match theme.css button look as closely as possible inside an iframe */
           #copy-btn {{
             width: 100%;
             box-sizing: border-box;
@@ -750,29 +711,24 @@ def render_copy_button(export_text_plain: str, export_html: str) -> None:
             cursor: pointer;
             white-space: nowrap;
           }}
-
           #copy-btn:hover {{
             background: #E1654A;
             color: white;
             transform: translateY(-1px);
             box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
           }}
-
           #copy-btn:active {{
             background: #C4503A !important;
             color: white !important;
             border-color: #C4503A !important;
             transform: translateY(0);
           }}
-
-          /* Flash states */
           #copy-btn.copied {{
             background: #E1654A !important;
             color: white !important;
             border-color: #E1654A !important;
             transform: translateY(0) !important;
           }}
-
           #copy-btn.failed {{
             background: #B00020 !important;
             color: white !important;
@@ -842,7 +798,6 @@ def render_copy_button(export_text_plain: str, export_html: str) -> None:
           }}
 
           btn.addEventListener("click", () => {{
-            // Try rich first (better paste into Word/Outlook), then plain fallback.
             const richOk = copySelectionFrom(rich);
             const ok = richOk || copyPlain();
 
@@ -859,58 +814,61 @@ def render_copy_button(export_text_plain: str, export_html: str) -> None:
     )
 
 
-# ── Session state (ephemeral by default) ──────────────────────────
-# Initialize in-memory conversation state. Streamlit clears this when the browser
-# session ends or when we explicitly clear it; there is no persistent database.
+# ── Session state ─────────────────────────────────────────────────
 st.session_state.setdefault("messages", [])
 st.session_state.setdefault("show_welcome", True)
 st.session_state.setdefault("last_token_count", 0)
+st.session_state.setdefault("tokenizer_available", None)
+st.session_state.setdefault("_vision_supported", None)
 
-# ── Sidebar ──────────────────────────────────────────────────────
+# ── Sidebar ───────────────────────────────────────────────────────
 with st.sidebar:
-    # Try to show a local logo first; fall back to text branding if missing.
     try:
         logo_path = pathlib.Path("static/ephemeral_logo.png")
         if logo_path.exists():
             st.image(str(logo_path), use_container_width=True)
     except Exception:
-        st.markdown("**EphemerAl**")
+        st.markdown("EphemerAl")
 
-    # Basic health indicators for the backends this UI depends on.
+    # Friendly status messages for non-technical users.
     if not llm_alive():
-        st.error("⚠️ LLM backend offline")
+        st.error("The AI service is not available right now. Please try again in a moment.")
     if not tika_alive():
-        st.warning("⚠️ Document parsing offline")
+        st.info("Document reading is temporarily unavailable. You can still chat, but uploads may not be readable.")
 
-    # New Conversation clears all session_state (messages + welcome banner + parse cache).
     if st.button("New Conversation", key="sidebar_new", use_container_width=True):
         st.session_state.clear()
         st.rerun()
 
-    # Copy Conversation (sidebar-only). Avoids downloads and avoids duplicating the chat in main UI.
     if st.session_state.messages:
         export_md = build_conversation_markdown(st.session_state.messages)
         export_html = build_conversation_html(st.session_state.messages)
         render_copy_button(export_md, export_html)
 
+    if DEBUG_MODE:
+        with st.expander("System status", expanded=False):
+            st.caption(f"App version: {APP_VERSION}")
+            st.caption(f"Model: {MODEL_NAME}")
+            st.caption(f"LLM base URL: {LLM_BASE_URL}")
+
+            tok_state = st.session_state.get("tokenizer_available")
+            if not ENABLE_TOKEN_BUDGETING:
+                st.caption("Token counting: safe estimate mode (disabled by configuration)")
+            elif tok_state is True:
+                st.caption("Token counting: Ollama tokenizer endpoint")
+            elif tok_state is False:
+                st.caption("Token counting: safe estimate mode")
+            else:
+                st.caption("Token counting: not checked yet")
+
+
 # ── Welcome banner ────────────────────────────────────────────────
 if st.session_state.show_welcome:
-    # WORDMARK DISPLAY OPTIONS:
-    # Default: Image-based wordmark (static/ephemeral_wordmark.png or .svg)
-    #          Supports proper gradients, scales cleanly, looks polished.
-    #          Replace the image file to customize.
-    #
-    # Fallback: Text-based wordmark (uses solid colors from theme.css)
-    #           Automatically used if wordmark image file is not present.
-    #           To force text mode: delete or rename the wordmark file.
-
-    # Check for wordmark image (supports both PNG and SVG)
     wordmark_png = pathlib.Path("static/ephemeral_wordmark.png")
     wordmark_svg = pathlib.Path("static/ephemeral_wordmark.svg")
     wordmark_path = wordmark_png if wordmark_png.exists() else (wordmark_svg if wordmark_svg.exists() else None)
 
     if wordmark_path:
-        # Image-based wordmark
         wordmark_b64 = base64.b64encode(wordmark_path.read_bytes()).decode()
         mime_type = "image/svg+xml" if wordmark_path.suffix == ".svg" else "image/png"
         st.markdown(
@@ -924,7 +882,6 @@ if st.session_state.show_welcome:
             unsafe_allow_html=True,
         )
     else:
-        # Text-based wordmark (fallback)
         st.markdown(
             "<div class='welcome-text'>"
             "<span style='font-size:1.6em;font-weight:600;'>Welcome&nbsp;to</span> "
@@ -936,67 +893,61 @@ if st.session_state.show_welcome:
     st.markdown(
         """
         <div class="right-align-block">
-          I understand image files and most (100+!) document types.
+          I can read many document types, and sometimes images (depending on the model).
           <div class="welcome-dots">•&nbsp;&nbsp;•&nbsp;&nbsp;•</div>
           Conversations are cleared when you start a new conversation or close your browser.
           <div class="welcome-dots">•&nbsp;&nbsp;•&nbsp;&nbsp;•</div>
-          I try to be helpful, but sometimes I'm wrong. Please double-check important answers!
+          I try to be helpful, but I can be wrong. Please double-check important answers.
         </div>
         """,
         unsafe_allow_html=True,
     )
 
+
 # ── Helper: render chat content ───────────────────────────────────
 def render_content(content: Union[str, list]) -> None:
     """
-    Render either plain markdown or structured content (text + images)
-    for a single chat message.
-    
-    Synthetic context blocks (marked with _synthetic flag) are hidden from
-    display but still sent to the model.
+    Render either plain markdown or structured content (text + images).
+    Synthetic context blocks (marked with _synthetic flag) are hidden from display.
     """
     if isinstance(content, list):
         for part in content:
-            if part.get("type") == "text":
-                # Hide synthetic context blocks (flagged, not string-matched)
+            ptype = part.get("type")
+            if ptype == "text":
                 if not part.get("_synthetic"):
-                    st.markdown(part["text"])
-            elif part.get("type") == "image":
-                # Legacy path: raw image bytes were stored before image_url migration.
+                    st.markdown(part.get("text", ""))
+            elif ptype == "image":
                 try:
-                    st.image(part["data"], width=180)
+                    st.image(part.get("data"), width=180)
                 except Exception:
-                    st.error(f"Failed to display {part.get('filename', 'image')}")
-            elif part.get("type") == "image_url":
+                    st.error("I couldn't display one of the images in the chat UI.")
+            elif ptype == "image_url":
                 try:
                     st.image(part["image_url"]["url"], width=180)
                 except Exception:
-                    st.error("Failed to display image from assistant")
+                    st.error("I couldn't display one of the images in the chat UI.")
     else:
-        st.markdown(content)
+        st.markdown(content or "")
+
 
 # ── Render chat history ───────────────────────────────────────────
 for m in st.session_state.messages:
     with styled_chat_message(m["role"], m.get("id")):
         render_content(m["content"])
 
-# ── Mobile button ────────────────────────────────────────────────
+
+# ── Mobile convenience button ─────────────────────────────────────
 if HAS_DEVICE_DETECTION and device and device.is_mobile:
-    # On mobile we mirror the "New Conversation" control in the main layout
-    # for easier reach.
     if st.button("🔄 New Conversation", key="mobile_new", use_container_width=True):
         st.session_state.clear()
         st.rerun()
 
+
 # ── Chat input ───────────────────────────────────────────────────
-# When accept_file="multiple" is enabled, st.chat_input returns an object with
-# .text and .files; for plain text it returns just a string. We normalize below.
 prompt_in = st.chat_input("Ask me anything…", accept_file="multiple", key="main_chat")
 prompt_in = st.session_state.pop("_first_prompt_pending", None) or prompt_in
 
 if prompt_in is not None:
-    # The first prompt dismisses the welcome banner, then we rerun so the UI
-    # re-renders without the intro text.
     if st.session_state.show_welcome:
         st.session_state.show_welcome = False
         st.session_state["_first_prompt_pending"] = prompt_in
@@ -1005,18 +956,27 @@ if prompt_in is not None:
     user_text = prompt_in.text if hasattr(prompt_in, "text") else prompt_in
     user_text = (user_text or "").strip()
     files = prompt_in.files if hasattr(prompt_in, "files") else []
+
     if not user_text and files:
         user_text = DEFAULT_UPLOAD_PROMPT
 
-    # Generate stable ID for user message
+    if not user_text and not files:
+        st.stop()
+
     user_msg_id = str(uuid.uuid4())
 
     with styled_chat_message("user", user_msg_id):
         st.markdown(user_text)
 
-    # Render the system prompt (either from the template file or the fallback),
-    # injecting a human-readable local timestamp.
     sys_prompt = SYSTEM_TMPL.safe_substitute(current_time_local=timestamp_local())
+
+    vision_supported = model_supports_images()
+    prev_vision = st.session_state.get("_vision_supported")
+    if prev_vision is None:
+        st.session_state["_vision_supported"] = vision_supported
+    elif prev_vision != vision_supported:
+        st.session_state["_vision_supported"] = vision_supported
+        st.session_state["last_token_count"] = 0
 
     model_ctx = get_model_ctx()
     if model_ctx:
@@ -1026,84 +986,109 @@ if prompt_in is not None:
         max_ctx = 128000
         warn_ctx = int(max_ctx * 0.85)
 
-    parts, doc_ctx = [], []
+    image_token_cost = get_image_token_cost() if vision_supported else 0
+
+    parts: List[dict] = []
     doc_entries: List[dict] = []
     image_count = 0
+
+    tika_ok = tika_alive()
+    has_doc_files = any(not getattr(f, "type", "").startswith("image/") for f in files)
+    if has_doc_files and not tika_ok:
+        st.info(
+            "I can’t read documents right now, but I can still answer questions. "
+            "If you paste text from the document, I can work with that."
+        )
+
     for f in files:
-        if f.type.startswith("image/"):
-            # Large images will still be accepted, but we warn that processing
-            # may be slow rather than silently failing.
-            if f.size > 50 * 1024 * 1024:
-                st.warning(f"📷 {f.name} is {f.size/1e6:.1f} MB – may be slow to process")
+        ftype = getattr(f, "type", "")
+
+        if ftype.startswith("image/"):
+            if getattr(f, "size", 0) > 50 * 1024 * 1024:
+                st.info(f"{f.name} is a large image and may take a bit to process.")
 
             f.seek(0)
             img_bytes = f.getvalue()
-            img_b64 = base64.b64encode(img_bytes).decode()
             parts.append({"type": "text", "text": f"📷 *{f.name}*"})
             parts.append(
                 {
-                    "type": "image_url",
-                    "image_url": {"url": f"data:{f.type};base64,{img_b64}"},
-                    "mime_type": f.type,
+                    "type": "image",
+                    "data": img_bytes,
+                    "mime_type": ftype or "image/jpeg",
                     "filename": f.name,
                 }
             )
             image_count += 1
-        else:
-            parts.append({"type": "text", "text": f"📄 *{f.name}*"})
-            if not tika_alive():
-                st.warning(f"📄 Parsing unavailable for {f.name}")
-                continue
-            try:
-                f.seek(0)
-                data = f.getvalue()
-                txt = parse_with_tika(data, f.name)
-                if txt:
-                    block = f"--- {f.name} ---\n{txt}"
-                    doc_entries.append(
-                        {
-                            "name": f.name,
-                            "block": block,
-                        }
-                    )
-            except Exception as e:
-                st.error(f"❌ {f.name}: {e}")
+            continue
 
-    for entry in doc_entries:
-        entry["tokens"] = count_text_tokens(entry["block"])
+        # Document-like file
+        parts.append({"type": "text", "text": f"📄 *{f.name}*"})
+        if not tika_ok:
+            continue
+
+        try:
+            f.seek(0)
+            data = f.getvalue()
+            txt = parse_with_tika(data, f.name)
+
+            if txt:
+                block = f"--- {f.name} ---\n{txt}"
+                doc_entries.append({"name": f.name, "block": block})
+            else:
+                st.info(
+                    f"I couldn’t extract text from {f.name}. "
+                    "If it’s a scanned PDF, try a text-based version or paste the relevant text here."
+                )
+        except Exception as e:
+            st.info(f"I couldn’t read {f.name}. You can try uploading it again, or try a different format.")
+            if DEBUG_MODE:
+                with st.expander(f"Details: {f.name}", expanded=False):
+                    st.code(str(e))
 
     def compute_pending_text(entries: List[dict]) -> str:
-        doc_blocks = "\n\n".join(entry["block"] for entry in entries)
-        markers = [part["text"] for part in parts if part.get("type") == "text"]
-        marker_text = "\n".join(markers)
-        return "\n".join([doc_blocks, marker_text, user_text]).strip()
+        """
+        Pending text used for context budgeting.
+        Intentionally ignores filename markers to avoid estimation drift and stale marker bugs.
+        """
+        chunks: List[str] = []
+        if entries:
+            doc_blocks = "\n\n".join(entry["block"] for entry in entries)
+            chunks.append(CONTEXT_PREFIX + doc_blocks)
+        if user_text:
+            chunks.append(user_text)
+        return "\n\n".join(chunks).strip()
 
     def estimate_pending_cost(entries: List[dict]) -> int:
         pending_text = compute_pending_text(entries)
         text_tokens = count_text_tokens(pending_text)
-        return text_tokens + image_count * IMG_TOKEN_COST
+        image_tokens = (image_count * image_token_cost) if vision_supported else 0
+        return text_tokens + image_tokens
 
-    def estimate_total(entries: List[dict]) -> int:
-        pending_tokens = estimate_pending_cost(entries)
-        if st.session_state.last_token_count == 0:
-            history_text = build_message_text(st.session_state.messages)
-            history_tokens = count_text_tokens(history_text)
-            system_tokens = count_text_tokens(sys_prompt)
-            return system_tokens + history_tokens + pending_tokens
-        return st.session_state.last_token_count + pending_tokens
+    # Base tokens:
+    # - If we have last_token_count from the previous turn, use it as baseline (hybrid approach).
+    # - Otherwise use a quick heuristic for system + history to keep UI responsive.
+    if st.session_state.last_token_count == 0:
+        history_text = build_message_text(st.session_state.messages)
+        base_tokens = _heuristic_token_estimate(sys_prompt) + _heuristic_token_estimate(history_text)
+    else:
+        base_tokens = int(st.session_state.last_token_count)
 
-    total_predicted = estimate_total(doc_entries)
+    pending_tokens = estimate_pending_cost(doc_entries)
+    prompt_token_estimate = base_tokens + pending_tokens
 
     skipped_docs: List[str] = []
-    while doc_entries and total_predicted > max_ctx:
+    while doc_entries and prompt_token_estimate > max_ctx:
         dropped = doc_entries.pop()
         skipped_docs.append(dropped["name"])
-        total_predicted = estimate_total(doc_entries)
+        pending_tokens = estimate_pending_cost(doc_entries)
+        prompt_token_estimate = base_tokens + pending_tokens
 
+    # Ghost doc cleanup: remove dropped doc markers from parts
     if skipped_docs:
         dropped_set = set(skipped_docs)
         parts = [
-            part for part in parts
+            part
+            for part in parts
             if not (
                 part.get("type") == "text"
                 and part.get("text", "").strip().startswith("📄 *")
@@ -1112,103 +1097,180 @@ if prompt_in is not None:
             )
         ]
 
-    if total_predicted > max_ctx:
-        st.error("❌ Your request exceeds the model context limit even without attachments.")
-        return
-
-    if skipped_docs:
-        unique_docs = ", ".join(sorted(set(skipped_docs)))
-        st.warning(
-            "⚠️ Some attached documents were omitted to prevent exceeding the model's context limit: "
-            f"{unique_docs}."
+    # Build synthetic doc context
+    doc_ctx_blocks: List[str] = [entry["block"] for entry in doc_entries]
+    if doc_ctx_blocks:
+        parts.insert(
+            0,
+            {
+                "type": "text",
+                "text": CONTEXT_PREFIX + "\n\n".join(doc_ctx_blocks),
+                "_synthetic": True,
+            },
         )
 
-    if total_predicted >= warn_ctx:
-        st.warning("⚠️ Your conversation, including attached files, is nearing the limit of this AI.")
-
-    for entry in doc_entries:
-        doc_ctx.append(entry["block"])
-
-    # If we successfully parsed any documents, prepend them to the content that
-    # will be sent to the model as a synthetic context block (flagged, not string-matched).
-    if doc_ctx:
-        parts.insert(0, {
-            "type": "text",
-            "text": CONTEXT_PREFIX + "\n\n".join(doc_ctx),
-            "_synthetic": True  # Flag to identify synthetic blocks
-        })
     if user_text:
         parts.append({"type": "text", "text": user_text})
 
-    content_for_llm = parts if len(parts) > 1 else user_text
-    st.session_state.messages.append({
-        "id": user_msg_id,
-        "role": "user",
-        "content": content_for_llm
-    })
+    # Calm note about images when the model can't see them
+    if image_count > 0 and not vision_supported:
+        st.info("This AI can’t read images in this setup. If you describe what’s in the image, I can still help.")
 
-    messages_for_api = []
-    vision_supported = model_supports_images()
-    skipped_images = False
+    # Store the user's message in session state now (so it doesn't disappear on reruns)
+    content_for_llm: Union[str, List[dict]] = parts if len(parts) > 1 else user_text
+    st.session_state.messages.append(
+        {
+            "id": user_msg_id,
+            "role": "user",
+            "content": content_for_llm,
+        }
+    )
+
+    # If still too large even after dropping docs, respond as assistant and stop.
+    if prompt_token_estimate > max_ctx:
+        assistant_msg_id = str(uuid.uuid4())
+        error_text = (
+            "That request is too large for this AI model right now. "
+            "Try removing a few attachments, shortening your message, or starting a new conversation."
+        )
+        with styled_chat_message("assistant", assistant_msg_id):
+            st.markdown(error_text)
+        st.session_state.messages.append(
+            {
+                "id": assistant_msg_id,
+                "role": "assistant",
+                "content": error_text,
+            }
+        )
+        st.stop()
+
+    if skipped_docs:
+        unique_docs = ", ".join(sorted(set(skipped_docs)))
+        st.info(
+            "To keep things within the AI’s memory, I left out these attachments: "
+            f"{unique_docs}. If you need them, try uploading fewer files at once."
+        )
+
+    if prompt_token_estimate >= warn_ctx:
+        st.info(
+            "This conversation is getting pretty long. If the AI starts to forget earlier details, "
+            "starting a new conversation usually helps."
+        )
+
+    # Convert stored messages to OpenAI-compatible payload
+    messages_for_api: List[dict] = []
     for msg in st.session_state.messages:
         if isinstance(msg["content"], list):
-            api_parts = []
+            api_parts: List[dict] = []
             for part in msg["content"]:
-                if part.get("type") == "text":
-                    api_parts.append({"type": "text", "text": part["text"]})
-                elif part.get("type") == "image_url":
+                ptype = part.get("type")
+
+                if ptype == "text":
+                    api_parts.append({"type": "text", "text": part.get("text", "")})
+
+                elif ptype == "image":
                     if vision_supported:
+                        img_bytes = part.get("data") or b""
+                        img_b64 = part.get("b64")
+                        if not img_b64:
+                            img_b64 = base64.b64encode(img_bytes).decode()
+                            part["b64"] = img_b64  # cache per-session
+                        mime = part.get("mime_type", "image/jpeg")
                         api_parts.append(
-                            {
-                                "type": "image_url",
-                                "image_url": part["image_url"],
-                            }
+                            {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{img_b64}"}}
                         )
-                    else:
-                        skipped_images = True
-                        continue
+
+                elif ptype == "image_url":
+                    if vision_supported:
+                        api_parts.append(part)
+
+            # Avoid sending empty content arrays (some backends reject them).
+            if not api_parts:
+                api_parts = [{"type": "text", "text": "(Attachment omitted.)"}]
+
             messages_for_api.append({"role": msg["role"], "content": api_parts})
         else:
             messages_for_api.append({"role": msg["role"], "content": msg["content"]})
 
-    if skipped_images:
-        st.warning(
-            "📷 Images were not sent to the model because the selected model does not appear to support vision."
-        )
-
-    # Prepend the system message so the backend sees the time-aware instructions.
     payload = [{"role": "system", "content": sys_prompt}, *messages_for_api]
 
-    # Generate stable ID for assistant message
     assistant_msg_id = str(uuid.uuid4())
 
-    # ── Call LLM ───────────────────────────────────────────────────
     with styled_chat_message("assistant", assistant_msg_id):
         with st.spinner("Thinking…"):
             try:
                 client = get_llm_client()
-                stream = client.chat.completions.create(
-                    model=MODEL_NAME,
-                    messages=payload,
-                    stream=True,
-                    stream_options={"include_usage": True},
-                )
-                acc, box = "", st.empty()
+
+                # Try include_usage if supported, fall back otherwise.
+                try:
+                    stream = client.chat.completions.create(
+                        model=MODEL_NAME,
+                        messages=payload,
+                        stream=True,
+                        stream_options={"include_usage": True},
+                    )
+                except TypeError:
+                    stream = client.chat.completions.create(
+                        model=MODEL_NAME,
+                        messages=payload,
+                        stream=True,
+                    )
+                except Exception as e:
+                    if "stream_options" in str(e) or "include_usage" in str(e):
+                        stream = client.chat.completions.create(
+                            model=MODEL_NAME,
+                            messages=payload,
+                            stream=True,
+                        )
+                    else:
+                        raise
+
+                acc = ""
+                box = st.empty()
+                used_usage_from_backend = False
+
                 for chunk in stream:
-                    if chunk.choices:
+                    if getattr(chunk, "choices", None):
                         delta = chunk.choices[0].delta.content
                         if delta:
                             acc += delta
                             box.markdown(acc + "▌")
-                    if chunk.usage and getattr(chunk.usage, "total_tokens", None) is not None:
-                        st.session_state.last_token_count = chunk.usage.total_tokens
+
+                    usage = getattr(chunk, "usage", None)
+                    if usage and getattr(usage, "total_tokens", None) is not None:
+                        st.session_state.last_token_count = int(usage.total_tokens)
+                        used_usage_from_backend = True
+
                 box.markdown(acc)
-                st.session_state.messages.append({
-                    "id": assistant_msg_id,
-                    "role": "assistant",
-                    "content": acc
-                })
-                # Rerun to re-render full history with the new assistant message.
+
+                # If backend didn't provide usage totals, keep hybrid behavior with a fast estimate.
+                if not used_usage_from_backend:
+                    completion_est = _heuristic_token_estimate(acc)
+                    st.session_state.last_token_count = int(prompt_token_estimate + completion_est)
+
+                st.session_state.messages.append(
+                    {
+                        "id": assistant_msg_id,
+                        "role": "assistant",
+                        "content": acc,
+                    }
+                )
                 st.rerun()
+
             except Exception as e:
-                st.error(f"❌ LLM Error: {e}")
+                msg = str(e)
+                lower = msg.lower()
+
+                if "context" in lower and ("length" in lower or "too long" in lower or "maximum" in lower):
+                    st.error(
+                        "That message is too long for this AI model. "
+                        "Try removing a few attachments, shortening your message, or starting a new conversation."
+                    )
+                elif "connection" in lower or "timed out" in lower or "timeout" in lower:
+                    st.error("I couldn't reach the AI service. Please try again in a moment.")
+                else:
+                    st.error("Something went wrong while talking to the AI service. Please try again.")
+
+                if DEBUG_MODE:
+                    with st.expander("Details for troubleshooting", expanded=False):
+                        st.code(msg)
