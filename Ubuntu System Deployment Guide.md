@@ -39,7 +39,15 @@ sudo apt update && sudo apt full-upgrade -y
 sudo apt install -y build-essential ca-certificates curl git gnupg ufw ubuntu-drivers-common mokutil
 ```
 
-3. Check Secure Boot status
+3. Confirm an NVIDIA GPU is present
+
+```bash
+lspci | grep -i nvidia
+```
+
+Expected: one or more lines showing your NVIDIA GPU model. If nothing appears, you do not have an NVIDIA GPU (or it is not detected), and this guide does not apply.
+
+4. Check Secure Boot status
 
 ```bash
 sudo mokutil --sb-state
@@ -51,25 +59,33 @@ On Ubuntu, `mokutil --sb-state` is a standard way to check Secure Boot state.
 
 If Secure Boot is enabled, NVIDIA kernel modules may not load until Secure Boot is disabled in BIOS or you complete MOK enrollment during the driver installation flow.
 
-4. Install the recommended NVIDIA driver
+5. Install the recommended NVIDIA driver
 
 ```bash
 sudo ubuntu-drivers autoinstall
 ```
 
-5. Reboot
+6. Reboot
 
 ```bash
 sudo reboot
 ```
 
-6. Verify the GPU is visible on the host
+7. Verify the GPU is visible on the host
 
 ```bash
 nvidia-smi
 ```
 
-Expected: a table showing your GPU model and driver version. If `nvidia-smi` fails, stop here and fix drivers before continuing.
+Expected: a table showing your GPU model and driver version.
+
+If `nvidia-smi` fails, check whether the kernel module loaded:
+
+```bash
+lsmod | grep -E '^nvidia'
+```
+
+If no nvidia modules appear and Secure Boot is enabled, you need to either disable Secure Boot in BIOS or complete MOK enrollment. Do not continue until `nvidia-smi` succeeds.
 
 ## Phase 2: Install the Engine (Docker + NVIDIA Container Toolkit)
 
@@ -132,6 +148,14 @@ curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-contai
 sudo apt update && sudo apt install -y nvidia-container-toolkit
 ```
 
+If `apt update` fails with "Conflicting values set for option Signed-By", you have older NVIDIA repo entries. Find and remove them:
+
+```bash
+grep -l "nvidia.github.io" /etc/apt/sources.list.d/* | grep -v nvidia-container-toolkit.list
+```
+
+Remove any files that command lists, then rerun `sudo apt update`.
+
 7. Configure Docker to use the NVIDIA runtime
 
 Back up daemon.json if it exists:
@@ -147,6 +171,14 @@ sudo nvidia-ctk runtime configure --runtime=docker
 ```
 
 This is NVIDIA's documented approach for configuring Docker to use the NVIDIA runtime.
+
+Verify the runtime was registered:
+
+```bash
+docker info 2>/dev/null | grep -i nvidia
+```
+
+Expected: a line mentioning `nvidia` in the available runtimes. If nothing appears, the configuration did not take effect.
 
 8. Restart Docker
 
@@ -176,13 +208,21 @@ git clone https://github.com/eowensai/EphemerAl.git ~/ephemeral-llm
 cd ~/ephemeral-llm
 ```
 
-3. Start the stack
+3. Check for port conflicts
+
+```bash
+sudo ss -lntp | grep -E ':(8501|11434|9998)\b'
+```
+
+If any ports are in use (common if you have native Ollama installed), either stop that service or change the compose file's published ports.
+
+4. Start the stack
 
 ```bash
 docker compose up -d --build
 ```
 
-4. Validate containers are up
+5. Validate containers are up
 
 ```bash
 docker compose ps
@@ -190,7 +230,15 @@ docker compose ps
 
 Expected: `ollama`, `tika-server`, `ephemeral-app` are Up.
 
-5. Validate service endpoints locally
+6. Verify Compose requested GPU access for Ollama
+
+```bash
+docker inspect ollama --format '{{json .HostConfig.DeviceRequests}}'
+```
+
+Expected: a JSON array containing `nvidia` or GPU device info. If it returns `null` or `[]`, Compose did not request a GPU, and Ollama will run on CPU only (very slow). This can happen with older docker compose versions that ignore `deploy` blocks.
+
+7. Validate service endpoints locally
 
 Ollama:
 
@@ -216,7 +264,7 @@ curl -I http://localhost:8501 2>/dev/null | head -1
 
 Expected: `HTTP/1.1 200 OK`. Redirects like `302` or `307` can also be acceptable depending on Streamlit behavior.
 
-6. Confirm listening addresses
+8. Confirm listening addresses
 
 ```bash
 sudo ss -lntp | grep -E ':(8501|11434|9998)\b'
@@ -229,9 +277,19 @@ Expected:
 
 Note: the UI may show "model not found" until Phase 4 completes.
 
+**Troubleshooting tip:** The compose file disables logs for Ollama and Tika for privacy. If something fails during first-run debugging, run `docker compose up` without `-d` to see real-time output, or temporarily change the logging driver in docker-compose.yml to `local`.
+
 ## Phase 4: Configure the AI Model (Gemma 3)
 
 Goal: download a model, then create the stable model name EphemerAl expects: `gemma3-prod`.
+
+Before pulling models, verify Docker has enough disk space. Models are 7GB+ and live in Docker's data directory:
+
+```bash
+df -h /var/lib/docker
+```
+
+If `/var` is on a small partition, consider moving Docker's data root or using a bind mount to a larger disk.
 
 Choose one path.
 
@@ -431,6 +489,8 @@ curl -m 2 -sS http://<YOUR_SERVER_IP>:9998/version
 
 If either succeeds, your compose file is publishing those ports beyond localhost and should be corrected.
 
+**Note:** ufw rules may not reliably restrict Docker-published ports because Docker manipulates iptables directly. If you need strict enforcement, configure the DOCKER-USER iptables chain or place the UI behind a reverse proxy with authentication.
+
 ## Phase 6: Survive Reboots (Auto-Start)
 
 Current behavior
@@ -491,6 +551,12 @@ grep -E 'User=|WorkingDirectory|Exec(Start|Stop)=' /etc/systemd/system/ephemeral
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable --now ephemeral.service
+```
+
+**Important:** On some systems, `systemctl daemon-reload` can cause running GPU containers to lose GPU access (NVML errors). The reboot in step 4 clears this, but if you ever run `daemon-reload` later without rebooting, restart the stack afterward:
+
+```bash
+sudo systemctl restart ephemeral.service
 ```
 
 4. Reboot and confirm
@@ -562,6 +628,37 @@ sudo systemctl restart docker
 docker run --rm --gpus all nvidia/cuda:12.2.0-base-ubuntu22.04 nvidia-smi
 ```
 
+### Issue C: systemctl daemon-reload causes GPU loss in running containers
+
+On systems where systemd manages cgroups, running `daemon-reload` can cause containers to lose GPU access with NVML errors.
+
+Recovery:
+
+```bash
+cd ~/ephemeral-llm
+docker compose down
+docker compose up -d
+```
+
+Or if using the systemd service:
+
+```bash
+sudo systemctl restart ephemeral.service
+```
+
+### Issue D: Model pull fails with "digest mismatch"
+
+This can occur if a previous pull was interrupted or if there is a bug in the Ollama version.
+
+Recovery:
+
+```bash
+docker exec -it ollama sh -c 'rm -rf /root/.ollama/models/blobs/*'
+docker exec -it ollama ollama pull gemma3:12b-it-qat
+```
+
+If the error persists, try updating the Ollama image tag in docker-compose.yml to a newer version and redeploy.
+
 ## Success Check
 
 From another device on your LAN:
@@ -603,9 +700,14 @@ cd ~/ephemeral-llm && docker compose down
 
 | Symptom                               | Likely cause                                         | Fix                                                                                                                   |
 | ------------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `nvidia-smi` fails on host            | Driver not installed or Secure Boot blocking modules | Reinstall driver, reboot, check `sudo mokutil --sb-state`                                                             |
-| GPU works on host but not in Docker   | NVIDIA runtime not configured                        | `sudo nvidia-ctk runtime configure --runtime=docker`, restart Docker, rerun CUDA `nvidia-smi` test |
+| `nvidia-smi` fails on host            | Driver not installed or Secure Boot blocking modules | Reinstall driver, reboot, check `lsmod \| grep nvidia` and `sudo mokutil --sb-state`                                  |
+| GPU works on host but not in Docker   | NVIDIA runtime not configured                        | `sudo nvidia-ctk runtime configure --runtime=docker`, restart Docker, rerun CUDA `nvidia-smi` test                    |
+| `docker inspect ollama` shows null DeviceRequests | Compose did not request GPU               | Verify docker compose version supports `deploy.resources`, or add `runtime: nvidia` to ollama service                 |
 | UI reachable locally but not from LAN | Firewall or wrong IP                                 | `hostname -I`, verify ufw rules, verify network profile                                                               |
 | Ollama or Tika reachable from LAN     | Ports published beyond localhost                     | Fix compose ports to bind `127.0.0.1` only, recheck `ss -lntp`, run negative tests                                    |
 | UI says model not found               | `gemma3-prod` not created                            | Run `docker exec -it ollama ollama list`, redo Phase 4                                                                |
 | Containers don't start after reboot   | systemd service not enabled or wrong paths           | `systemctl status ephemeral.service`, verify `WorkingDirectory`, `User`, and `ExecStart`                              |
+| NVML errors after daemon-reload       | GPU access lost due to cgroup changes                | Restart the stack: `docker compose down && docker compose up -d`                                                      |
+| Model pull fails with digest mismatch | Interrupted download or Ollama bug                   | Clear blobs: `docker exec ollama sh -c 'rm -rf /root/.ollama/models/blobs/*'`, retry pull                             |
+| Port already in use on compose up     | Native Ollama or other service using port            | Stop conflicting service or change published ports in compose file                                                    |
+| apt update Signed-By conflict         | Old NVIDIA repo entries                              | Find and remove old files: `grep -l nvidia.github.io /etc/apt/sources.list.d/*`                                       |
