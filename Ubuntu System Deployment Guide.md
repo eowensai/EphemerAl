@@ -140,13 +140,13 @@ Back up daemon.json if it exists:
 sudo test -f /etc/docker/daemon.json && sudo cp /etc/docker/daemon.json /etc/docker/daemon.json.bak.$(date +%F)
 ```
 
-Now configure using NVIDIA’s recommended `nvidia-ctk` flow:
+Now configure using NVIDIA's recommended `nvidia-ctk` flow:
 
 ```bash
 sudo nvidia-ctk runtime configure --runtime=docker
 ```
 
-This is NVIDIA’s documented approach for configuring Docker to use the NVIDIA runtime. ([NVIDIA Docs][3])
+This is NVIDIA's documented approach for configuring Docker to use the NVIDIA runtime. ([NVIDIA Docs][3])
 
 8. Restart Docker
 
@@ -227,7 +227,7 @@ Expected:
 * 11434 and 9998 bound to `127.0.0.1`
 * 8501 bound to `0.0.0.0`
 
-Note: the UI may show “model not found” until Phase 4 completes.
+Note: the UI may show "model not found" until Phase 4 completes.
 
 ## Phase 4: Configure the AI Model (Gemma 3)
 
@@ -443,29 +443,33 @@ Option A: rely on Docker restart policies
 Do nothing extra.
 
 Option B: appliance mode via systemd
-This forces the stack up at boot, and avoids user-edit placeholders.
+This forces the stack up at boot, runs as your user (not root), and avoids user-edit placeholders.
 
 1. Create the service file
 
-This includes a docker path safety check and bakes the correct docker path into the unit file.
+This includes safety checks and bakes the correct paths and username into the unit file.
 
 ```bash
 DOCKER_BIN="$(command -v docker)"
 EPH_DIR="$HOME/ephemeral-llm"
+EPH_USER="$(id -un)"
 
 echo "docker path: $DOCKER_BIN"
+echo "user: $EPH_USER"
 test -x "$DOCKER_BIN" || { echo "docker not found"; exit 1; }
 test -d "$EPH_DIR" || { echo "missing $EPH_DIR, did you clone the repo?"; exit 1; }
 
 sudo tee /etc/systemd/system/ephemeral.service > /dev/null <<EOF
 [Unit]
 Description=EphemerAl Docker Compose Stack
-After=docker.service
+After=network-online.target docker.service
+Wants=network-online.target
 Requires=docker.service
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
+User=$EPH_USER
 WorkingDirectory=$EPH_DIR
 ExecStart=$DOCKER_BIN compose up -d
 ExecStop=$DOCKER_BIN compose stop
@@ -476,10 +480,10 @@ WantedBy=multi-user.target
 EOF
 ```
 
-2. Verify the paths systemd will use
+2. Verify the paths and user systemd will use
 
 ```bash
-grep -E 'WorkingDirectory|Exec(Start|Stop)=' /etc/systemd/system/ephemeral.service
+grep -E 'User=|WorkingDirectory|Exec(Start|Stop)=' /etc/systemd/system/ephemeral.service
 ```
 
 3. Enable the service
@@ -515,7 +519,9 @@ ls /etc/netplan/
 sudo nano /etc/netplan/01-netcfg.yaml
 ```
 
-Example:
+**Warning:** The example below renames your interface to `lan0`. If you do not want to rename it, use your existing interface name from `ip -br link` (such as `eno1` or `enp3s0`) instead of `lan0` in both the key and `set-name` fields. Only use `set-name` if you deliberately want a stable, predictable name.
+
+Example (with deliberate rename to `lan0`):
 
 ```yaml
 network:
@@ -525,6 +531,18 @@ network:
       match:
         macaddress: "aa:bb:cc:dd:ee:ff"
       set-name: lan0
+      dhcp4: true
+```
+
+Example (keeping your existing interface name, e.g. `enp3s0`):
+
+```yaml
+network:
+  version: 2
+  ethernets:
+    enp3s0:
+      match:
+        macaddress: "aa:bb:cc:dd:ee:ff"
       dhcp4: true
 ```
 
@@ -590,6 +608,4 @@ cd ~/ephemeral-llm && docker compose down
 | UI reachable locally but not from LAN | Firewall or wrong IP                                 | `hostname -I`, verify ufw rules, verify network profile                                                               |
 | Ollama or Tika reachable from LAN     | Ports published beyond localhost                     | Fix compose ports to bind `127.0.0.1` only, recheck `ss -lntp`, run negative tests ([Docker Documentation][1])        |
 | UI says model not found               | `gemma3-prod` not created                            | Run `docker exec -it ollama ollama list`, redo Phase 4                                                                |
-| Containers don’t start after reboot   | systemd service not enabled or wrong paths           | `systemctl status ephemeral.service`, verify `WorkingDirectory` and `ExecStart`                                       |
-
-
+| Containers don't start after reboot   | systemd service not enabled or wrong paths           | `systemctl status ephemeral.service`, verify `WorkingDirectory`, `User`, and `ExecStart`                              |
