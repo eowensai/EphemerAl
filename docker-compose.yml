@@ -1,6 +1,3 @@
-Please type out the authoritative version that's what you believe is complete and accurate.  I've added the docker-compose I'm about to add to this PR, please review and let me know if any changes are needed to align with linux (without breaking the windows stack).
-
-Docker-compose:
 ###############################################################################
 # docker-compose.yml — EphemerAl demo stack
 # 
