@@ -21,7 +21,7 @@ Security reality check
 
 * The Streamlit UI has no built-in authentication. Treat port 8501 as LAN-only, or put it behind a VPN or reverse proxy with auth before exposing it beyond your trusted network.
 * By default in this stack, Ollama (11434) and Tika (9998) bind to localhost only and are not reachable from your LAN.
-* This is intentional because Docker-published ports can bypass ufw rules in common configurations. ([Docker Documentation][1])
+* This is intentional because Docker-published ports can bypass ufw rules in common configurations.
 
 ## Phase 1: Install the Foundation (NVIDIA Drivers)
 
@@ -47,7 +47,7 @@ sudo mokutil --sb-state
 
 Expected: `SecureBoot enabled` or `SecureBoot disabled`.
 
-On Ubuntu, `mokutil --sb-state` is a standard way to check Secure Boot state. ([Ubuntu Wiki][2])
+On Ubuntu, `mokutil --sb-state` is a standard way to check Secure Boot state.
 
 If Secure Boot is enabled, NVIDIA kernel modules may not load until Secure Boot is disabled in BIOS or you complete MOK enrollment during the driver installation flow.
 
@@ -146,7 +146,7 @@ Now configure using NVIDIA's recommended `nvidia-ctk` flow:
 sudo nvidia-ctk runtime configure --runtime=docker
 ```
 
-This is NVIDIA's documented approach for configuring Docker to use the NVIDIA runtime. ([NVIDIA Docs][3])
+This is NVIDIA's documented approach for configuring Docker to use the NVIDIA runtime.
 
 8. Restart Docker
 
@@ -437,7 +437,7 @@ Current behavior
 
 * The compose file uses `restart: unless-stopped`.
 * Containers restart on crash and generally come back after reboot if they were running before shutdown.
-* If you manually stop a container, `unless-stopped` keeps it stopped until you start it again. Docker documents this behavior. ([Docker Documentation][4])
+* If you manually stop a container, `unless-stopped` keeps it stopped until you start it again.
 
 Option A: rely on Docker restart policies
 Do nothing extra.
@@ -604,8 +604,8 @@ cd ~/ephemeral-llm && docker compose down
 | Symptom                               | Likely cause                                         | Fix                                                                                                                   |
 | ------------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | `nvidia-smi` fails on host            | Driver not installed or Secure Boot blocking modules | Reinstall driver, reboot, check `sudo mokutil --sb-state`                                                             |
-| GPU works on host but not in Docker   | NVIDIA runtime not configured                        | `sudo nvidia-ctk runtime configure --runtime=docker`, restart Docker, rerun CUDA `nvidia-smi` test ([NVIDIA Docs][3]) |
+| GPU works on host but not in Docker   | NVIDIA runtime not configured                        | `sudo nvidia-ctk runtime configure --runtime=docker`, restart Docker, rerun CUDA `nvidia-smi` test |
 | UI reachable locally but not from LAN | Firewall or wrong IP                                 | `hostname -I`, verify ufw rules, verify network profile                                                               |
-| Ollama or Tika reachable from LAN     | Ports published beyond localhost                     | Fix compose ports to bind `127.0.0.1` only, recheck `ss -lntp`, run negative tests ([Docker Documentation][1])        |
+| Ollama or Tika reachable from LAN     | Ports published beyond localhost                     | Fix compose ports to bind `127.0.0.1` only, recheck `ss -lntp`, run negative tests                                    |
 | UI says model not found               | `gemma3-prod` not created                            | Run `docker exec -it ollama ollama list`, redo Phase 4                                                                |
 | Containers don't start after reboot   | systemd service not enabled or wrong paths           | `systemctl status ephemeral.service`, verify `WorkingDirectory`, `User`, and `ExecStart`                              |
