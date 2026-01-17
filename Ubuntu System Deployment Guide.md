@@ -466,6 +466,8 @@ Requires=docker.service
 [Service]
 Type=oneshot
 RemainAfterExit=yes
+User=$USER
+Group=docker
 WorkingDirectory=$EPH_DIR
 ExecStart=$DOCKER_BIN compose up -d
 ExecStop=$DOCKER_BIN compose stop
@@ -509,13 +511,20 @@ If your NIC name changes, static IP config can break.
 
 Optional prevention: pin a stable interface name via Netplan match on MAC.
 
+First, identify your current interface name (e.g., `enp3s0`, `eno1`):
+
 ```bash
 ip -br link
+```
+
+Then edit your netplan config:
+
+```bash
 ls /etc/netplan/
 sudo nano /etc/netplan/01-netcfg.yaml
 ```
 
-Example:
+Example (replace `lan0` with your desired name, or use your existing interface name):
 
 ```yaml
 network:
