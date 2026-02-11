@@ -2,7 +2,7 @@
 
 ## 📋 System Requirements
 
-This software runs inside a "Linux Subsystem" on Windows (technically called **WSL2**). You do not need to know Linux to install it; simply follow the instructions below.
+This guide walks you through a full native Windows deployment of EphemerAl. You can follow it step-by-step, even if you are not a developer.
 
 **OS Requirements:**
 * **Supported:** Windows 11 (Pro or Enterprise recommended, Home is supported).
@@ -17,310 +17,443 @@ This software runs inside a "Linux Subsystem" on Windows (technically called **W
 
 ---
 
-## Phase 1: Install the Foundation (WSL2)
+## Phase 1: Prerequisites
 
-We need to enable the subsystem that allows Windows to run Linux applications.
+Complete all items in this phase before moving on.
 
-1.  Click the **Windows Button**, type in **Powershell** and select **"Run as Administrator"**.
-2.  Copy the command below and paste it into PowerShell. Press Enter.
+1. **Confirm Windows version**
+   - Make sure the machine is running **Windows 11, version 21H2 or newer**.
 
-    ```powershell
-    dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
-    ```
+2. **Install the latest NVIDIA GPU driver**
+   - Go to [NVIDIA Driver Downloads](https://www.nvidia.com/Download/index.aspx).
+   - Install the newest production driver for your GPU model.
+   - Reboot if prompted.
 
-3.  Copy and paste the second command:
+3. **Install Python 3.11+**
+   - Download from [python.org downloads](https://www.python.org/downloads/windows/).
+   - During install, make sure you check **"Add Python to PATH"**.
 
-    ```powershell
-    dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
-    ```
+4. **Install Java 21+ (Temurin recommended)**
+   - Download from [Adoptium Temurin Releases](https://adoptium.net/temurin/releases/).
+   - Install a **JDK 21 or newer** build for Windows.
 
-4.  **Reboot your computer.**
-5.  Log back in. Open **PowerShell (Admin)** again.
-6.  Install Ubuntu:
+5. **Install NSSM (service manager)**
+   - Download **pre-release 2.24-101 (Windows 10+)** from [nssm.cc downloads](https://nssm.cc/download).
+   - Extract `nssm.exe` to `C:\NSSM\nssm.exe`.
+   - Add `C:\NSSM\` to the **System PATH**:
+     - Start Menu → search **"Environment Variables"**.
+     - Open **"Edit the system environment variables"**.
+     - Click **Environment Variables**.
+     - Under **System variables**, select **Path** → **Edit** → **New**.
+     - Add `C:\NSSM\` and click **OK** on all windows.
+   - If `java --version` fails later, use the same steps to add your Java `bin` folder to **System PATH**.
 
-    ```powershell
-    wsl --install -d Ubuntu-24.04
-    ```
+6. **Verify prerequisites in PowerShell**
 
-    > **What happens next:** The installation will proceed **directly inside this PowerShell window**.
-    > **Action Required:**
-    > * **Username:** It will prompt you to create a user. It generally defaults to your Windows username. You can press **Enter** to accept it, or type a new simple name (e.g., `aiadmin`).
-    > * **Password:** Create a secure password. **Write this down.** You will not see stars or dots while typing.
-    > * **Completion:** You will see a new command prompt (e.g., `username@Device:/mnt/c...`).
-    >
+```powershell
+python --version
+java --version
+nssm version
+```
 
-
----
-
-## Phase 2: Install the Engine (Docker & NVIDIA)
-
-We will now install the software that manages the AI applications.
-
-> **Concept Check:**
-> * **PowerShell:** The standard blue/black Windows terminal.
-> * **WSL/Ubuntu:** The Linux environment we enter by typing `wsl`.
-
-1.  Run this command to change directories:
-
-    ```bash
-    cd ~
-    ```
-
-    > **Why cd ~?**
-    > By default, you start in the Windows System32 folder (`/mnt/c/Windows...`). This command moves you to your Linux "Home" folder, which is safer for installing software.
-
-2.  Update the system tools. Copy/Paste this into the terminal (enter your password if asked):
-
-    ```bash
-    sudo apt update && sudo apt full-upgrade -y
-    ```
-
-3.  Install required utilities and enable auto-updates:
-
-    ```bash
-    sudo apt install -y build-essential curl unattended-upgrades
-    ```
-
-    ```bash
-    sudo dpkg-reconfigure -plow unattended-upgrades
-    ```
-
-    > **Attention:** A pink/blue screen will pop up.
-    > Ensure **Yes** is highlighted and press **Enter**. This ensures Linux will automatically install important security updates in the background.
-
-4.  Install Docker (The container system):
-
-    ```bash
-    curl -fsSL https://get.docker.com | sudo sh
-    ```
-
-5.  Enable Docker and add permissions:
-
-    ```bash
-    sudo systemctl enable --now docker
-    ```
-
-    ```bash
-    sudo usermod -aG docker $USER
-    ```
-
-    > **Refresh Permissions:**
-    > We need to log out and back in for the group change to take effect.
-    > 1. Type `exit` and press **Enter**. *(You drop back to PowerShell)*.
-    > 2. Type `wsl` and press **Enter**. *(You enter Ubuntu again)*.
-    > 3. Type `cd ~` and press **Enter**. *(Return to your home folder)*.
-
-6.  Install the NVIDIA Toolkit (Allows AI to see your GPU). Run these 3 commands one by one:
-
-    ```bash
-    curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
-    ```
-
-    ```bash
-    curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
-    ```
-
-    ```bash
-    sudo apt update && sudo apt install -y nvidia-container-toolkit
-    ```
-
-7.  Configure Docker for GPU access and Log Rotation (Prevents disk usage issues). Copy this entire block and paste it:
-
-    ```bash
-    sudo tee /etc/docker/daemon.json > /dev/null <<EOF
-    {
-      "default-runtime": "nvidia",
-      "runtimes": { "nvidia": { "path": "/usr/bin/nvidia-container-runtime", "runtimeArgs": [] } },
-      "storage-driver": "overlay2",
-      "log-driver": "json-file",
-      "log-opts": { "max-size": "10m", "max-file": "3" }
-    }
-    EOF
-    ```
-
-8.  Restart the engine:
-
-    ```bash
-    sudo systemctl restart docker
-    ```
+> **Tip:** If any command says "not recognized," fix PATH first, then reopen PowerShell and test again.
 
 ---
 
-## Phase 3: Deploy EphemerAl
+## Phase 2: Install Ollama
 
-1.  Download the application code into Ubuntu:
+1. **Download standalone Ollama ZIP**
+   - Open [Ollama GitHub Releases](https://github.com/ollama/ollama/releases).
+   - Download the latest `ollama-windows-amd64.zip` asset.
+   - Do **not** use the setup installer for this deployment.
 
-    ```bash
-    git clone https://github.com/eowensai/EphemerAl.git ~/ephemeral-llm
-    ```
+2. **Extract files**
+   - Extract the ZIP into `C:\Ollama\`.
+   - Confirm the executable exists at `C:\Ollama\ollama.exe`.
 
-2.  Enter the folder:
+3. **Create model storage folder**
 
-    ```bash
-    cd ~/ephemeral-llm
-    ```
+```powershell
+New-Item -ItemType Directory -Force -Path C:\Ollama\models
+```
 
-3.  Start the application:
-    *(This will take 5-10 minutes to download the base layers. Wait for the green "Started" messages).*
+4. **Verify GPU detection**
 
-    ```bash
-    docker compose up -d --build
-    ```
+```powershell
+C:\Ollama\ollama serve
+```
+
+- Watch startup output and confirm it detects your NVIDIA GPU.
+- Press `Ctrl + C` to stop once verified.
+
+> **Tip:** If GPU is not detected, update NVIDIA drivers first, then test again.
 
 ---
 
-## Phase 4: Configure the AI Model
+## Phase 3: Install Apache Tika
 
-We need to download the "Brain" (Gemma 3) and configure its memory.
+1. **Create Tika folder**
 
-**Choose ONLY ONE path below based on your hardware.**
+```powershell
+New-Item -ItemType Directory -Force -Path C:\Tika
+```
+
+2. **Download Tika server JAR**
+   - Open [Apache Tika Downloads](https://tika.apache.org/download.html).
+   - Download `tika-server-standard-3.2.3.jar`.
+   - Place it in `C:\Tika\`.
+
+3. **Copy the JAR to a generic name for service script compatibility**
+
+```powershell
+Copy-Item C:\Tika\tika-server-standard-3.2.3.jar C:\Tika\tika-server-standard.jar -Force
+```
+
+4. **Verify Tika runs**
+
+```powershell
+java -jar C:\Tika\tika-server-standard-3.2.3.jar --port 9998
+```
+
+- Open `http://localhost:9998/` in your browser.
+- Press `Ctrl + C` in PowerShell to stop.
+
+> **Tip:** If you want to test the generic filename used by the service script, use this command instead:
+>
+> ```powershell
+> java -jar C:\Tika\tika-server-standard.jar --port 9998
+> ```
+
+---
+
+## Phase 4: Install EphemerAl
+
+1. **Get the repository into `C:\EphemerAl\`**
+
+Choose one option:
+
+**Option A — Git clone**
+
+```powershell
+git clone https://github.com/eowensai/EphemerAl.git C:\EphemerAl
+```
+
+**Option B — Download ZIP**
+- Download the project ZIP from GitHub.
+- Extract it so the main file is at `C:\EphemerAl\ephemeral_app.py`.
+
+2. **Install Python dependencies**
+
+```powershell
+Set-Location C:\EphemerAl
+pip install -r requirements.txt
+```
+
+3. **Verify the app runs**
+
+```powershell
+streamlit run ephemeral_app.py
+```
+
+- Open `http://localhost:8501`.
+- Confirm the interface loads.
+- Press `Ctrl + C` to stop.
+
+---
+
+## Phase 5: Install Windows Services
+
+In this phase, you will install three services:
+- `OllamaService`
+- `TikaService`
+- `EphemerAlApp`
+
+These start automatically at boot and run even when no user is signed in.
+
+1. **Open PowerShell as Administrator**
+
+2. **Run the install script**
+
+```powershell
+C:\EphemerAl\services\Install-EphemerAlServices.ps1
+```
+
+3. **Verify service health**
+
+```powershell
+C:\EphemerAl\services\Check-EphemerAlServices.ps1
+```
+
+> **Tip:** If script execution is blocked by policy, run this in the same elevated PowerShell session:
+>
+> ```powershell
+> Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
+> ```
+
+---
+
+## Phase 6: Configure the AI Model
+
+Choose **one** path based on available VRAM.
 
 ### Path A: Standard (GPU VRAM = 12GB+)
 *Best for RTX 3060, 4060 Ti, 5060 Ti, 3090, 4090.*
 
-1.  **Download the 12B Model:**
-    ```bash
-    docker exec -it ollama ollama pull gemma3:12b-it-qat
-    ```
+1. **Download the 12B model**
 
-2.  **Enter the Container:**
-    ```bash
-    docker exec -it ollama bash
-    ```
+```powershell
+C:\Ollama\ollama.exe pull gemma3:12b-it-qat
+```
 
-3.  **Create the Config:**
-    *Identify your Context Limit below. Copy the code block, replace `12000` with your value, and paste it into the container window.*
+2. **Create `Modelfile` in `C:\Ollama\`**
 
-    | Your Card | Value |
-    | :--- | :--- |
-    | 12 GB VRAM | `12000` |
-    | 16 GB VRAM | `50000` |
-    | 24+ GB VRAM | `131072` |
+Use PowerShell:
 
-    ```bash
-    cat > Modelfile <<EOF
-    FROM gemma3:12b-it-qat
-    PARAMETER num_ctx 12000
-    PARAMETER num_gpu 99
-    PARAMETER temperature 0.8
-    PARAMETER top_k 64
-    PARAMETER top_p 0.95
-    PARAMETER repeat_penalty 1.0
-    PARAMETER min_p 0.0
-    EOF
-    ```
+```powershell
+Set-Location C:\Ollama
+@"
+FROM gemma3:12b-it-qat
+PARAMETER num_ctx 12000
+PARAMETER num_gpu 99
+PARAMETER temperature 0.8
+PARAMETER top_k 64
+PARAMETER top_p 0.95
+PARAMETER repeat_penalty 1.0
+PARAMETER min_p 0.0
+"@ | Set-Content -Path .\Modelfile -Encoding ASCII
+```
 
-4.  **Activate and Exit:**
-    *(Run these two commands one by one)*.
+Or use Notepad:
 
-    ```bash
-    ollama create gemma3-prod -f Modelfile
-    ```
+```powershell
+notepad C:\Ollama\Modelfile
+```
 
-    ```bash
-    exit
-    ```
+Then paste this content and save:
 
-    > **Stop Here:** You have finished the model setup. **Skip "Path B"** and proceed directly to **Phase 5**.
+```text
+FROM gemma3:12b-it-qat
+PARAMETER num_ctx 12000
+PARAMETER num_gpu 99
+PARAMETER temperature 0.8
+PARAMETER top_k 64
+PARAMETER top_p 0.95
+PARAMETER repeat_penalty 1.0
+PARAMETER min_p 0.0
+```
+
+3. **Set context size for your VRAM**
+
+Replace `12000` in `PARAMETER num_ctx` using this table:
+
+| Your Card | Value |
+| :--- | :--- |
+| 12 GB VRAM | `12000` |
+| 16 GB VRAM | `50000` |
+| 24+ GB VRAM | `131072` |
+
+4. **Create production model**
+
+```powershell
+Set-Location C:\Ollama
+C:\Ollama\ollama.exe create gemma3-prod -f Modelfile
+```
+
+5. **Restart Ollama service**
+
+```powershell
+nssm restart OllamaService
+```
+
+> **Stop here for Path A users.** Continue to Phase 7.
 
 ### Path B: Higher Performance (Combined GPU VRAM = 24GB+)
 *For RTX 5090, Dual GPU (12/16GB x2), or Enterprise Cards.*
 *Note: Higher VRAM allows this larger version of Gemma 3 to run, but if its answers are too slow, use Path A*
 
-1.  **Download the 27B Model:**
-    ```bash
-    docker exec -it ollama ollama pull gemma3:27b-it-qat
-    ```
+1. **Download the 27B model**
 
-2.  **Enter the Container:**
-    ```bash
-    docker exec -it ollama bash
-    ```
+```powershell
+C:\Ollama\ollama.exe pull gemma3:27b-it-qat
+```
 
-3.  **Create the Config:**
-    *Identify your Context Limit below. Copy the code block, replace `30000` with your value, and paste it into the container window.*
+2. **Create `Modelfile` in `C:\Ollama\`**
 
-    | Your Card | Value |
-    | :--- | :--- |
-    | 24 GB VRAM (Total) | `30000` |
-    | 32+ GB VRAM (Total) | `131072` |
+Use PowerShell:
 
-    ```bash
-    cat > Modelfile <<EOF
-    FROM gemma3:27b-it-qat
-    PARAMETER num_ctx 30000
-    PARAMETER num_gpu 99
-    PARAMETER temperature 0.8
-    PARAMETER top_k 64
-    PARAMETER top_p 0.95
-    PARAMETER repeat_penalty 1.0
-    PARAMETER min_p 0.0
-    EOF
-    ```
+```powershell
+Set-Location C:\Ollama
+@"
+FROM gemma3:27b-it-qat
+PARAMETER num_ctx 30000
+PARAMETER num_gpu 99
+PARAMETER temperature 0.8
+PARAMETER top_k 64
+PARAMETER top_p 0.95
+PARAMETER repeat_penalty 1.0
+PARAMETER min_p 0.0
+"@ | Set-Content -Path .\Modelfile -Encoding ASCII
+```
 
-4.  **Activate and Exit:**
-    *(Run these two commands one by one)*.
+Or use Notepad:
 
-    ```bash
-    ollama create gemma3-prod -f Modelfile
-    ```
+```powershell
+notepad C:\Ollama\Modelfile
+```
 
-    ```bash
-    exit
-    ```
+Then paste this content and save:
+
+```text
+FROM gemma3:27b-it-qat
+PARAMETER num_ctx 30000
+PARAMETER num_gpu 99
+PARAMETER temperature 0.8
+PARAMETER top_k 64
+PARAMETER top_p 0.95
+PARAMETER repeat_penalty 1.0
+PARAMETER min_p 0.0
+```
+
+3. **Set context size for your VRAM**
+
+Replace `30000` in `PARAMETER num_ctx` using this table:
+
+| Your Card | Value |
+| :--- | :--- |
+| 24 GB VRAM (Total) | `30000` |
+| 32+ GB VRAM (Total) | `131072` |
+
+4. **Create production model**
+
+```powershell
+Set-Location C:\Ollama
+C:\Ollama\ollama.exe create gemma3-prod -f Modelfile
+```
+
+5. **Restart Ollama service**
+
+```powershell
+nssm restart OllamaService
+```
 
 ---
 
-## Phase 5: Networking & Auto-Start (Windows)
+## Phase 7: Networking
 
-These steps make the website accessible on your network and ensure it starts automatically.
+1. **Allow inbound access to Streamlit port 8501**
 
-> **Important:** This application runs as a **User Task**, not a System Service.
-> This means the application will ONLY start **after** a specific user logs into Windows. It will not run while the computer is sitting at the Lock Screen after a reboot.
-> *Tip for Dedicated Machines:* You can configure Windows to automatically log in a specific user on boot (search "netplwiz auto login") if you want a true "Appliance" feel.
-
-**1. Allow EphemerAl through the Windows Firewall**
-Open **PowerShell (Admin)** in Windows and paste:
+Open PowerShell as Administrator and run:
 
 ```powershell
 New-NetFirewallRule -DisplayName "EphemerAl Port 8501" -Direction Inbound -Protocol TCP -LocalPort 8501 -Action Allow
 ```
 
-**2. Create the Startup Script that connects external users to WSL2**
-1.  Open **Notepad** in Windows.
-2.  Paste the code below:
+2. **Access the app over the network**
 
-    ```powershell
-    $wslIP = (wsl -- hostname -I).Split()[0]
-    netsh interface portproxy delete v4tov4 listenport=8501 listenaddress=0.0.0.0 2>$null
-    netsh interface portproxy add v4tov4 listenport=8501 listenaddress=0.0.0.0 connectport=8501 connectaddress=$wslIP
-    wsl -- sleep infinity
-    ```
-3.  Save the file as: `C:\Scripts\Start-EphemerAl.ps1`
-    *(Create the Scripts folder on your C: drive if it doesn't exist)*.
+Since services run natively on Windows, the application is directly accessible using the machine's IP address. No additional forwarding configuration is required.
 
-**3. Schedule it to Run**
-1.  Search Windows for **Task Scheduler** -> Right-click **Run as Administrator**.
-2.  Click **Create Task** (Right sidebar).
-3.  **General:** Name it `Ephemeral Auto-Start`. Select **Run only when user is logged on** AND **Run with highest privileges**.
-4.  **Triggers:** New -> Begin the task: **At log on**. Delay task for: **30 seconds**.
-5.  **Actions:** New -> Program/script: `powershell.exe`.
-    Add arguments:
-    `-ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\Scripts\Start-EphemerAl.ps1"`
-6.  Click **OK**.
+Find the machine IP:
+
+```powershell
+ipconfig
+```
+
+Open from another device on the same network:
+
+```text
+http://<YOUR_IP_ADDRESS>:8501
+```
 
 ---
 
-## ✅ Success!
+## 🛠️ Troubleshooting
 
-1.  Reboot your computer.
-2.  Log in to Windows and wait 30 seconds.
-3.  **Find your IP Address:**
-    Open PowerShell and type `ipconfig`. Look for the **IPv4 Address** (e.g., `192.168.1.50`).
-4.  **Test from another computer:**
-    On a different device connected to the same network (WiFi/LAN), open a browser and type:
-    `http://<YOUR_IP_ADDRESS>:8501`
-    *(Example: http://192.168.1.50:8501)*
+### Check service status
 
-**Troubleshooting:**
-If the page loads locally (`http://localhost:8501`) but not from another computer, ensure your computer is set to **"Private Network"** in Windows Network Settings, or double-check the Firewall Rule command in Phase 5.
+```powershell
+nssm status OllamaService
+nssm status TikaService
+nssm status EphemerAlApp
+```
+
+```powershell
+Get-Service OllamaService, TikaService, EphemerAlApp
+```
+
+### Restart a service
+
+```powershell
+nssm restart OllamaService
+nssm restart TikaService
+nssm restart EphemerAlApp
+```
+
+### View service logs
+
+NSSM records stdout/stderr logs if AppStdout/AppStderr are configured. To check configured log paths:
+
+```powershell
+nssm get OllamaService AppStdout
+nssm get OllamaService AppStderr
+nssm get TikaService AppStdout
+nssm get TikaService AppStderr
+nssm get EphemerAlApp AppStdout
+nssm get EphemerAlApp AppStderr
+```
+
+If a path is returned, open that file to review startup errors.
+
+### Common issues
+
+- **Java not found**
+  - Run `java --version`.
+  - If command fails, reinstall Java 21+ and verify PATH.
+
+- **Ollama GPU not detected**
+  - Update the NVIDIA driver from [nvidia.com](https://www.nvidia.com/Download/index.aspx).
+  - Re-test with `C:\Ollama\ollama serve`.
+
+- **Port already in use (8501, 9998, or 11434)**
+
+```powershell
+netstat -ano | findstr :8501
+netstat -ano | findstr :9998
+netstat -ano | findstr :11434
+```
+
+- **Service will not start**
+  - Check status: `nssm status <ServiceName>`.
+  - Check NSSM stdout/stderr log locations using `nssm get <ServiceName> AppStdout` and `nssm get <ServiceName> AppStderr`.
+  - Re-run: `C:\EphemerAl\services\Check-EphemerAlServices.ps1`.
+
+### Complete uninstall
+
+```powershell
+C:\EphemerAl\services\Uninstall-EphemerAlServices.ps1
+```
+
+---
+
+## ✅ Success Checklist
+
+1. Reboot the machine.
+2. Wait 30-60 seconds after startup.
+3. Verify all services are running:
+
+```powershell
+Get-Service OllamaService, TikaService, EphemerAlApp
+```
+
+4. Find the machine IP:
+
+```powershell
+ipconfig
+```
+
+5. From another device on the same network, open:
+
+```text
+http://<YOUR_IP_ADDRESS>:8501
+```
+
+If the page loads and chat works, deployment is complete.
