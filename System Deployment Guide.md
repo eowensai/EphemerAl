@@ -156,7 +156,6 @@ python -m pip install -r requirements.txt
 Before launching Streamlit manually, set this environment variable in the same PowerShell window so the Python Tika client uses your existing Tika service only:
 
 ```powershell
-$env:TIKA_CLIENT_ONLY = "true"
 python -m streamlit run ephemeral_app.py
 ```
 

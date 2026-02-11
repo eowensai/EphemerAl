@@ -99,19 +99,6 @@ if (-not (Test-Path $pythonExe)) {
 }
 Write-Ok "Python found: $pythonExe"
 
-Write-Step "Locating Java executable for Tika service..."
-$javaCommand = Get-Command java -ErrorAction SilentlyContinue
-if (-not $javaCommand) {
-    Write-Fail "Java is not on PATH. Install Java 21+ and ensure System PATH includes the Java bin folder."
-    exit 1
-}
-$javaExe = $javaCommand.Source
-if (-not (Test-Path -Path $javaExe)) {
-    Write-Fail "Resolved Java executable does not exist: $javaExe"
-    exit 1
-}
-Write-Ok "Java found: $javaExe"
-
 Write-Step "Validating required application files..."
 
 $requiredPaths = @(
@@ -129,11 +116,6 @@ foreach ($item in $requiredPaths) {
     Write-Ok "$($item.Label) found: $($item.Path)"
 }
 
-$logDirectory = 'C:\EphemerAl\logs'
-if (-not (Test-Path -Path $logDirectory)) {
-    New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
-}
-Write-Ok "Service log directory ready: $logDirectory"
 
 Write-Step "Validating Streamlit module availability..."
 try {

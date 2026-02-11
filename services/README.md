@@ -22,7 +22,7 @@ For full, step-by-step deployment instructions, use the root [`System Deployment
 
 The install script currently assumes these defaults:
 
-The installer also validates that it can resolve a real Python interpreter (not the Windows Store App Execution Alias shim), resolves Java for Tika, checks required files exist, and confirms `streamlit` is importable before creating services.
+The installer also validates that it can resolve a real Python interpreter (not the Windows Store App Execution Alias shim), checks required files exist, and confirms `streamlit` is importable before creating services.
 
 - Ollama executable: `C:\Ollama\ollama.exe`
 - Ollama model directory: `C:\Ollama\models`
