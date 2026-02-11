@@ -3,3 +3,8 @@ base = "light"
 primaryColor = "#007A7A"
 backgroundColor = "#FFFFFF"
 secondaryBackgroundColor = "#E6F2F2"
+
+[server]
+headless = true
+address = "0.0.0.0"
+port = 8501
