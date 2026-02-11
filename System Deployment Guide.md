@@ -29,9 +29,10 @@ Complete all items in this phase before moving on.
    - Install the newest production driver for your GPU model.
    - Reboot if prompted.
 
-3. **Install Python 3.11+**
+3. **Install Python 3.11+ (all users)**
    - Download from [python.org downloads](https://www.python.org/downloads/windows/).
-   - During install, make sure you check **"Add Python to PATH"**.
+   - During install, check **"Add Python to PATH"** and choose **"Install for all users"**.
+   - In Windows Settings, disable the Microsoft Store **App execution aliases** for `python.exe` and `python3.exe` if they are enabled.
 
 4. **Install Java 21+ (Temurin recommended)**
    - Download from [Adoptium Temurin Releases](https://adoptium.net/temurin/releases/).
@@ -146,13 +147,14 @@ git clone https://github.com/eowensai/EphemerAl.git C:\EphemerAl
 
 ```powershell
 Set-Location C:\EphemerAl
-pip install -r requirements.txt
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
 ```
 
 3. **Verify the app runs**
 
 ```powershell
-streamlit run ephemeral_app.py
+python -m streamlit run ephemeral_app.py
 ```
 
 - Open `http://localhost:8501`.
