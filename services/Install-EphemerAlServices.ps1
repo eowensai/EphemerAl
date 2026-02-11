@@ -155,7 +155,7 @@ $services = @(
     },
     @{
         Name = 'TikaService'
-        AppPath = 'java'
+        AppPath = $javaExe
         AppArgs = '-jar C:\Tika\tika-server-standard.jar --host 0.0.0.0 --port 9998'
         AppDirectory = 'C:\Tika'
         AppEnvironmentExtra = $tikaEnv
@@ -174,6 +174,15 @@ foreach ($svc in $services) {
     try {
         Write-Step "Installing $($svc.Name)..."
         Install-ServiceWithNssm -Name $svc.Name -AppPath $svc.AppPath -AppArgs $svc.AppArgs -AppDirectory $svc.AppDirectory -AppEnvironmentExtra $svc.AppEnvironmentExtra
+
+        $stdoutPath = Join-Path $logDirectory "$($svc.Name).out.log"
+        $stderrPath = Join-Path $logDirectory "$($svc.Name).err.log"
+        & nssm set $svc.Name AppStdout $stdoutPath | Out-Null
+        & nssm set $svc.Name AppStderr $stderrPath | Out-Null
+        & nssm set $svc.Name AppRotateFiles 1 | Out-Null
+        & nssm set $svc.Name AppRotateOnline 1 | Out-Null
+        & nssm set $svc.Name AppRotateBytes 10485760 | Out-Null
+
         $installResults[$svc.Name] = $true
         Write-Ok "$($svc.Name) installed and set to Automatic startup."
     } catch {

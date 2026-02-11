@@ -58,28 +58,17 @@ Update the Tika JAR name/path in `TikaService` `AppArgs`, for example:
 
 If you install a different Tika release filename, point `-jar` to that exact file.
 
-## Configure NSSM log output locations
+## NSSM log output defaults
 
-The install script does not currently set NSSM file logging. You can enable it per service with commands like:
+The install script now configures logging automatically for all services in `C:\EphemerAl\logs`:
 
-```powershell
-nssm set OllamaService AppStdout C:\Logs\OllamaService.out.log
-nssm set OllamaService AppStderr C:\Logs\OllamaService.err.log
-nssm set TikaService AppStdout C:\Logs\TikaService.out.log
-nssm set TikaService AppStderr C:\Logs\TikaService.err.log
-nssm set EphemerAlApp AppStdout C:\Logs\EphemerAlApp.out.log
-nssm set EphemerAlApp AppStderr C:\Logs\EphemerAlApp.err.log
-```
+- `C:\EphemerAl\logs\OllamaService.out.log` / `.err.log`
+- `C:\EphemerAl\logs\TikaService.out.log` / `.err.log`
+- `C:\EphemerAl\logs\EphemerAlApp.out.log` / `.err.log`
 
-Optional rotation controls:
+It also enables basic rotation controls (`AppRotateFiles=1`, `AppRotateOnline=1`, `AppRotateBytes=10485760`).
 
-```powershell
-nssm set EphemerAlApp AppRotateFiles 1
-nssm set EphemerAlApp AppRotateOnline 1
-nssm set EphemerAlApp AppRotateBytes 10485760
-```
-
-Repeat for other services if desired.
+If you want custom locations, update them after install with `nssm set <ServiceName> AppStdout <Path>` and `AppStderr <Path>`.
 
 ## Add EPHEMERAL_TIMEZONE or EPHEMERAL_DEBUG to Streamlit service
 
@@ -118,7 +107,7 @@ You can also update the `$appEnv` block in `Install-EphemerAlServices.ps1` and r
 | `LLM_MODEL_NAME` | Model name sent in chat requests. | `gemma3-prod` |
 | `TIKA_URL` | Apache Tika server endpoint for document parsing. | `http://localhost:9998` |
 | `TIKA_TIMEOUT_S` | Timeout (seconds) for Tika parsing requests. | `15` |
-| `TIKA_CLIENT_ONLY` | When true, the Tika Python client skips local JAR startup and uses remote server mode only. | _No app default_ (service script sets `true`) |
+| `TIKA_CLIENT_ONLY` | When true, the Tika Python client skips local JAR startup and uses remote server mode only. | `true` (app default; service script also sets `true`) |
 | `DEFAULT_UPLOAD_PROMPT` | Prompt inserted when files are uploaded without text input. | `Please analyze the uploaded files.` |
 | `LLM_SUPPORTS_VISION` | Optional override for image capability detection (`true`/`false`). | Not set (auto-detect) |
 | `EPHEMERAL_TIMEZONE` | Optional IANA timezone name for app timestamps. | Not set (uses system local timezone) |

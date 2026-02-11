@@ -42,7 +42,7 @@ Recommended baseline:
 
 - **Operating System:** Windows 11 Pro or Enterprise, fully updated.
 - **Graphics Processing Unit:** NVIDIA GPU (or equivalent capable hardware) sized for your chosen model.
-- **Runtime dependencies:** Python 3.x, Java 21+, Ollama, and NSSM installed on Windows.
+- **Runtime dependencies:** Python 3.11+, Java 21+, Ollama, and NSSM installed on Windows.
 
 ## Getting Started
 

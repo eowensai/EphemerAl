@@ -153,6 +153,8 @@ python -m pip install -r requirements.txt
 
 3. **Verify the app runs**
 
+Before launching Streamlit manually, set this environment variable in the same PowerShell window so the Python Tika client uses your existing Tika service only:
+
 ```powershell
 python -m streamlit run ephemeral_app.py
 ```
@@ -174,23 +176,25 @@ These start automatically at boot and run even when no user is signed in.
 
 1. **Open PowerShell as Administrator**
 
-2. **Run the install script**
+2. **Allow scripts in this session (temporary)**
+
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
+```
+
+> This only applies to the current PowerShell window and resets when you close it.
+
+3. **Run the install script**
 
 ```powershell
 C:\EphemerAl\services\Install-EphemerAlServices.ps1
 ```
 
-3. **Verify service health**
+4. **Verify service health**
 
 ```powershell
 C:\EphemerAl\services\Check-EphemerAlServices.ps1
 ```
-
-> **Tip:** If script execution is blocked by policy, run this in the same elevated PowerShell session:
->
-> ```powershell
-> Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
-> ```
 
 ---
 
@@ -263,6 +267,14 @@ C:\Ollama\ollama.exe create gemma3-prod -f Modelfile
 
 5. **Restart Ollama service**
 
+First verify the service exists and is running:
+
+```powershell
+Get-Service OllamaService
+```
+
+Then restart it:
+
 ```powershell
 nssm restart OllamaService
 ```
@@ -334,6 +346,14 @@ C:\Ollama\ollama.exe create gemma3-prod -f Modelfile
 
 5. **Restart Ollama service**
 
+First verify the service exists and is running:
+
+```powershell
+Get-Service OllamaService
+```
+
+Then restart it:
+
 ```powershell
 nssm restart OllamaService
 ```
@@ -353,6 +373,8 @@ New-NetFirewallRule -DisplayName "EphemerAl Port 8501" -Direction Inbound -Proto
 2. **Access the app over the network**
 
 Since services run natively on Windows, the application is directly accessible using the machine's IP address. No additional forwarding configuration is required.
+
+> **Security note:** The service script binds Ollama (`11434`) and Tika (`9998`) to `0.0.0.0` for local service compatibility. Keep Windows Firewall enabled and do not open those ports unless you intentionally need remote API access.
 
 Find the machine IP:
 
