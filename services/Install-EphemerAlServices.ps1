@@ -62,13 +62,88 @@ if (-not $nssmCommand) {
 Write-Ok "NSSM found: $($nssmCommand.Source)"
 
 Write-Step "Locating Python executable for Streamlit service..."
+$pythonExe = $null
 $pythonCommand = Get-Command python -ErrorAction SilentlyContinue
-if (-not $pythonCommand) {
-    Write-Fail "Python is not on PATH. Install Python and ensure 'python' is available in PATH."
+if ($pythonCommand) {
+    $pythonExe = $pythonCommand.Source
+}
+
+if ($pythonExe -and $pythonExe -like '*\\WindowsApps\\python.exe') {
+    # Windows App Execution Alias often resolves to a shim and cannot run as a service account.
+    $pythonExe = $null
+}
+
+if (-not $pythonExe) {
+    $pyLauncher = Get-Command py -ErrorAction SilentlyContinue
+    if ($pyLauncher) {
+        try {
+            $resolvedPython = (& py -3 -c "import sys; print(sys.executable)").Trim()
+            if ($resolvedPython) {
+                $pythonExe = $resolvedPython
+            }
+        } catch {
+            # Keep null and fail with a user-friendly message below.
+        }
+    }
+}
+
+if (-not $pythonExe) {
+    Write-Fail "Could not resolve a real Python executable for the service."
+    Write-Host "Install Python for all users and disable the Windows App Execution Alias for python.exe if enabled."
     exit 1
 }
-$pythonExe = $pythonCommand.Source
+
+if (-not (Test-Path $pythonExe)) {
+    Write-Fail "Resolved Python executable does not exist: $pythonExe"
+    exit 1
+}
 Write-Ok "Python found: $pythonExe"
+
+Write-Step "Locating Java executable for Tika service..."
+$javaCommand = Get-Command java -ErrorAction SilentlyContinue
+if (-not $javaCommand) {
+    Write-Fail "Java is not on PATH. Install Java 21+ and ensure System PATH includes the Java bin folder."
+    exit 1
+}
+$javaExe = $javaCommand.Source
+if (-not (Test-Path -Path $javaExe)) {
+    Write-Fail "Resolved Java executable does not exist: $javaExe"
+    exit 1
+}
+Write-Ok "Java found: $javaExe"
+
+Write-Step "Validating required application files..."
+
+$requiredPaths = @(
+    @{ Label = 'Ollama executable'; Path = 'C:\Ollama\ollama.exe' },
+    @{ Label = 'Tika server JAR'; Path = 'C:\Tika\tika-server-standard.jar' },
+    @{ Label = 'EphemerAl app file'; Path = 'C:\EphemerAl\ephemeral_app.py' }
+)
+
+foreach ($item in $requiredPaths) {
+    if (-not (Test-Path -Path $item.Path)) {
+        Write-Fail "$($item.Label) not found at $($item.Path)"
+        Write-Host "Verify installation paths or update this script before rerunning."
+        exit 1
+    }
+    Write-Ok "$($item.Label) found: $($item.Path)"
+}
+
+$logDirectory = 'C:\EphemerAl\logs'
+if (-not (Test-Path -Path $logDirectory)) {
+    New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
+}
+Write-Ok "Service log directory ready: $logDirectory"
+
+Write-Step "Validating Streamlit module availability..."
+try {
+    & $pythonExe -c "import streamlit" | Out-Null
+    Write-Ok "Streamlit module is available for the resolved Python interpreter."
+} catch {
+    Write-Fail "Streamlit is not installed for: $pythonExe"
+    Write-Host "From C:\EphemerAl run: python -m pip install -r requirements.txt"
+    exit 1
+}
 
 $ollamaEnv = @(
     'OLLAMA_HOST=0.0.0.0'
@@ -98,7 +173,7 @@ $services = @(
     },
     @{
         Name = 'TikaService'
-        AppPath = 'java'
+        AppPath = $javaExe
         AppArgs = '-jar C:\Tika\tika-server-standard.jar --host 0.0.0.0 --port 9998'
         AppDirectory = 'C:\Tika'
         AppEnvironmentExtra = $tikaEnv
@@ -117,6 +192,15 @@ foreach ($svc in $services) {
     try {
         Write-Step "Installing $($svc.Name)..."
         Install-ServiceWithNssm -Name $svc.Name -AppPath $svc.AppPath -AppArgs $svc.AppArgs -AppDirectory $svc.AppDirectory -AppEnvironmentExtra $svc.AppEnvironmentExtra
+
+        $stdoutPath = Join-Path $logDirectory "$($svc.Name).out.log"
+        $stderrPath = Join-Path $logDirectory "$($svc.Name).err.log"
+        & nssm set $svc.Name AppStdout $stdoutPath | Out-Null
+        & nssm set $svc.Name AppStderr $stderrPath | Out-Null
+        & nssm set $svc.Name AppRotateFiles 1 | Out-Null
+        & nssm set $svc.Name AppRotateOnline 1 | Out-Null
+        & nssm set $svc.Name AppRotateBytes 10485760 | Out-Null
+
         $installResults[$svc.Name] = $true
         Write-Ok "$($svc.Name) installed and set to Automatic startup."
     } catch {

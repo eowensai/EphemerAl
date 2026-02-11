@@ -15,6 +15,10 @@ import streamlit as st
 import streamlit.components.v1 as components
 import requests
 import pytz
+
+# Keep the Tika Python client in remote-client mode by default to avoid local JAR startup/download surprises.
+os.environ.setdefault("TIKA_CLIENT_ONLY", "true")
+
 from tika import parser
 from openai import OpenAI
 
@@ -66,7 +70,7 @@ st.markdown(
 
 def load_css(path: str = "theme.css") -> None:
     """Load optional CSS overrides to customize Streamlit's default look."""
-    css_path = pathlib.Path(path)
+    css_path = pathlib.Path(__file__).parent / path
     if css_path.exists():
         st.markdown(f"<style>{css_path.read_text()}</style>", unsafe_allow_html=True)
 

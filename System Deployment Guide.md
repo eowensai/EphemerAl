@@ -29,9 +29,10 @@ Complete all items in this phase before moving on.
    - Install the newest production driver for your GPU model.
    - Reboot if prompted.
 
-3. **Install Python 3.11+**
+3. **Install Python 3.11+ (all users)**
    - Download from [python.org downloads](https://www.python.org/downloads/windows/).
-   - During install, make sure you check **"Add Python to PATH"**.
+   - During install, check **"Add Python to PATH"** and choose **"Install for all users"**.
+   - In Windows Settings, disable the Microsoft Store **App execution aliases** for `python.exe` and `python3.exe` if they are enabled.
 
 4. **Install Java 21+ (Temurin recommended)**
    - Download from [Adoptium Temurin Releases](https://adoptium.net/temurin/releases/).
@@ -146,13 +147,17 @@ git clone https://github.com/eowensai/EphemerAl.git C:\EphemerAl
 
 ```powershell
 Set-Location C:\EphemerAl
-pip install -r requirements.txt
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
 ```
 
 3. **Verify the app runs**
 
+Before launching Streamlit manually, set this environment variable in the same PowerShell window so the Python Tika client uses your existing Tika service only:
+
 ```powershell
-streamlit run ephemeral_app.py
+$env:TIKA_CLIENT_ONLY = "true"
+python -m streamlit run ephemeral_app.py
 ```
 
 - Open `http://localhost:8501`.
@@ -172,23 +177,25 @@ These start automatically at boot and run even when no user is signed in.
 
 1. **Open PowerShell as Administrator**
 
-2. **Run the install script**
+2. **Allow scripts in this session (temporary)**
+
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
+```
+
+> This only applies to the current PowerShell window and resets when you close it.
+
+3. **Run the install script**
 
 ```powershell
 C:\EphemerAl\services\Install-EphemerAlServices.ps1
 ```
 
-3. **Verify service health**
+4. **Verify service health**
 
 ```powershell
 C:\EphemerAl\services\Check-EphemerAlServices.ps1
 ```
-
-> **Tip:** If script execution is blocked by policy, run this in the same elevated PowerShell session:
->
-> ```powershell
-> Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
-> ```
 
 ---
 
@@ -261,6 +268,14 @@ C:\Ollama\ollama.exe create gemma3-prod -f Modelfile
 
 5. **Restart Ollama service**
 
+First verify the service exists and is running:
+
+```powershell
+Get-Service OllamaService
+```
+
+Then restart it:
+
 ```powershell
 nssm restart OllamaService
 ```
@@ -332,6 +347,14 @@ C:\Ollama\ollama.exe create gemma3-prod -f Modelfile
 
 5. **Restart Ollama service**
 
+First verify the service exists and is running:
+
+```powershell
+Get-Service OllamaService
+```
+
+Then restart it:
+
 ```powershell
 nssm restart OllamaService
 ```
@@ -351,6 +374,8 @@ New-NetFirewallRule -DisplayName "EphemerAl Port 8501" -Direction Inbound -Proto
 2. **Access the app over the network**
 
 Since services run natively on Windows, the application is directly accessible using the machine's IP address. No additional forwarding configuration is required.
+
+> **Security note:** The service script binds Ollama (`11434`) and Tika (`9998`) to `0.0.0.0` for local service compatibility. Keep Windows Firewall enabled and do not open those ports unless you intentionally need remote API access.
 
 Find the machine IP:
 
