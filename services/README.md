@@ -137,3 +137,14 @@ You can also update the `$appEnv` block in `Install-EphemerAlServices.ps1` and r
 | `EPHEMERAL_DEBUG` | Enables debug mode when truthy (`1`, `true`, etc.). | `0` |
 | `ENABLE_TOKEN_BUDGETING` | Enables token budgeting/tokenize path unless explicitly disabled. | `1` |
 
+## Troubleshooting script execution
+
+If `Check-EphemerAlServices.ps1` or other scripts fail with a security error in a new PowerShell window, run:
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
+```
+
+This only applies to the current window. Alternatively, unblock downloaded scripts permanently:
+```powershell
+Unblock-File -Path C:\EphemerAl\services\*.ps1
+```
