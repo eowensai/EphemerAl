@@ -28,6 +28,13 @@ function Install-ServiceWithNssm {
     )
 
     try {
+        # Stop any existing service first so removal succeeds when reinstalling.
+        & nssm stop $Name 2>$null | Out-Null
+    } catch {
+        # Ignore stop failures for non-existent or already-stopped services.
+    }
+
+    try {
         # Remove any existing service first so install is idempotent.
         & nssm remove $Name confirm 2>$null | Out-Null
     } catch {
@@ -36,6 +43,9 @@ function Install-ServiceWithNssm {
 
     # nssm install: registers the Windows service with executable path and arguments.
     & nssm install $Name $AppPath $AppArgs | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        throw "nssm install failed for $Name (exit code $LASTEXITCODE)"
+    }
 
     if ($AppDirectory) {
         # AppDirectory: working directory used when NSSM launches the process.
@@ -49,6 +59,9 @@ function Install-ServiceWithNssm {
 
     # Start: configures startup type. SERVICE_AUTO_START means start automatically at boot.
     & nssm set $Name Start SERVICE_AUTO_START | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        throw "nssm set Start failed for $Name (exit code $LASTEXITCODE)"
+    }
 }
 
 Write-Step "Checking NSSM availability..."
@@ -87,7 +100,7 @@ if ($pythonCommand) {
     $pythonExe = $pythonCommand.Source
 }
 
-if ($pythonExe -and $pythonExe -like '*\\WindowsApps\\python.exe') {
+if ($pythonExe -and $pythonExe -like '*\WindowsApps\python.exe') {
     # Windows App Execution Alias often resolves to a shim and cannot run as a service account.
     $pythonExe = $null
 }
@@ -146,13 +159,19 @@ foreach ($item in $requiredPaths) {
 Write-Step "Validating Streamlit module availability..."
 try {
     & $pythonExe -c "import streamlit" | Out-Null
+    $streamlitPath = (& $pythonExe -c "import streamlit; print(streamlit.__file__)" 2>$null).Trim()
     Write-Ok "Streamlit module is available for the resolved Python interpreter."
+    if ($streamlitPath) {
+        Write-Ok "Streamlit location: $streamlitPath"
+    }
 } catch {
     Write-Fail "Streamlit is not installed for: $pythonExe"
     Write-Host "From C:\EphemerAl run: python -m pip install -r requirements.txt"
     exit 1
 }
 
+# OLLAMA_FLASH_ATTENTION requires NVIDIA Turing architecture or newer (RTX 20-series+).
+# If Ollama fails to load models on an older GPU, change the value to 0.
 $ollamaEnv = @(
     'OLLAMA_HOST=127.0.0.1:11434'
     'OLLAMA_MAX_LOADED_MODELS=1'
