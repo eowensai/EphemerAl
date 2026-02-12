@@ -30,7 +30,7 @@ foreach ($name in $services) {
     try {
         Write-Step "Stopping $name (if running)..."
         # nssm stop: requests service stop through NSSM.
-        & nssm stop $name | Out-Null
+        & nssm stop $name 2>$null | Out-Null
     } catch {
         # Ignore stop errors for services that are not present or already stopped.
     }
@@ -38,7 +38,7 @@ foreach ($name in $services) {
     try {
         Write-Step "Removing $name..."
         # nssm remove confirm: deletes the Windows service registration without prompt.
-        & nssm remove $name confirm | Out-Null
+        & nssm remove $name confirm 2>$null | Out-Null
         Write-Ok "$name removed."
     } catch {
         Write-Fail "Failed to remove $name: $($_.Exception.Message)"
