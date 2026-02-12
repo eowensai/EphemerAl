@@ -20,7 +20,7 @@ All three services run natively on Windows (no Docker, no WSL).
   generalists, not developers).
 - `system_prompt_template.md` — LLM system prompt template.
 - `.streamlit/config.toml` — Streamlit theme/config.
-- `theme.css` — Custom CSS.
+- `theme.css` — Custom CSS with variables defined in `:root`.
 - `static/` — Logo and static assets.
 - `services/` — PowerShell scripts for Windows service management.
 
@@ -28,17 +28,27 @@ All three services run natively on Windows (no Docker, no WSL).
 - The deployment guide is written for non-technical IT staff. Use plain language,
   avoid jargon, explain every step, and provide copy-pasteable commands.
 - Python code should work on Windows natively (no Linux-only paths or commands).
+- Python style: no type stubs, f-strings preferred, `logging.debug` for optional
+  diagnostics, user-facing messages use `st.error`/`st.info` (never raw tracebacks).
 - Environment variable defaults in ephemeral_app.py should point to localhost, not
   Docker container names.
+- PowerShell scripts use `Write-Step`, `Write-Ok`, `Write-Fail` helpers already
+  defined in the install script. `Set-StrictMode -Version Latest` and
+  `$ErrorActionPreference = 'Stop'` are set. Single-quoted strings for literal
+  paths; double-quoted only when variable interpolation is needed.
 - PowerShell scripts should be compatible with PowerShell 5.1+ (ships with Windows).
+- CSS uses custom properties defined in the `:root` block of `theme.css`. The
+  `.streamlit/config.toml` theme values must stay aligned with those CSS variables.
 
 ## Testing
 - Verify Python syntax: `python -m py_compile ephemeral_app.py`
 - Verify PowerShell syntax: `powershell -Command "Get-Content services/*.ps1 | Out-Null"`
 - Verify Markdown renders correctly (no broken links or formatting).
+- There is no automated test suite. Verify changes by reading code for correctness.
 
 ## Do Not
 - Do not introduce Docker, WSL, or Linux dependencies.
-- Do not modify `system_prompt_template.md` or `theme.css` (unless fixing Windows
-  path compatibility).
 - Do not add new Python dependencies beyond what's in requirements.txt.
+- Do not change Ollama model parameters, NSSM service names, or default port numbers.
+- Do not restructure files or rename functions unless the task explicitly requires it.
+- Preserve all existing user-facing message strings unless the task changes their content.
