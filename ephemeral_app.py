@@ -75,7 +75,7 @@ def load_css(path: str = "theme.css") -> None:
     """Load optional CSS overrides to customize Streamlit's default look."""
     css_path = APP_DIR / path
     if css_path.exists():
-        st.markdown(f"<style>{css_path.read_text()}</style>", unsafe_allow_html=True)
+        st.markdown(f"<style>{css_path.read_text(encoding='utf-8')}</style>", unsafe_allow_html=True)
 
 
 load_css()
@@ -842,6 +842,11 @@ with st.sidebar:
     # Friendly status messages for non-technical users.
     if not llm_alive():
         st.error("The AI service is not available right now. Please try again in a moment.")
+    elif _ollama_show() is None or not _ollama_show():
+        st.warning(
+            f"The AI service is running, but the model '{MODEL_NAME}' was not found. "
+            "Check that the model has been created in Ollama."
+        )
     if not tika_alive():
         st.info("Document reading is temporarily unavailable. You can still chat, but uploads may not be readable.")
 
@@ -1277,6 +1282,11 @@ if prompt_in is not None:
                     )
                 elif "connection" in lower or "timed out" in lower or "timeout" in lower:
                     st.error("I couldn't reach the AI service. Please try again in a moment.")
+                elif "not found" in lower or "does not exist" in lower or "unknown model" in lower:
+                    st.error(
+                        f"The AI model '{MODEL_NAME}' was not found. "
+                        "Check that the model has been created in Ollama (see Phase 6 of the deployment guide)."
+                    )
                 else:
                     st.error("Something went wrong while talking to the AI service. Please try again.")
 
