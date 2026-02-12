@@ -61,6 +61,25 @@ if (-not $nssmCommand) {
 }
 Write-Ok "NSSM found: $($nssmCommand.Source)"
 
+Write-Step "Locating Java executable for Tika service..."
+$javaExe = $null
+$javaCommand = Get-Command java -ErrorAction SilentlyContinue
+if ($javaCommand) {
+    $javaExe = $javaCommand.Source
+}
+
+if (-not $javaExe) {
+    Write-Fail "Could not resolve java.exe."
+    Write-Host "Install Java 21+ and ensure java.exe is in PATH, then rerun this script."
+    exit 1
+}
+
+if (-not (Test-Path $javaExe)) {
+    Write-Fail "Resolved Java executable does not exist: $javaExe"
+    exit 1
+}
+Write-Ok "Java found: $javaExe"
+
 Write-Step "Locating Python executable for Streamlit service..."
 $pythonExe = $null
 $pythonCommand = Get-Command python -ErrorAction SilentlyContinue
@@ -99,6 +118,13 @@ if (-not (Test-Path $pythonExe)) {
 }
 Write-Ok "Python found: $pythonExe"
 
+$logDirectory = 'C:\EphemerAl\logs'
+if (-not (Test-Path $logDirectory)) {
+    Write-Step "Creating log directory: $logDirectory"
+    New-Item -Path $logDirectory -ItemType Directory -Force | Out-Null
+}
+Write-Ok "Service logs directory: $logDirectory"
+
 Write-Step "Validating required application files..."
 
 $requiredPaths = @(
@@ -128,8 +154,7 @@ try {
 }
 
 $ollamaEnv = @(
-    'OLLAMA_HOST=0.0.0.0'
-    'OLLAMA_ORIGINS=*'
+    'OLLAMA_HOST=127.0.0.1:11434'
     'OLLAMA_MAX_LOADED_MODELS=1'
     'OLLAMA_FLASH_ATTENTION=1'
     'OLLAMA_KEEP_ALIVE=-1'
@@ -139,9 +164,9 @@ $ollamaEnv = @(
 $tikaEnv = 'JAVA_TOOL_OPTIONS=-Xmx2g -Xms512m'
 
 $appEnv = @(
-    'LLM_BASE_URL=http://localhost:11434/v1'
+    'LLM_BASE_URL=http://127.0.0.1:11434/v1'
     'LLM_MODEL_NAME=gemma3-prod'
-    'TIKA_URL=http://localhost:9998'
+    'TIKA_URL=http://127.0.0.1:9998'
     'TIKA_CLIENT_ONLY=true'
 ) -join "`n"
 
@@ -156,7 +181,7 @@ $services = @(
     @{
         Name = 'TikaService'
         AppPath = $javaExe
-        AppArgs = '-jar C:\Tika\tika-server-standard.jar --host 0.0.0.0 --port 9998'
+        AppArgs = '-jar C:\Tika\tika-server-standard.jar --host 127.0.0.1 --port 9998'
         AppDirectory = 'C:\Tika'
         AppEnvironmentExtra = $tikaEnv
     },
@@ -188,6 +213,16 @@ foreach ($svc in $services) {
     } catch {
         $installResults[$svc.Name] = $false
         Write-Fail "Failed to install $($svc.Name): $($_.Exception.Message)"
+    }
+}
+
+if ($installResults['EphemerAlApp']) {
+    Write-Step "Configuring EphemerAlApp service dependency order (OllamaService, TikaService)..."
+    $dependencyOutput = & sc.exe config EphemerAlApp depend= OllamaService/TikaService
+    if ($LASTEXITCODE -eq 0) {
+        Write-Ok "EphemerAlApp dependency order configured successfully."
+    } else {
+        Write-Fail "Failed to set EphemerAlApp dependencies. sc.exe output: $dependencyOutput"
     }
 }
 

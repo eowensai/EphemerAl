@@ -1,7 +1,7 @@
 import os
 import base64
 import hashlib
-import pathlib
+from pathlib import Path
 import re
 import string
 import time
@@ -18,6 +18,9 @@ import pytz
 
 # Keep the Tika Python client in remote-client mode by default to avoid local JAR startup/download surprises.
 os.environ.setdefault("TIKA_CLIENT_ONLY", "true")
+
+APP_DIR = Path(__file__).resolve().parent
+STATIC_DIR = APP_DIR / "static"
 
 from tika import parser
 from openai import OpenAI
@@ -70,7 +73,7 @@ st.markdown(
 
 def load_css(path: str = "theme.css") -> None:
     """Load optional CSS overrides to customize Streamlit's default look."""
-    css_path = pathlib.Path(__file__).parent / path
+    css_path = APP_DIR / path
     if css_path.exists():
         st.markdown(f"<style>{css_path.read_text()}</style>", unsafe_allow_html=True)
 
@@ -82,14 +85,16 @@ try:
     from streamlit_browser_engine import device  # type: ignore
 
     HAS_DEVICE_DETECTION = True
-except ImportError:
+except Exception as e:
     HAS_DEVICE_DETECTION = False
     device = None  # type: ignore
+    if DEBUG_MODE:
+        logging.debug("Optional streamlit_browser_engine device detection disabled: %s", e, exc_info=True)
 
 # ── Backend configuration ─────────────────────────────────────────
-LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://localhost:11434/v1")
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://127.0.0.1:11434/v1")
 MODEL_NAME = os.getenv("LLM_MODEL_NAME", "gemma3-prod")
-TIKA_URL = os.getenv("TIKA_URL", "http://localhost:9998")
+TIKA_URL = os.getenv("TIKA_URL", "http://127.0.0.1:9998")
 TIKA_TIMEOUT_S = int(os.getenv("TIKA_TIMEOUT_S", "15"))
 DEFAULT_UPLOAD_PROMPT = os.getenv("DEFAULT_UPLOAD_PROMPT", "Please analyze the uploaded files.")
 LLM_SUPPORTS_VISION = os.getenv("LLM_SUPPORTS_VISION")
@@ -180,7 +185,7 @@ def timestamp_local() -> str:
     return now.strftime(fmt)
 
 
-tmpl_path = pathlib.Path(__file__).parent / "system_prompt_template.md"
+tmpl_path = APP_DIR / "system_prompt_template.md"
 if tmpl_path.exists():
     SYSTEM_TMPL = string.Template(tmpl_path.read_text(encoding="utf-8"))
 else:
@@ -828,7 +833,7 @@ st.session_state.setdefault("_vision_supported", None)
 # ── Sidebar ───────────────────────────────────────────────────────
 with st.sidebar:
     try:
-        logo_path = pathlib.Path("static/ephemeral_logo.png")
+        logo_path = STATIC_DIR / "ephemeral_logo.png"
         if logo_path.exists():
             st.image(str(logo_path), use_container_width=True)
     except Exception:
@@ -868,8 +873,8 @@ with st.sidebar:
 
 # ── Welcome banner ────────────────────────────────────────────────
 if st.session_state.show_welcome:
-    wordmark_png = pathlib.Path("static/ephemeral_wordmark.png")
-    wordmark_svg = pathlib.Path("static/ephemeral_wordmark.svg")
+    wordmark_png = STATIC_DIR / "ephemeral_wordmark.png"
+    wordmark_svg = STATIC_DIR / "ephemeral_wordmark.svg"
     wordmark_path = wordmark_png if wordmark_png.exists() else (wordmark_svg if wordmark_svg.exists() else None)
 
     if wordmark_path:

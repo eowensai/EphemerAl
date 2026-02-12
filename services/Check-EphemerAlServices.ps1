@@ -3,9 +3,9 @@ $ErrorActionPreference = 'Continue'
 
 $services = @('OllamaService', 'TikaService', 'EphemerAlApp')
 $endpoints = @(
-    @{ Name = 'Ollama'; Url = 'http://localhost:11434' },
-    @{ Name = 'Tika'; Url = 'http://localhost:9998' },
-    @{ Name = 'EphemerAl'; Url = 'http://localhost:8501' }
+    @{ Name = 'Ollama'; Url = 'http://127.0.0.1:11434' },
+    @{ Name = 'Tika'; Url = 'http://127.0.0.1:9998' },
+    @{ Name = 'EphemerAl'; Url = 'http://127.0.0.1:8501' }
 )
 
 function Write-Step {
@@ -50,4 +50,36 @@ foreach ($ep in $endpoints) {
     } catch {
         Write-Fail "$($ep.Name) endpoint check failed: $($ep.Url) - $($_.Exception.Message)"
     }
+}
+
+Write-Host ''
+Write-Step 'Streamlit listener check (port 8501):'
+try {
+    $streamlitListeners = Get-NetTCPConnection -State Listen -LocalPort 8501 -ErrorAction Stop |
+        Select-Object LocalAddress, LocalPort, OwningProcess |
+        Sort-Object LocalAddress -Unique
+
+    if ($streamlitListeners) {
+        foreach ($listener in $streamlitListeners) {
+            $proc = Get-Process -Id $listener.OwningProcess -ErrorAction SilentlyContinue
+            $procName = if ($proc) { $proc.ProcessName } else { 'unknown' }
+            Write-Ok "Listening on $($listener.LocalAddress):$($listener.LocalPort) (PID $($listener.OwningProcess), Process $procName)"
+        }
+
+        $hasLocalOnly = $streamlitListeners | Where-Object { $_.LocalAddress -eq '127.0.0.1' -or $_.LocalAddress -eq '::1' }
+        $hasNetworkBind = $streamlitListeners | Where-Object { $_.LocalAddress -eq '0.0.0.0' -or $_.LocalAddress -eq '::' }
+
+        if ($hasLocalOnly -and -not $hasNetworkBind) {
+            Write-Fail 'Streamlit appears to be bound only to localhost. Remote access will fail even if firewall rules are open.'
+            Write-Host 'To fix, reinstall services so EphemerAlApp uses --server.address=0.0.0.0 or set address="0.0.0.0" in C:\EphemerAl\.streamlit\config.toml.'
+        } else {
+            Write-Ok 'Streamlit is listening on a network-accessible address.'
+        }
+    } else {
+        Write-Fail 'No process is listening on TCP port 8501.'
+    }
+} catch {
+    Write-Fail "Could not query listeners with Get-NetTCPConnection: $($_.Exception.Message)"
+    Write-Host 'Fallback check command:'
+    Write-Host '  netstat -ano | findstr :8501'
 }

@@ -11,12 +11,14 @@ For full, step-by-step deployment instructions, use the root [`System Deployment
     - `TikaService`
     - `EphemerAlApp`
   - Sets each service to automatic startup.
+  - Configures `EphemerAlApp` to depend on `OllamaService` and `TikaService`.
   - Starts each service and prints status.
 - `Uninstall-EphemerAlServices.ps1`
   - Stops and removes the three NSSM services.
 - `Check-EphemerAlServices.ps1`
   - Reports Windows service status.
   - Runs HTTP reachability checks for local endpoints.
+  - Reports Streamlit listening address/port guidance for remote access troubleshooting.
 
 ## Default paths and how to customize
 
@@ -54,9 +56,30 @@ Set it to your target local model (for example `LLM_MODEL_NAME=gemma3:12b`).
 
 Update the Tika JAR name/path in `TikaService` `AppArgs`, for example:
 
-- `-jar C:\Tika\tika-server-standard.jar --host 0.0.0.0 --port 9998`
+- `-jar C:\Tika\tika-server-standard.jar --host 127.0.0.1 --port 9998`
 
 If you install a different Tika release filename, point `-jar` to that exact file.
+
+## Default network binding behavior (security)
+
+By default, `Install-EphemerAlServices.ps1` configures:
+
+- `OllamaService` with `OLLAMA_HOST=127.0.0.1:11434` (localhost only)
+- `TikaService` with `--host 127.0.0.1 --port 9998` (localhost only)
+- `EphemerAlApp` with Streamlit arguments: `--server.port=8501 --server.address=0.0.0.0 --server.headless=true`
+
+This means:
+
+- Users can access the Streamlit UI from the LAN on port `8501` when firewall rules allow it.
+- Ollama and Tika APIs are not exposed on the LAN unless you intentionally reconfigure them.
+
+### Intentionally expose Ollama or Tika on LAN (advanced)
+
+Only do this if you fully trust your network and understand the risk.
+
+- For Ollama, change `OLLAMA_HOST` in `$ollamaEnv` (for example `0.0.0.0:11434`) and reinstall services.
+- For Tika, change `--host 127.0.0.1` to `--host 0.0.0.0` in `TikaService` `AppArgs` and reinstall services.
+- Keep firewall rules restricted (for example `-Profile Domain,Private`) and open only required ports.
 
 ## NSSM log output defaults
 
@@ -84,9 +107,9 @@ nssm get EphemerAlApp AppEnvironmentExtra
 
 ```powershell
 $envLines = @(
-  'LLM_BASE_URL=http://localhost:11434/v1'
+  'LLM_BASE_URL=http://127.0.0.1:11434/v1'
   'LLM_MODEL_NAME=gemma3-prod'
-  'TIKA_URL=http://localhost:9998'
+  'TIKA_URL=http://127.0.0.1:9998'
   'TIKA_CLIENT_ONLY=true'
   'EPHEMERAL_TIMEZONE=America/Chicago'
   'EPHEMERAL_DEBUG=1'
@@ -103,9 +126,9 @@ You can also update the `$appEnv` block in `Install-EphemerAlServices.ps1` and r
 
 | Variable | Description | Default |
 |---|---|---|
-| `LLM_BASE_URL` | Base URL for OpenAI-compatible Ollama endpoint used by the app. | `http://localhost:11434/v1` |
+| `LLM_BASE_URL` | Base URL for OpenAI-compatible Ollama endpoint used by the app. | `http://127.0.0.1:11434/v1` |
 | `LLM_MODEL_NAME` | Model name sent in chat requests. | `gemma3-prod` |
-| `TIKA_URL` | Apache Tika server endpoint for document parsing. | `http://localhost:9998` |
+| `TIKA_URL` | Apache Tika server endpoint for document parsing. | `http://127.0.0.1:9998` |
 | `TIKA_TIMEOUT_S` | Timeout (seconds) for Tika parsing requests. | `15` |
 | `TIKA_CLIENT_ONLY` | When true, the Tika Python client skips local JAR startup and uses remote server mode only. | `true` (app default; service script also sets `true`) |
 | `DEFAULT_UPLOAD_PROMPT` | Prompt inserted when files are uploaded without text input. | `Please analyze the uploaded files.` |

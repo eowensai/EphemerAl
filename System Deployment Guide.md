@@ -113,16 +113,16 @@ Copy-Item C:\Tika\tika-server-standard-3.2.3.jar C:\Tika\tika-server-standard.ja
 4. **Verify Tika runs**
 
 ```powershell
-java -jar C:\Tika\tika-server-standard-3.2.3.jar --port 9998
+java -jar C:\Tika\tika-server-standard-3.2.3.jar --host 127.0.0.1 --port 9998
 ```
 
-- Open `http://localhost:9998/` in your browser.
+- Open `http://127.0.0.1:9998/` in your browser.
 - Press `Ctrl + C` in PowerShell to stop.
 
 > **Tip:** If you want to test the generic filename used by the service script, use this command instead:
 >
 > ```powershell
-> java -jar C:\Tika\tika-server-standard.jar --port 9998
+> java -jar C:\Tika\tika-server-standard.jar --host 127.0.0.1 --port 9998
 > ```
 
 ---
@@ -153,7 +153,15 @@ python -m pip install -r requirements.txt
 
 3. **Verify the app runs**
 
-Before launching Streamlit manually, set this environment variable in the same PowerShell window so the Python Tika client uses your existing Tika service only:
+Before launching Streamlit manually, you can set this environment variable in the same PowerShell window:
+
+```powershell
+$env:TIKA_CLIENT_ONLY="true"
+```
+
+This is a safety step for clarity. The app already defaults to client-only mode, so this command is optional.
+
+Now start Streamlit:
 
 ```powershell
 python -m streamlit run ephemeral_app.py
@@ -162,6 +170,12 @@ python -m streamlit run ephemeral_app.py
 - Open `http://localhost:8501`.
 - Confirm the interface loads.
 - Press `Ctrl + C` to stop.
+
+> **Important:** If Ollama and Tika are not running yet, the Streamlit page still opens, but you will see sidebar warnings and document uploads will not parse.
+>
+> **Full functional smoke test (recommended):**
+> - Option 1: In two separate PowerShell windows, run `C:\Ollama\ollama.exe serve` and `java -jar C:\Tika\tika-server-standard.jar --host 127.0.0.1 --port 9998` while you test Streamlit.
+> - Option 2: Install services in Phase 5 first, then run this Streamlit test after `Check-EphemerAlServices.ps1` shows all services healthy.
 
 ---
 
@@ -184,13 +198,27 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
 
 > This only applies to the current PowerShell window and resets when you close it.
 
-3. **Run the install script**
+3. **If you used "Download ZIP", unblock the scripts**
+
+Windows may mark downloaded scripts as blocked. Unblock them before running:
+
+```powershell
+Unblock-File -Path C:\EphemerAl\services\*.ps1
+```
+
+Optional (unblocks all files in the repo):
+
+```powershell
+Get-ChildItem C:\EphemerAl -Recurse -File | Unblock-File
+```
+
+4. **Run the install script**
 
 ```powershell
 C:\EphemerAl\services\Install-EphemerAlServices.ps1
 ```
 
-4. **Verify service health**
+5. **Verify service health**
 
 ```powershell
 C:\EphemerAl\services\Check-EphemerAlServices.ps1
@@ -367,14 +395,14 @@ nssm restart OllamaService
 Open PowerShell as Administrator and run:
 
 ```powershell
-New-NetFirewallRule -DisplayName "EphemerAl Port 8501" -Direction Inbound -Protocol TCP -LocalPort 8501 -Action Allow
+New-NetFirewallRule -DisplayName "EphemerAl Port 8501" -Direction Inbound -Protocol TCP -LocalPort 8501 -Profile Domain,Private -Action Allow
 ```
 
 2. **Access the app over the network**
 
-Since services run natively on Windows, the application is directly accessible using the machine's IP address. No additional forwarding configuration is required.
+Since services run natively on Windows, the application is directly accessible using the machine's IP address when Streamlit is listening on `0.0.0.0`.
 
-> **Security note:** The service script binds Ollama (`11434`) and Tika (`9998`) to `0.0.0.0` for local service compatibility. Keep Windows Firewall enabled and do not open those ports unless you intentionally need remote API access.
+> **Security note (default-safe):** The service script keeps Ollama (`11434`) and Tika (`9998`) bound to `127.0.0.1` by default so they are not exposed to the LAN. Do not expose those APIs unless you intentionally need remote access.
 
 Find the machine IP:
 
@@ -387,6 +415,20 @@ Open from another device on the same network:
 ```text
 http://<YOUR_IP_ADDRESS>:8501
 ```
+
+3. **Remote access troubleshooting (if another device cannot connect)**
+
+Opening a firewall rule is not enough if Streamlit is bound only to localhost.
+
+```powershell
+Get-NetTCPConnection -State Listen -LocalPort 8501 | Select-Object LocalAddress, LocalPort, OwningProcess
+```
+
+- If `LocalAddress` is `0.0.0.0` (or `::`), Streamlit is listening for network traffic.
+- If `LocalAddress` is only `127.0.0.1` (or `::1`), remote access will fail.
+  - Re-run `C:\EphemerAl\services\Install-EphemerAlServices.ps1` to reset service settings.
+  - Confirm `EphemerAlApp` includes `--server.address=0.0.0.0`.
+  - Confirm `.streamlit\config.toml` has `address = "0.0.0.0"`.
 
 ---
 
