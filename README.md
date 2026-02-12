@@ -24,6 +24,7 @@ EphemerAl is designed to minimize data retention:
 
 - **No database:** Conversations live in Streamlit process memory (`st.session_state`) for your browser session and are not persisted to disk by this app.
 - **Session-scoped caching:** Document parsing results are cached per-session for performance, but cleared when you start a new conversation or close your browser.
+- **Service log files:** Windows services write operational logs to `C:\EphemerAl\logs\` for startup diagnostics and error messages. These logs are not designed to capture conversation content, but administrators can review and clear them periodically for data hygiene.
 
 Note that browser caching behavior depends on your browser settings and cache-control headers. For maximum privacy on shared machines, use private/incognito browsing or clear browser data after use.
 
