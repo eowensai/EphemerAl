@@ -14,6 +14,8 @@ This guide walks you through a full native Windows deployment of EphemerAl. You 
 * **Mid Range:** NVIDIA RTX 5060 Ti (16GB)
 * **Value King:** NVIDIA RTX 3090 (24GB)
 * **Max Performance:** NVIDIA RTX 5090 (32GB) **OR** Multiple NVIDIA 30-series GPU or newer adding to 24+ GB
+* **System RAM:** 16 GB minimum, 32 GB recommended. Windows, Ollama, Apache Tika (Java), and the Streamlit app share system memory.
+* **Disk Space:** At least 30 GB free for models, application files, and dependencies. Model files are roughly 8 GB for a 12B variant and 17 GB for a 27B variant.
 
 ---
 
@@ -145,11 +147,15 @@ git clone https://github.com/eowensai/EphemerAl.git C:\EphemerAl
 
 2. **Install Python dependencies**
 
+Open PowerShell **as Administrator** for this step so packages install into the system-wide Python, not per-user:
+
 ```powershell
 Set-Location C:\EphemerAl
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
+
+> **Tip:** If you installed Python "for all users" in Phase 1, an admin shell ensures pip writes to `C:\Program Files\Python3xx\Lib\site-packages\` where the Windows services can find them.
 
 3. **Verify the app runs**
 
@@ -187,6 +193,8 @@ In this phase, you will install three services:
 - `EphemerAlApp`
 
 These start automatically at boot and run even when no user is signed in.
+
+> **Important:** If you have not completed Phase 6 yet, the services will start successfully but chat will not work because the AI model (`gemma3-prod`) has not been created. This is expected. Complete Phase 6 and then restart `OllamaService` to enable chat.
 
 1. **Open PowerShell as Administrator**
 
@@ -398,6 +406,8 @@ Open PowerShell as Administrator and run:
 New-NetFirewallRule -DisplayName "EphemerAl Port 8501" -Direction Inbound -Protocol TCP -LocalPort 8501 -Profile Domain,Private -Action Allow
 ```
 
+> **Note:** This rule applies to **Domain** and **Private** network profiles only. If your network is classified as **Public** (common on first connection), remote devices will not be able to reach port 8501. Check your profile with `Get-NetConnectionProfile` and change it if needed with `Set-NetConnectionProfile -InterfaceAlias "Ethernet" -NetworkCategory Private`. Replace `Ethernet` with the `InterfaceAlias` value shown by `Get-NetConnectionProfile` (commonly `Wi-Fi` on laptops).
+
 2. **Access the app over the network**
 
 Since services run natively on Windows, the application is directly accessible using the machine's IP address when Streamlit is listening on `0.0.0.0`.
@@ -409,6 +419,8 @@ Find the machine IP:
 ```powershell
 ipconfig
 ```
+
+> **Important:** If this machine gets its address from DHCP, the IP can change after a reboot or lease renewal. To keep the address stable, configure a static IP on the machine or create a DHCP reservation on the router for this machine's MAC address. Ask your network administrator if you are unsure which option to use.
 
 Open from another device on the same network:
 
@@ -426,9 +438,7 @@ Get-NetTCPConnection -State Listen -LocalPort 8501 | Select-Object LocalAddress,
 
 - If `LocalAddress` is `0.0.0.0` (or `::`), Streamlit is listening for network traffic.
 - If `LocalAddress` is only `127.0.0.1` (or `::1`), remote access will fail.
-  - Re-run `C:\EphemerAl\services\Install-EphemerAlServices.ps1` to reset service settings.
-  - Confirm `EphemerAlApp` includes `--server.address=0.0.0.0`.
-  - Confirm `.streamlit\config.toml` has `address = "0.0.0.0"`.
+  - Confirm the `EphemerAlApp` service arguments include `--server.address=0.0.0.0` (re-run `C:\EphemerAl\services\Install-EphemerAlServices.ps1` to reset service settings if needed).
 
 ---
 
@@ -500,26 +510,28 @@ C:\EphemerAl\services\Uninstall-EphemerAlServices.ps1
 
 ---
 
-## ✅ Success Checklist
+## ✅ Functional Smoke Test Checklist
 
-1. Reboot the machine.
-2. Wait 30-60 seconds after startup.
-3. Verify all services are running:
+1. Reboot the machine, then wait 60 seconds after startup.
+2. Verify all three services are running:
 
 ```powershell
 Get-Service OllamaService, TikaService, EphemerAlApp
 ```
 
-4. Find the machine IP:
+3. On the server, open `http://localhost:8501` in a browser and confirm the welcome screen loads.
+4. Send a simple message such as `Hello` and confirm you receive an AI response.
+5. Upload a small PDF or Word document, ask the AI to summarize it, and confirm parsing succeeds and the response references document content.
+6. Upload an image (for example, a photo), ask the AI to describe it, and confirm the image description is returned.
+7. Click **New Conversation** in the sidebar and confirm the previous conversation is cleared.
+8. From a different device on the same network, verify network access and chat:
 
 ```powershell
 ipconfig
 ```
 
-5. From another device on the same network, open:
-
 ```text
 http://<YOUR_IP_ADDRESS>:8501
 ```
 
-If the page loads and chat works, deployment is complete.
+Confirm the interface loads and chat works from that second device.
