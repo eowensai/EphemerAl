@@ -238,6 +238,14 @@ C:\EphemerAl\services\Check-EphemerAlServices.ps1
 
 Choose **one** path based on available VRAM.
 
+Before running any `ollama pull` or `ollama create` command in this phase, set the model directory for the current PowerShell session so manual model management matches the Windows service configuration:
+
+```powershell
+$env:OLLAMA_MODELS='C:\Ollama\models'
+```
+
+> **Why this matters:** The service installer configures `OllamaService` to use `C:\Ollama\models`. Setting this variable first prevents a common first-run issue where models are downloaded to a different default folder and then appear missing after service restart.
+
 ### Path A: Standard (GPU VRAM = 12GB+)
 *Best for RTX 3060, 4060 Ti, 5060 Ti, 3090, 4090.*
 
