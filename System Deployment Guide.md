@@ -27,21 +27,21 @@ Complete all items in this phase before moving on.
    - Make sure the machine is running **Windows 11, version 21H2 or newer**.
 
 2. **Install the latest NVIDIA GPU driver**
-   - Go to [NVIDIA Driver Downloads](https://www.nvidia.com/Download/index.aspx).
+   - Go to <a href="https://www.nvidia.com/Download/index.aspx" target="_blank" rel="noopener noreferrer">NVIDIA Driver Downloads</a>.
    - Install the newest production driver for your GPU model.
    - Reboot if prompted.
 
 3. **Install Python 3.11+ (all users)**
-   - Download from [python.org downloads](https://www.python.org/downloads/windows/).
+   - Download from <a href="https://www.python.org/downloads/windows/" target="_blank" rel="noopener noreferrer">python.org downloads</a>.
    - During install, check **"Add Python to PATH"** and choose **"Install for all users"**.
    - In Windows Settings, disable the Microsoft Store **App execution aliases** for `python.exe` and `python3.exe` if they are enabled.
 
 4. **Install Java 21+ (Temurin recommended)**
-   - Download from [Adoptium Temurin Releases](https://adoptium.net/temurin/releases/).
+   - Download from <a href="https://adoptium.net/temurin/releases/" target="_blank" rel="noopener noreferrer">Adoptium Temurin Releases</a>.
    - Install a **JDK 21 or newer** build for Windows.
 
 5. **Install NSSM (service manager)**
-   - Download **pre-release 2.24-101 (Windows 10+)** from [nssm.cc downloads](https://nssm.cc/download).
+   - Download **pre-release 2.24-101 (Windows 10+)** from <a href="https://nssm.cc/download" target="_blank" rel="noopener noreferrer">nssm.cc downloads</a>.
    - Extract `nssm.exe` to `C:\NSSM\nssm.exe`.
    - Add `C:\NSSM\` to the **System PATH**:
      - Start Menu → search **"Environment Variables"**.
@@ -66,7 +66,7 @@ nssm version
 ## Phase 2: Install Ollama
 
 1. **Download standalone Ollama ZIP**
-   - Open [Ollama GitHub Releases](https://github.com/ollama/ollama/releases).
+   - Open <a href="https://github.com/ollama/ollama/releases" target="_blank" rel="noopener noreferrer">Ollama GitHub Releases</a>.
    - Download the latest `ollama-windows-amd64.zip` asset.
    - Do **not** use the setup installer for this deployment.
 
@@ -102,7 +102,7 @@ New-Item -ItemType Directory -Force -Path C:\Tika
 ```
 
 2. **Download Tika server JAR**
-   - Open [Apache Tika Downloads](https://tika.apache.org/download.html).
+   - Open <a href="https://tika.apache.org/download.html" target="_blank" rel="noopener noreferrer">Apache Tika Downloads</a>.
    - Download `tika-server-standard-3.2.3.jar`.
    - Place it in `C:\Tika\`.
 
@@ -494,7 +494,7 @@ If a path is returned, open that file to review startup errors.
   - If command fails, reinstall Java 21+ and verify PATH.
 
 - **Ollama GPU not detected**
-  - Update the NVIDIA driver from [nvidia.com](https://www.nvidia.com/Download/index.aspx).
+  - Update the NVIDIA driver from <a href="https://www.nvidia.com/Download/index.aspx" target="_blank" rel="noopener noreferrer">nvidia.com</a>.
   - Re-test with `C:\Ollama\ollama serve`.
 
 - **Port already in use (8501, 9998, or 11434)**
