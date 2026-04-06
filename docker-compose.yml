@@ -18,7 +18,7 @@ services:
   ollama:
     # Pinned for compatibility with qwen3.5 tags. Last validated: April 2026.
     # Check https://github.com/ollama/ollama/releases before upgrading.
-    # NOTE: ollama/ollama#14716 (vision+thinking) is still open as of 0.20.2.
+    # NOTE: ollama/ollama#14716 (vision+thinking) is fixed; workaround retained as defense-in-depth.
     image: ollama/ollama:0.20.2
     container_name: ollama
     restart: unless-stopped

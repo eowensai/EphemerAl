@@ -988,7 +988,7 @@ if prompt_in is not None:
     else:
         # Conservative fallback matching the recommended Modelfile num_ctx.
         # Avoids overstuffing if /api/show is unreachable.
-        max_ctx = 32768
+        max_ctx = int(32768 * 0.95)
         warn_ctx = int(max_ctx * 0.85)
 
     image_token_cost = get_image_token_cost() if vision_supported else 0
@@ -1244,7 +1244,7 @@ if prompt_in is not None:
                     if getattr(chunk, "choices", None):
                         delta = chunk.choices[0].delta.content
                         if not delta:
-                            # Workaround for Ollama vision+thinking bug (ollama/ollama#14716, still open).
+                            # Workaround for Ollama vision+thinking bug (ollama/ollama#14716, fixed; workaround retained as defense-in-depth).
                             # Through the OpenAI-compatible API, Ollama maps thinking output
                             # to a non-standard `reasoning` field on the delta.
                             delta = getattr(chunk.choices[0].delta, "reasoning", None)
