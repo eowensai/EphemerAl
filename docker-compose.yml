@@ -86,6 +86,8 @@ services:
     environment:
       - LLM_BASE_URL=http://ollama:11434/v1
       - LLM_MODEL_NAME=qwen3.5:35b-a3b     # CUSTOMIZE: Use an explicit Ollama model tag or your own local alias
+                                            # NOTE: Direct qwen3.5 tags enable thinking mode and may emit <think> blocks.
+                                            #       Recommended: create/use an alias (for example ephemeral-default) with /no_think in the Modelfile SYSTEM line.
       - TIKA_URL=http://tika-server:9998
       - TIKA_CLIENT_ONLY=true
       - STREAMLIT_SERVER_HEADLESS=true

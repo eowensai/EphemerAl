@@ -137,6 +137,7 @@ PARAMETER num_ctx 32768
 PARAMETER num_gpu 99
 PARAMETER temperature 0.7
 PARAMETER top_p 0.9
+SYSTEM "You are a helpful assistant. /no_think"
 EOF_MODEL
 ollama create ephemeral-default -f Modelfile
 exit
@@ -190,6 +191,7 @@ PARAMETER num_ctx 32768
 PARAMETER num_gpu 99
 PARAMETER temperature 0.7
 PARAMETER top_p 0.9
+SYSTEM "You are a helpful assistant. /no_think"
 EOF_MODEL
 ollama create ephemeral-default -f Modelfile
 exit
