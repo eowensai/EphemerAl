@@ -58,8 +58,8 @@ The app performs model capability/context detection at runtime via Ollama (`/api
 
 Qwen 3.5 35B is substantially heavier than small local models.
 
-- **Minimum practical GPU setup:** 24 GB+ total VRAM (single or multi-GPU), with reduced context if needed.
-- **Preferred for smoother latency and longer context:** 32 GB+ total VRAM.
+- **Recommended:** 32 GB+ total VRAM.
+- **Works for many users:** 24 GB total VRAM (usually with lower context).
 - **CPU-only fallback:** technically possible in some setups but usually too slow for interactive use.
 
 If this model is too heavy for your machine, use a smaller Ollama model tag in `LLM_MODEL_NAME`.
