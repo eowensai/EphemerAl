@@ -1229,12 +1229,42 @@ if prompt_in is not None:
                 acc = ""
                 box = st.empty()
                 used_usage_from_backend = False
+                in_think_block = False
+                stream_parse_buffer = ""
+                think_open_tag = "<think>"
+                think_close_tag = "</think>"
+                open_tag_tail_len = len(think_open_tag) - 1
+                close_tag_tail_len = len(think_close_tag) - 1
 
                 for chunk in stream:
                     if getattr(chunk, "choices", None):
                         delta = chunk.choices[0].delta.content
                         if delta:
-                            acc += delta
+                            stream_parse_buffer += delta
+
+                            while stream_parse_buffer:
+                                if in_think_block:
+                                    close_idx = stream_parse_buffer.find(think_close_tag)
+                                    if close_idx == -1:
+                                        if len(stream_parse_buffer) > close_tag_tail_len:
+                                            stream_parse_buffer = stream_parse_buffer[-close_tag_tail_len:]
+                                        break
+
+                                    stream_parse_buffer = stream_parse_buffer[close_idx + len(think_close_tag) :]
+                                    in_think_block = False
+                                    continue
+
+                                open_idx = stream_parse_buffer.find(think_open_tag)
+                                if open_idx == -1:
+                                    if len(stream_parse_buffer) > open_tag_tail_len:
+                                        acc += stream_parse_buffer[:-open_tag_tail_len]
+                                        stream_parse_buffer = stream_parse_buffer[-open_tag_tail_len:]
+                                    break
+
+                                acc += stream_parse_buffer[:open_idx]
+                                stream_parse_buffer = stream_parse_buffer[open_idx + len(think_open_tag) :]
+                                in_think_block = True
+
                             box.markdown(acc + "▌")
 
                     usage = getattr(chunk, "usage", None)
@@ -1242,6 +1272,10 @@ if prompt_in is not None:
                         st.session_state.last_token_count = int(usage.total_tokens)
                         used_usage_from_backend = True
 
+                if not in_think_block and stream_parse_buffer:
+                    acc += stream_parse_buffer
+
+                acc = re.sub(r"<think>.*?</think>\s*", "", acc, flags=re.DOTALL)
                 box.markdown(acc)
 
                 # If backend didn't provide usage totals, keep hybrid behavior with a fast estimate.
