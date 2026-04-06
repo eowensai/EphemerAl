@@ -984,7 +984,9 @@ if prompt_in is not None:
         max_ctx = int(model_ctx * 0.95)
         warn_ctx = int(model_ctx * 0.85)
     else:
-        max_ctx = 128000
+        # Conservative fallback matching the recommended Modelfile num_ctx.
+        # Avoids overstuffing if /api/show is unreachable.
+        max_ctx = 32768
         warn_ctx = int(max_ctx * 0.85)
 
     image_token_cost = get_image_token_cost() if vision_supported else 0

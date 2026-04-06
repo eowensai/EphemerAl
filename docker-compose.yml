@@ -16,6 +16,9 @@ services:
   # Large-language-model back-end (Ollama)
   # --------------------------------------------------------------------------
   ollama:
+    # Pinned for compatibility with qwen3.5 tags. Last validated: April 2026.
+    # Check https://github.com/ollama/ollama/releases before upgrading,
+    # especially for vision+thinking fixes (see ollama/ollama#14716).
     image: ollama/ollama:0.20.2
     container_name: ollama
     restart: unless-stopped
@@ -31,6 +34,7 @@ services:
       - OLLAMA_HOST=0.0.0.0
       - OLLAMA_ORIGINS=*
       - OLLAMA_MAX_LOADED_MODELS=1
+      # Carried over from Gemma setup; may not benefit Qwen3.5 MoE inference.
       - OLLAMA_FORCE_CUBLAS_LT=1
       - OLLAMA_KEEP_ALIVE=-1
       - OLLAMA_FLASH_ATTENTION=1
