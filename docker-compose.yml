@@ -7,7 +7,7 @@
 #   • ephemeral-app — Streamlit front-end website
 #
 # CUSTOMIZE comments below flag the lines that most people tweak:
-#   • LLM model name (12b vs 27b)
+#   • LLM model name tag (for example qwen3.5:35b-a3b)
 #   • Service / container names if you prefer different labels
 ###############################################################################
 
@@ -16,7 +16,7 @@ services:
   # Large-language-model back-end (Ollama)
   # --------------------------------------------------------------------------
   ollama:
-    image: ollama/ollama:0.13.5
+    image: ollama/ollama:0.20.2
     container_name: ollama
     restart: unless-stopped
     networks: [llm-net]
@@ -85,7 +85,7 @@ services:
 
     environment:
       - LLM_BASE_URL=http://ollama:11434/v1
-      - LLM_MODEL_NAME=gemma3-prod         # CUSTOMIZE: Matches the generic name created in deployment guide
+      - LLM_MODEL_NAME=qwen3.5:35b-a3b     # CUSTOMIZE: Use an explicit Ollama model tag or your own local alias
       - TIKA_URL=http://tika-server:9998
       - TIKA_CLIENT_ONLY=true
       - STREAMLIT_SERVER_HEADLESS=true
