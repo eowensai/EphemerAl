@@ -1243,6 +1243,11 @@ if prompt_in is not None:
                 for chunk in stream:
                     if getattr(chunk, "choices", None):
                         delta = chunk.choices[0].delta.content
+                        if not delta:
+                            # Workaround for Ollama vision+thinking bug (ollama/ollama#14716, still open).
+                            # Through the OpenAI-compatible API, Ollama maps thinking output
+                            # to a non-standard `reasoning` field on the delta.
+                            delta = getattr(chunk.choices[0].delta, "reasoning", None)
                         if delta:
                             stream_parse_buffer += delta
 
