@@ -1281,8 +1281,14 @@ if prompt_in is not None:
                         st.session_state.last_token_count = int(usage.total_tokens)
                         used_usage_from_backend = True
 
-                if not in_think_block and stream_parse_buffer:
-                    acc += stream_parse_buffer
+                if in_think_block and DEBUG_MODE:
+                    logging.debug("Unclosed <think> block detected at end of stream.")
+
+                if stream_parse_buffer:
+                    if not in_think_block:
+                        acc += stream_parse_buffer
+                    elif not acc.strip():
+                        acc += stream_parse_buffer
 
                 acc = re.sub(r"<think>.*?</think>\s*", "", acc, flags=re.DOTALL)
                 box.markdown(acc)
