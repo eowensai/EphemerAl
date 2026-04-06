@@ -179,6 +179,8 @@ def timestamp_local() -> str:
 
 tmpl_path = pathlib.Path(__file__).parent / "system_prompt_template.md"
 if tmpl_path.exists():
+    # Keep `/no_think` in the template itself so the app-sent system prompt
+    # always carries it; the streaming think-block filter is only a backup.
     SYSTEM_TMPL = string.Template(tmpl_path.read_text(encoding="utf-8"))
 else:
     SYSTEM_TMPL = string.Template(
