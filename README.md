@@ -101,12 +101,14 @@ If your current stack still points at `gemma3-prod` (or another Gemma tag), use 
 
 Execute the following in an Administrator PowerShell window:
 
+To restart, either run `wsl` or reboot the system if you have the startup script installed.
+
 ## Support
 
-This project is shared as-is for local/private AI use cases.
+This project is provided as a resource for the community as-is. I hope it solves a problem or provides value outside my environment.
 
-If you run into issues, gather logs and screenshots and verify model availability in Ollama first.
+If you run into issues, consider submitting error details, including screenshots and system files, to an AI assistant for guidance. This isn't meant to be snark, it's amazing how well the big reasoning models can troubleshoot.
 
-## License
+**License:**
 
-MIT (for the parts of this repository authored by the project owner).
+MIT - (At least the parts of this stack that are mine to license)
