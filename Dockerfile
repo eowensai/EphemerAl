@@ -14,7 +14,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # --- Application code --------------------------------------------
 COPY . .
 # --- Streamlit config --------------------------------------------
-RUN mkdir -p .streamlit && cat > .streamlit/config.toml <<'EOF'
+RUN mkdir -p .streamlit && \
+    { cat <<'EOF_SERVER'
 [server]
 headless = true
 enableCORS = false
@@ -27,9 +28,9 @@ serverAddress     = "0.0.0.0"
 serverPort        = 8501
 gatherUsageStats  = false
 
-[theme]
-base = "light"
-EOF
+EOF_SERVER
+    cat .streamlit/config.toml; } > .streamlit/config.toml.merged && \
+    mv .streamlit/config.toml.merged .streamlit/config.toml
 
 EXPOSE 8501
 
