@@ -88,7 +88,7 @@ We will now install the software that manages the AI applications.
 
 3.  Install required utilities and enable auto-updates:
 ```bash
-    sudo apt install -y build-essential curl unattended-upgrades
+    sudo apt install -y build-essential curl git gpg unattended-upgrades
 ```
 ```bash
     sudo dpkg-reconfigure -plow unattended-upgrades
