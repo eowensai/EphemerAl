@@ -46,6 +46,10 @@ EphemerAl is designed to minimize data retention:
 
 Note that browser caching behavior depends on your browser settings and cache-control headers. For maximum privacy on shared machines, use private/incognito browsing or clear browser data after use.
 
+## Network Security Note
+
+EphemerAl is designed for trusted local networks (home, office LAN) and does not implement authentication or transport encryption. The Streamlit container disables CORS and XSRF protection to allow straightforward LAN access. Do not expose this application to the public internet without adding a reverse proxy with authentication and TLS.
+
 ## Technical Stack
 
 - Python 3.11 + Streamlit
