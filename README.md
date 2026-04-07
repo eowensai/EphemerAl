@@ -4,12 +4,6 @@ EphemerAl is a lightweight, open-source web interface for interacting with local
 
 While it wasn't built for broad distribution, I'm sharing this generalized version in case it helps others looking for a local-only, account-free, multimodal LLM interface. . . whether to provide an operational tool, a staff learning environment, or bragging rights when friends visit on your home network.
 
-The repository now targets **Qwen 3.5 35B** on Ollama as the default model, using the explicit tag:
-
-- `qwen3.5:35b-a3b`
-
-You can still retarget to another Ollama model by changing one environment variable (`LLM_MODEL_NAME`).
-
 [View the source code on GitHub](https://github.com/eowensai/EphemerAl)
 
 ![A screenshot of EphemerAl, a self-hosted AI assistant for local document Q&A and image analysis using Ollama](Ephemeral%20Screenshot.jpg)
@@ -100,6 +94,10 @@ If your current stack still points at `gemma3-prod` (or another Gemma tag), use 
 ## Stopping the Application
 
 Execute the following in an Administrator PowerShell window:
+
+```
+wsl --shutdown
+```
 
 To restart, either run `wsl` or reboot the system if you have the startup script installed.
 
