@@ -15,13 +15,16 @@ You will install:
 
 ---
 
-## 1) System requirements
+## 📋 System Requirements
 
-### Windows
-- Windows 11 (fully updated)
-- Administrator access
+This software runs inside a "Linux Subsystem" on Windows (technically called **WSL2**). You do not need to know Linux to install it; simply follow the instructions below.
 
-### GPU (important)
+**OS Requirements:**
+* **Supported:** Windows 11 (Pro or Enterprise recommended, Home is supported).
+* **Version:** 21H2 or higher (Fully updated).
+* *Note: Windows Server 2019/2022 is NOT covered by this specific guide due to installation differences.*
+
+**GPU (important):**
 Qwen 3.5 35B is a large model.
 
 - **Recommended:** 32 GB+ total NVIDIA VRAM
@@ -30,77 +33,116 @@ Qwen 3.5 35B is a large model.
 
 ---
 
-## 2) Install WSL2 + Ubuntu
+## Phase 2: Install the Foundation (WSL2)
 
-Open **PowerShell as Administrator** and run:
+We need to enable the subsystem that allows Windows to run Linux applications.
 
+1.  Click the **Windows Button**, type in **Powershell** and select **"Run as Administrator"**.
+2.  Copy the command below and paste it into PowerShell. Press Enter.
 ```powershell
-dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
-dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
+    dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
 ```
 
-Reboot Windows, then run:
-
+3.  Copy and paste the second command:
 ```powershell
-wsl --install -d Ubuntu-24.04
+    dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
 ```
 
-Create your Linux username/password when prompted.
+4.  **Reboot your computer.**
+5.  Log back in. Open **PowerShell (Admin)** again.
+6.  Install Ubuntu:
+```powershell
+    wsl --install -d Ubuntu-24.04
+```
+
+    > **What happens next:** The installation will proceed **directly inside this PowerShell window**.
+    > **Action Required:**
+    > * **Username:** It will prompt you to create a user. It generally defaults to your Windows username. You can press **Enter** to accept it, or type a new simple name (e.g., `aiadmin`).
+    > * **Password:** Create a secure password. **Write this down.** You will not see stars or dots while typing.
+    > * **Completion:** You will see a new command prompt (e.g., `username@Device:/mnt/c...`).
+    >
+
 
 ---
 
-## 3) Install Docker + NVIDIA container toolkit in Ubuntu
+## Phase 3: Install the Engine (Docker & NVIDIA)
 
-Open Ubuntu (`wsl`) and run:
+We will now install the software that manages the AI applications.
 
+> **Concept Check:**
+> * **PowerShell:** The standard blue/black Windows terminal.
+> * **WSL/Ubuntu:** The Linux environment we enter by typing `wsl`.
+
+1.  Run this command to change directories:
 ```bash
-cd ~
-sudo apt update && sudo apt full-upgrade -y
-sudo apt install -y build-essential curl unattended-upgrades
-sudo dpkg-reconfigure -plow unattended-upgrades
+    cd ~
 ```
 
-Install Docker:
+    > **Why cd ~?**
+    > By default, you start in the Windows System32 folder (`/mnt/c/Windows...`). This command moves you to your Linux "Home" folder, which is safer for installing software.
 
+2.  Update the system tools. Copy/Paste this into the terminal (enter your password if asked):
 ```bash
-curl -fsSL https://get.docker.com | sudo sh
-sudo systemctl enable --now docker
-sudo usermod -aG docker $USER
+    sudo apt update && sudo apt full-upgrade -y
 ```
 
-Log out and back into Ubuntu:
-
+3.  Install required utilities and enable auto-updates:
 ```bash
-exit
+    sudo apt install -y build-essential curl unattended-upgrades
+```
+```bash
+    sudo dpkg-reconfigure -plow unattended-upgrades
 ```
 
-Then open `wsl` again and run:
+    > **Attention:** A pink/blue screen will pop up.
+    > Ensure **Yes** is highlighted and press **Enter**. This ensures Linux will automatically install important security updates in the background.
 
+4.  Install Docker (The container system):
 ```bash
-cd ~
+    curl -fsSL https://get.docker.com | sudo sh
 ```
 
-Install NVIDIA toolkit:
-
+5.  Enable Docker and add permissions:
 ```bash
-curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
-curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
-sudo apt update && sudo apt install -y nvidia-container-toolkit
+    sudo systemctl enable --now docker
+```
+```bash
+    sudo usermod -aG docker $USER
 ```
 
-Set Docker runtime + log rotation:
+    > **Refresh Permissions:**
+    > We need to log out and back in for the group change to take effect.
+    > 1. Type `exit` and press **Enter**. *(You drop back to PowerShell)*.
+    > 2. Type `wsl` and press **Enter**. *(You enter Ubuntu again)*.
+    > 3. Type `cd ~` and press **Enter**. *(Return to your home folder)*.
 
+6.  Install the NVIDIA Toolkit (Allows AI to see your GPU). Run these 3 commands one by one:
 ```bash
-sudo tee /etc/docker/daemon.json > /dev/null <<EOF_DAEMON
-{
-  "default-runtime": "nvidia",
-  "runtimes": { "nvidia": { "path": "/usr/bin/nvidia-container-runtime", "runtimeArgs": [] } },
-  "storage-driver": "overlay2",
-  "log-driver": "json-file",
-  "log-opts": { "max-size": "10m", "max-file": "3" }
-}
-EOF_DAEMON
-sudo systemctl restart docker
+    curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+```
+```bash
+    curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+```
+```bash
+    sudo apt update && sudo apt install -y nvidia-container-toolkit
+```
+
+7.  Configure Docker for GPU access and Log Rotation (Prevents disk usage issues). Copy this entire block and paste it:
+```bash
+    sudo tee /etc/docker/daemon.json > /dev/null <<EOF_DAEMON
+    {
+      "default-runtime": "nvidia",
+      "runtimes": { "nvidia": { "path": "/usr/bin/nvidia-container-runtime", "runtimeArgs": [] } },
+      "storage-driver": "overlay2",
+      "log-driver": "json-file",
+      "log-opts": { "max-size": "10m", "max-file": "3" }
+    }
+    EOF_DAEMON
+```
+
+8.  Restart the engine:
+```bash
+    sudo systemctl restart docker
 ```
 
 ---
