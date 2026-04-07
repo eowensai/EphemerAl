@@ -83,10 +83,10 @@ except ImportError:
     device = None  # type: ignore
 
 # ── Backend configuration ─────────────────────────────────────────
-LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://localhost:11434/v1")
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://ollama:11434/v1")
 # Default to the official Ollama model tag so installs work without a local alias.
 MODEL_NAME = os.getenv("LLM_MODEL_NAME", "qwen3.5:35b-a3b")
-TIKA_URL = os.getenv("TIKA_URL", "http://localhost:9998")
+TIKA_URL = os.getenv("TIKA_URL", "http://tika-server:9998")
 TIKA_TIMEOUT_S = int(os.getenv("TIKA_TIMEOUT_S", "15"))
 DEFAULT_UPLOAD_PROMPT = os.getenv("DEFAULT_UPLOAD_PROMPT", "Please analyze the uploaded files.")
 LLM_SUPPORTS_VISION = os.getenv("LLM_SUPPORTS_VISION")
