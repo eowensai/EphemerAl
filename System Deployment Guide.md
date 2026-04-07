@@ -275,6 +275,60 @@ You should see:
 
 ---
 
+## Networking & Auto-Start (Windows)
+
+These steps make the website accessible on your network and ensure it starts automatically.
+
+> **Important:** This application runs as a **User Task**, not a System Service.
+> This means the application will ONLY start **after** a specific user logs into Windows. It will not run while the computer is sitting at the Lock Screen after a reboot.
+> *Tip for Dedicated Machines:* You can configure Windows to automatically log in a specific user on boot (search "netplwiz auto login") if you want a true "Appliance" feel.
+
+**1. Allow EphemerAl through the Windows Firewall**
+Open **PowerShell (Admin)** in Windows and paste:
+```powershell
+New-NetFirewallRule -DisplayName "EphemerAl Port 8501" -Direction Inbound -Protocol TCP -LocalPort 8501 -Action Allow
+```
+
+**2. Create the Startup Script that connects external users to WSL2**
+1.  Open **Notepad** in Windows.
+2.  Paste the code below:
+```powershell
+    $wslIP = (wsl -- hostname -I).Split()[0]
+    netsh interface portproxy delete v4tov4 listenport=8501 listenaddress=0.0.0.0 2>$null
+    netsh interface portproxy add v4tov4 listenport=8501 listenaddress=0.0.0.0 connectport=8501 connectaddress=$wslIP
+    wsl -- sleep infinity
+```
+3.  Save the file as: `C:\Scripts\Start-EphemerAl.ps1`
+    *(Create the Scripts folder on your C: drive if it doesn't exist)*.
+
+**3. Schedule it to Run**
+1.  Search Windows for **Task Scheduler** -> Right-click **Run as Administrator**.
+2.  Click **Create Task** (Right sidebar).
+3.  **General:** Name it `Ephemeral Auto-Start`. Select **Run only when user is logged on** AND **Run with highest privileges**.
+4.  **Triggers:** New -> Begin the task: **At log on**. Delay task for: **30 seconds**.
+5.  **Actions:** New -> Program/script: `powershell.exe`.
+    Add arguments:
+    `-ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\Scripts\Start-EphemerAl.ps1"`
+6.  Click **OK**.
+
+---
+
+## ✅ Success!
+
+1.  Reboot your computer.
+2.  Log in to Windows and wait 30 seconds.
+3.  **Find your IP Address:**
+    Open PowerShell and type `ipconfig`. Look for the **IPv4 Address** (e.g., `192.168.1.50`).
+4.  **Test from another computer:**
+    On a different device connected to the same network (WiFi/LAN), open a browser and type:
+    `http://<YOUR_IP_ADDRESS>:8501`
+    *(Example: http://192.168.1.50:8501)*
+
+**Troubleshooting:**
+If the page loads locally (`http://localhost:8501`) but not from another computer, ensure your computer is set to **"Private Network"** in Windows Network Settings, or double-check the Firewall Rule command above.
+
+---
+
 ## 9) Troubleshooting quick wins
 
 - If app responds but ignores images: your selected model may not expose vision capability in Ollama metadata.
