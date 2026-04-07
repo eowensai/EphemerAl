@@ -1,6 +1,8 @@
-# EphemerAl: Local document + image chat with Ollama
+# EphemerAl: A Simple Self-Hosted Chat Interface for Local AI with Ollama that Accepts Documents and Images
 
-EphemerAl is a lightweight, privacy-focused Streamlit chat UI for local LLM use. It runs with Ollama for model inference and Apache Tika for document parsing.
+EphemerAl is a lightweight, open-source web interface for interacting with local LLMs on your hardware via Ollama. I designed it for my day job to help keep our team's sensitive info off cloud services, and to provide a modern AI experience to staff without the per-user cost required to achieve equivalent capabilities online. The repository now defaults to Qwen 3.5 35B, but can be retargeted to any Ollama model by changing one environment variable (`LLM_MODEL_NAME`).
+
+While it wasn't built for broad distribution, I'm sharing this generalized version in case it helps others looking for a local-only, account-free, multimodal LLM interface. . . whether to provide an operational tool, a staff learning environment, or bragging rights when friends visit on your home network.
 
 The repository now targets **Qwen 3.5 35B** on Ollama as the default model, using the explicit tag:
 
@@ -41,10 +43,14 @@ The app performs model capability/context detection at runtime via Ollama (`/api
 
 ## Privacy Notes
 
-- **No database:** Conversations live in Streamlit memory (`st.session_state`) and are not persisted by this app.
-- **Session-scoped parsing cache:** Parsed document text is cached per session only.
-- **Container tmpfs:** In Docker deployment, `/tmp` for app/Tika is RAM-backed.
-- **Optional log suppression:** Container logs can be disabled in `docker-compose.yml`.
+EphemerAl is designed to minimize data retention:
+
+- **No database:** Conversations live in the Streamlit server process memory (`st.session_state`) for your browser session and are not persisted to disk by this app.
+- **Session-scoped caching:** Document parsing results are cached per-session for performance, but cleared when you start a new conversation or close your browser.
+- **Container isolation:** Tika and the Streamlit app use tmpfs for `/tmp`, so temporary files stay in RAM.
+- **Optional log suppression:** For hardened deployments, container logging can be disabled entirely (see docker-compose.yml comments).
+
+Note that browser caching behavior depends on your browser settings and cache-control headers. For maximum privacy on shared machines, use private/incognito browsing or clear browser data after use.
 
 ## Technical Stack
 
@@ -64,6 +70,15 @@ Qwen 3.5 35B is substantially heavier than small local models.
 
 If this model is too heavy for your machine, use a smaller Ollama model tag in `LLM_MODEL_NAME`.
 
+## System Requirements
+
+To run this interface effectively, the following specifications are recommended.
+
+- **Operating System:** Windows 11 Pro or Enterprise, fully updated. WSL will be installed as part of setup (if not already present).
+- **Graphics Processing Unit:** One or more discrete NVIDIA GPU(s), preferably from the 30-series or later. Qwen 3.5 35B benefits from 24GB+ VRAM; 32GB+ recommended for full context.
+- **Nvidia Driver:** The most recent WHQL-certified NVIDIA GPU driver. Optional components may be omitted.
+- **Additional Note:** If available, connect display to integrated graphics to allocate more VRAM to the NVIDIA GPU(s).
+
 ## Deployment
 
 Use the step-by-step guide:
@@ -81,6 +96,10 @@ If your current stack still points at `gemma3-prod` (or another Gemma tag), use 
 
 - Local: `http://localhost:8501`
 - Network: `http://<host-ip>:8501`
+
+## Stopping the Application
+
+Execute the following in an Administrator PowerShell window:
 
 ## Support
 
