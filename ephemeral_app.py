@@ -85,7 +85,7 @@ except ImportError:
 # ── Backend configuration ─────────────────────────────────────────
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://ollama:11434/v1")
 # Default to the official Ollama model tag so installs work without a local alias.
-MODEL_NAME = os.getenv("LLM_MODEL_NAME", "qwen3.5:35b-a3b")
+MODEL_NAME = os.getenv("LLM_MODEL_NAME", "gemma4:31b")
 TIKA_URL = os.getenv("TIKA_URL", "http://tika-server:9998")
 TIKA_TIMEOUT_S = int(os.getenv("TIKA_TIMEOUT_S", "15"))
 DEFAULT_UPLOAD_PROMPT = os.getenv("DEFAULT_UPLOAD_PROMPT", "Please analyze the uploaded files.")
@@ -179,8 +179,8 @@ def timestamp_local() -> str:
 
 tmpl_path = pathlib.Path(__file__).parent / "system_prompt_template.md"
 if tmpl_path.exists():
-    # Keep `/no_think` in the template itself so the app-sent system prompt
-    # always carries it; the streaming think-block filter is only a backup.
+    # Load the prompt template from disk; the streaming think-block filter remains
+    # as defense-in-depth regardless of model-specific prompt tokens.
     SYSTEM_TMPL = string.Template(tmpl_path.read_text(encoding="utf-8"))
 else:
     SYSTEM_TMPL = string.Template(

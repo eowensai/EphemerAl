@@ -7,7 +7,7 @@
 #   • ephemeral-app — Streamlit front-end website
 #
 # CUSTOMIZE comments below flag the lines that most people tweak:
-#   • LLM model name tag (for example qwen3.5:35b-a3b)
+#   • LLM model name tag (for example gemma4:31b or ephemeral-default)
 #   • Service / container names if you prefer different labels
 ###############################################################################
 
@@ -16,10 +16,10 @@ services:
   # Large-language-model back-end (Ollama)
   # --------------------------------------------------------------------------
   ollama:
-    # Pinned for compatibility with qwen3.5 tags. Last validated: April 2026.
+    # Pinned for compatibility with gemma4 tags. Last validated: April 2026.
     # Check https://github.com/ollama/ollama/releases before upgrading.
     # NOTE: ollama/ollama#14716 (vision+thinking) is fixed; workaround retained as defense-in-depth.
-    image: ollama/ollama:0.20.2
+    image: ollama/ollama:0.20.4
     container_name: ollama
     restart: unless-stopped
     networks: [llm-net]
@@ -34,7 +34,7 @@ services:
       - OLLAMA_HOST=0.0.0.0
       - OLLAMA_ORIGINS=*
       - OLLAMA_MAX_LOADED_MODELS=1
-      # Carried over from Gemma setup; may not benefit Qwen3.5 MoE inference.
+      # Helpful for dense-model GEMM performance (including Gemma 4 31B).
       - OLLAMA_FORCE_CUBLAS_LT=1
       - OLLAMA_KEEP_ALIVE=-1
       - OLLAMA_FLASH_ATTENTION=1
@@ -89,9 +89,9 @@ services:
 
     environment:
       - LLM_BASE_URL=http://ollama:11434/v1
-      - LLM_MODEL_NAME=qwen3.5:35b-a3b     # CUSTOMIZE: Use an explicit Ollama model tag or your own local alias
-                                            # NOTE: Direct qwen3.5 tags enable thinking mode and may emit <think> blocks.
-                                            #       Recommended: create/use an alias (for example ephemeral-default) with /no_think in the Modelfile SYSTEM line.
+      - LLM_MODEL_NAME=ephemeral-default   # CUSTOMIZE: Recommended default alias (stable target if upstream tags change)
+                                            # NOTE: Gemma 4 does not use /no_think. Thinking is controlled by the <|think|> token in the system prompt.
+                                            #       The recommended alias Modelfile SYSTEM line omits <|think|>, so thinking is off by default.
       - TIKA_URL=http://tika-server:9998
       - TIKA_CLIENT_ONLY=true
       - STREAMLIT_SERVER_HEADLESS=true
