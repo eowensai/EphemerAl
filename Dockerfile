@@ -15,22 +15,22 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 # --- Streamlit config --------------------------------------------
 RUN mkdir -p .streamlit && \
-    { cat <<'EOF_SERVER'
-[server]
-headless = true
-enableCORS = false
-enableXsrfProtection = false
-port = 8501
-address = "0.0.0.0"
-
-[browser]
-serverAddress     = "0.0.0.0"
-serverPort        = 8501
-gatherUsageStats  = false
-
-EOF_SERVER
-    cat .streamlit/config.toml; } > .streamlit/config.toml.merged && \
-    mv .streamlit/config.toml.merged .streamlit/config.toml
+    printf '%s\n' \
+        '[server]' \
+        'headless = true' \
+        'enableCORS = false' \
+        'enableXsrfProtection = false' \
+        'port = 8501' \
+        'address = "0.0.0.0"' \
+        '' \
+        '[browser]' \
+        'serverAddress     = "0.0.0.0"' \
+        'serverPort        = 8501' \
+        'gatherUsageStats  = false' \
+        '' > .streamlit/config.server.toml && \
+    cat .streamlit/config.server.toml .streamlit/config.toml > .streamlit/config.toml.merged && \
+    mv .streamlit/config.toml.merged .streamlit/config.toml && \
+    rm .streamlit/config.server.toml
 
 EXPOSE 8501
 
