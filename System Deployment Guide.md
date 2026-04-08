@@ -40,19 +40,19 @@ We need to enable the subsystem that allows Windows to run Linux applications.
 1.  Click the **Windows Button**, type in **Powershell** and select **"Run as Administrator"**.
 2.  Copy the command below and paste it into PowerShell. Press Enter.
 ```powershell
-    dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
+dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
 ```
 
 3.  Copy and paste the second command:
 ```powershell
-    dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
+dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
 ```
 
 4.  **Reboot your computer.**
 5.  Log back in. Open **PowerShell (Admin)** again.
 6.  Install Ubuntu:
 ```powershell
-    wsl --install -d Ubuntu-24.04
+wsl --install -d Ubuntu-24.04
 ```
 
     > **What happens next:** The installation will proceed **directly inside this PowerShell window**.
@@ -75,7 +75,7 @@ We will now install the software that manages the AI applications.
 
 1.  Run this command to change directories:
 ```bash
-    cd ~
+cd ~
 ```
 
     > **Why cd ~?**
@@ -83,15 +83,15 @@ We will now install the software that manages the AI applications.
 
 2.  Update the system tools. Copy/Paste this into the terminal (enter your password if asked):
 ```bash
-    sudo apt update && sudo apt full-upgrade -y
+sudo apt update && sudo apt full-upgrade -y
 ```
 
 3.  Install required utilities and enable auto-updates:
 ```bash
-    sudo apt install -y build-essential curl git gpg unattended-upgrades
+sudo apt install -y build-essential curl git gpg unattended-upgrades
 ```
 ```bash
-    sudo dpkg-reconfigure -plow unattended-upgrades
+sudo dpkg-reconfigure -plow unattended-upgrades
 ```
 
     > **Attention:** A pink/blue screen will pop up.
@@ -99,15 +99,15 @@ We will now install the software that manages the AI applications.
 
 4.  Install Docker (The container system):
 ```bash
-    curl -fsSL https://get.docker.com | sudo sh
+curl -fsSL https://get.docker.com | sudo sh
 ```
 
 5.  Enable Docker and add permissions:
 ```bash
-    sudo systemctl enable --now docker
+sudo systemctl enable --now docker
 ```
 ```bash
-    sudo usermod -aG docker $USER
+sudo usermod -aG docker $USER
 ```
 
     > **Refresh Permissions:**
@@ -118,31 +118,31 @@ We will now install the software that manages the AI applications.
 
 6.  Install the NVIDIA Toolkit (Allows AI to see your GPU). Run these 3 commands one by one:
 ```bash
-    curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
 ```
 ```bash
-    curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
 ```
 ```bash
-    sudo apt update && sudo apt install -y nvidia-container-toolkit
+sudo apt update && sudo apt install -y nvidia-container-toolkit
 ```
 
 7.  Configure Docker for GPU access and Log Rotation (Prevents disk usage issues). Copy this entire block and paste it:
 ```bash
-    sudo tee /etc/docker/daemon.json > /dev/null <<EOF_DAEMON
-    {
-      "default-runtime": "nvidia",
-      "runtimes": { "nvidia": { "path": "/usr/bin/nvidia-container-runtime", "runtimeArgs": [] } },
-      "storage-driver": "overlay2",
-      "log-driver": "json-file",
-      "log-opts": { "max-size": "10m", "max-file": "3" }
-    }
-    EOF_DAEMON
+sudo tee /etc/docker/daemon.json > /dev/null <<EOF_DAEMON
+{
+"default-runtime": "nvidia",
+"runtimes": { "nvidia": { "path": "/usr/bin/nvidia-container-runtime", "runtimeArgs": [] } },
+"storage-driver": "overlay2",
+"log-driver": "json-file",
+"log-opts": { "max-size": "10m", "max-file": "3" }
+}
+EOF_DAEMON
 ```
 
 8.  Restart the engine:
 ```bash
-    sudo systemctl restart docker
+sudo systemctl restart docker
 ```
 
 ---
@@ -293,10 +293,10 @@ New-NetFirewallRule -DisplayName "EphemerAl Port 8501" -Direction Inbound -Proto
 1.  Open **Notepad** in Windows.
 2.  Paste the code below:
 ```powershell
-    $wslIP = (wsl -- hostname -I).Split()[0]
-    netsh interface portproxy delete v4tov4 listenport=8501 listenaddress=0.0.0.0 2>$null
-    netsh interface portproxy add v4tov4 listenport=8501 listenaddress=0.0.0.0 connectport=8501 connectaddress=$wslIP
-    wsl -- sleep infinity
+$wslIP = (wsl -- hostname -I).Split()[0]
+netsh interface portproxy delete v4tov4 listenport=8501 listenaddress=0.0.0.0 2>$null
+netsh interface portproxy add v4tov4 listenport=8501 listenaddress=0.0.0.0 connectport=8501 connectaddress=$wslIP
+wsl -- sleep infinity
 ```
 3.  Save the file as: `C:\Scripts\Start-EphemerAl.ps1`
     *(Create the Scripts folder on your C: drive if it doesn't exist)*.
