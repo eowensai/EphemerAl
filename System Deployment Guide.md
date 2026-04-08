@@ -1,4 +1,4 @@
-# EphemerAl: System Deployment Guide (Ollama Qwen 3.5 35B Default)
+# EphemerAl: System Deployment Guide (Ollama Gemma 4 31B Default)
 
 This guide is written for IT generalists and focuses on copy/paste steps.
 
@@ -11,7 +11,7 @@ You will install:
 - Ollama container
 - Apache Tika container
 - EphemerAl Streamlit app container
-- The default Ollama model: `qwen3.5:35b-a3b`
+- The default Ollama model: `gemma4:31b` (with a required local alias: `ephemeral-default`)
 
 ---
 
@@ -25,10 +25,10 @@ This software runs inside a "Linux Subsystem" on Windows (technically called **W
 * *Note: Windows Server 2019/2022 is NOT covered by this specific guide due to installation differences.*
 
 **GPU (important):**
-Qwen 3.5 35B is a large model.
+Gemma 4 31B is a large dense model.
 
-- **Recommended:** 32 GB+ total NVIDIA VRAM
-- **Works for many users:** 24 GB total VRAM (usually with lower context)
+- **Recommended:** 48 GB+ total NVIDIA VRAM for comfortable context/performance headroom
+- **Works for some users:** 32 GB total NVIDIA VRAM with conservative context settings
 - **Not recommended:** CPU-only for day-to-day interactive usage
 
 ---
@@ -155,31 +155,35 @@ cd ~/ephemeral-llm
 docker compose up -d --build
 ```
 
-> This repo pins Ollama to `ollama/ollama:0.20.2` in `docker-compose.yml` to keep compatibility with current `qwen3.5` tags predictable.
+> This repo pins Ollama to `ollama/ollama:0.20.4` in `docker-compose.yml` for better compatibility and performance with `gemma4` tags (including flash attention support).
 
 ---
 
-## 5) Pull and configure the default model (Qwen 3.5 35B)
+## 5) Pull and configure the default model (Gemma 4 31B)
 
 ### Step A: Pull the model
 
 ```bash
-docker exec -it ollama ollama pull qwen3.5:35b-a3b
+docker exec -it ollama ollama pull gemma4:31b
 ```
 
-### Step B: (Optional but recommended) Create a neutral local alias
+### Step B: (Required) Create a neutral local alias
 
 Why: if upstream tags change later, you only update one alias.
+
+Gemma 4 thinking is controlled by the presence/absence of `<|think|>` in the system prompt.
+The alias below omits `<|think|>`, which keeps thinking mode off.
 
 ```bash
 docker exec -it ollama bash
 cat > Modelfile <<EOF_MODEL
-FROM qwen3.5:35b-a3b
-PARAMETER num_ctx 32768
+FROM gemma4:31b
+PARAMETER num_ctx 4000
 PARAMETER num_gpu 99
-PARAMETER temperature 0.7
-PARAMETER top_p 0.9
-SYSTEM "You are a helpful assistant. /no_think"
+PARAMETER temperature 1.0
+PARAMETER top_p 0.95
+PARAMETER top_k 64
+SYSTEM "You are a helpful assistant."
 EOF_MODEL
 ollama create ephemeral-default -f Modelfile
 exit
@@ -188,11 +192,11 @@ exit
 If you create this alias, set app model name to `ephemeral-default`:
 
 ```bash
-sed -i 's#LLM_MODEL_NAME=qwen3.5:35b-a3b#LLM_MODEL_NAME=ephemeral-default#' docker-compose.yml
+sed -i 's#LLM_MODEL_NAME=gemma4:31b#LLM_MODEL_NAME=ephemeral-default#' docker-compose.yml
 docker compose up -d
 ```
 
-> Context note: `num_ctx 32768` is a practical starting point for many 24–32 GB setups. Increase only if performance and VRAM headroom allow.
+> Context note: `num_ctx 4000` is a conservative starting point for Gemma 4 31B. Increase only after confirming stable performance and enough VRAM headroom.
 
 ---
 
@@ -203,16 +207,16 @@ docker compose up -d
 
 ---
 
-## 7) Migration from existing Gemma-based installs
+## 7) Migration from existing Qwen 3.5 installs
 
-If your current setup uses a Gemma alias such as `gemma3-prod`, migrate with these steps.
+If your current setup uses Qwen tags or aliases, migrate with these steps.
 
-### Option 1 (fastest): switch app directly to Qwen tag
+### Option 1 (fastest): switch app directly to Gemma tag
 
 ```bash
 cd ~/ephemeral-llm
-docker exec -it ollama ollama pull qwen3.5:35b-a3b
-sed -i 's#LLM_MODEL_NAME=gemma3-prod#LLM_MODEL_NAME=qwen3.5:35b-a3b#' docker-compose.yml
+docker exec -it ollama ollama pull gemma4:31b
+sed -i 's#LLM_MODEL_NAME=qwen3.5:35b-a3b#LLM_MODEL_NAME=gemma4:31b#' docker-compose.yml
 docker compose up -d
 ```
 
@@ -220,7 +224,7 @@ docker compose up -d
 
 ```bash
 cd ~/ephemeral-llm
-docker exec -it ollama ollama pull qwen3.5:35b-a3b
+docker exec -it ollama ollama pull gemma4:31b
 docker exec -it ollama bash
 ```
 
@@ -228,12 +232,13 @@ Then inside the container:
 
 ```bash
 cat > Modelfile <<EOF_MODEL
-FROM qwen3.5:35b-a3b
-PARAMETER num_ctx 32768
+FROM gemma4:31b
+PARAMETER num_ctx 4000
 PARAMETER num_gpu 99
-PARAMETER temperature 0.7
-PARAMETER top_p 0.9
-SYSTEM "You are a helpful assistant. /no_think"
+PARAMETER temperature 1.0
+PARAMETER top_p 0.95
+PARAMETER top_k 64
+SYSTEM "You are a helpful assistant."
 EOF_MODEL
 ollama create ephemeral-default -f Modelfile
 exit
@@ -242,14 +247,14 @@ exit
 Back on Ubuntu:
 
 ```bash
-sed -i 's#LLM_MODEL_NAME=gemma3-prod#LLM_MODEL_NAME=ephemeral-default#' docker-compose.yml
+sed -i 's#LLM_MODEL_NAME=qwen3.5:35b-a3b#LLM_MODEL_NAME=ephemeral-default#' docker-compose.yml
 docker compose up -d
 ```
 
-### (Optional) remove old Gemma model to free space
+### (Optional) remove old Qwen model to free space
 
 ```bash
-docker exec -it ollama ollama rm gemma3:12b-it-qat gemma3:27b-it-qat gemma3-prod
+docker exec -it ollama ollama rm qwen3.5:35b-a3b
 ```
 
 Only remove old models after confirming the new setup is working.
@@ -269,7 +274,7 @@ curl -s http://localhost:9998/version
 
 You should see:
 - all 3 containers running
-- `qwen3.5:35b-a3b` (or your alias) listed in Ollama
+- `gemma4:31b` or `ephemeral-default` listed in Ollama
 - JSON from Ollama tags
 - a version string from Tika
 
