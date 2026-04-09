@@ -948,13 +948,10 @@ if HAS_DEVICE_DETECTION and device and device.is_mobile:
 
 # ── Chat input ───────────────────────────────────────────────────
 prompt_in = st.chat_input("Ask me anything…", accept_file="multiple", key="main_chat")
-prompt_in = st.session_state.pop("_first_prompt_pending", None) or prompt_in
 
 if prompt_in is not None:
     if st.session_state.show_welcome:
         st.session_state.show_welcome = False
-        st.session_state["_first_prompt_pending"] = prompt_in
-        st.rerun()
 
     user_text = prompt_in.text if hasattr(prompt_in, "text") else prompt_in
     user_text = (user_text or "").strip()
@@ -1189,9 +1186,17 @@ if prompt_in is not None:
                     if vision_supported:
                         api_parts.append(part)
 
-            # Avoid sending empty content arrays (some backends reject them).
+            # Some backends/models are stricter about content arrays:
+            # - If all parts are text, send a plain string.
+            # - If no parts remain, send a text placeholder instead of an empty array.
             if not api_parts:
-                api_parts = [{"type": "text", "text": "(Attachment omitted.)"}]
+                messages_for_api.append({"role": msg["role"], "content": "(Attachment omitted.)"})
+                continue
+
+            if all(part.get("type") == "text" for part in api_parts):
+                combined_text = "\n\n".join(part.get("text", "") for part in api_parts).strip()
+                messages_for_api.append({"role": msg["role"], "content": combined_text or "(Attachment omitted.)"})
+                continue
 
             messages_for_api.append({"role": msg["role"], "content": api_parts})
         else:
