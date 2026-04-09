@@ -984,8 +984,9 @@ if prompt_in is not None:
         max_ctx = int(model_ctx * 0.95)
         warn_ctx = int(model_ctx * 0.85)
     else:
-        # Conservative fallback matching the recommended Modelfile num_ctx.
-        # Avoids overstuffing if /api/show is unreachable.
+        # Conservative Gemma 4 fallback when /api/show metadata is unavailable.
+        # Uses a likely Ollama runtime default num_ctx (32K), not Gemma 4 31B's
+        # theoretical 256K maximum, to avoid overstuffing prompts on lower-VRAM setups.
         max_ctx = int(32768 * 0.95)
         warn_ctx = int(max_ctx * 0.85)
 
