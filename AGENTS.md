@@ -22,8 +22,8 @@ frontend, an Ollama LLM backend, and an Apache Tika document parsing server.
 - `System Deployment Guide.md` — End-user deployment instructions (target audience: IT
   generalists, not developers). Written for WSL2 + Docker on Windows 11.
 - `README.md` — Project overview, feature list, system requirements.
-- `system_prompt_template.md` — LLM system prompt template. Includes `/no_think` directive
-  for Qwen models.
+- `system_prompt_template.md` — LLM system prompt template. Includes Gemma 4
+  thinking control guidance via the `<|think|>` token in the system prompt.
 - `.streamlit/config.toml` — Streamlit theme and config. The Dockerfile merges server
   settings into this file at build time.
 - `theme.css` — Custom CSS loaded by the app.
@@ -35,13 +35,14 @@ frontend, an Ollama LLM backend, and an Apache Tika document parsing server.
 - The app runs inside Docker. Environment variable defaults in `ephemeral_app.py` MUST
   use Docker service names (`http://ollama:11434/v1` and `http://tika-server:9998`),
   NOT `localhost`. Using localhost as defaults will break the Docker Compose deployment.
-- The default LLM model is `qwen3.5:35b-a3b`. The model tag is set via the
+- The default LLM model is `gemma4:31b`. The model tag is set via the
   `LLM_MODEL_NAME` environment variable in `docker-compose.yml`.
 - The app detects model capabilities (vision support, context size) at runtime via
   Ollama's `/api/show` endpoint, so it adapts to different models automatically.
-- Qwen models may emit `<think>...</think>` blocks during streaming. The app includes
-  a streaming filter that strips these. The system prompt template also includes
-  `/no_think` as a first line of defense.
+- Gemma 4 models may emit thought-channel blocks during streaming in the
+  `<|channel|>thought\n...<channel|>` format. The app includes a streaming filter
+  that strips these, and thinking is controlled by the `<|think|>` token in the
+  system prompt.
 
 ## Testing
 - Verify Python syntax: `python -m py_compile ephemeral_app.py`
@@ -59,6 +60,6 @@ frontend, an Ollama LLM backend, and an Apache Tika document parsing server.
 - Do not modify `system_prompt_template.md` unless changing the LLM's system behavior.
 - Do not add new Python dependencies beyond what's in `requirements.txt` without
   documenting the reason.
-- Do not remove the `/no_think` directive from `system_prompt_template.md` or the
-  `<think>` block streaming filter from `ephemeral_app.py`. Both are required for
-  correct Qwen model output.
+- Do not remove Gemma 4 thinking guidance from `system_prompt_template.md` or the
+  thought-channel streaming filter from `ephemeral_app.py`. Both are required for
+  correct Gemma 4 model output (including `<|channel|>thought\n...<channel|>` blocks).
