@@ -1247,9 +1247,9 @@ if prompt_in is not None:
                 current_think_close_tag = ""
                 stream_parse_buffer = ""
                 # Filter both legacy (<think>...</think>) and Gemma 4
-                # (<|channel|>thought\n...<channel|>) think-block formats.
+                # (<|channel>thought\n...<channel|>) think-block formats.
                 think_tag_pairs = [
-                    ("<|channel|>thought\n", "<channel|>"),
+                    ("<|channel>thought\n", "<channel|>"),
                     ("<think>", "</think>"),
                 ]
                 open_tag_tail_len = max(len(open_tag) for open_tag, _ in think_tag_pairs) - 1
@@ -1320,7 +1320,7 @@ if prompt_in is not None:
                     elif not acc.strip():
                         acc += stream_parse_buffer
 
-                acc = re.sub(r"<\|channel\|>thought\n.*?<channel\|>\s*", "", acc, flags=re.DOTALL)
+                acc = re.sub(r"<\|channel>thought\n.*?<channel\|>\s*", "", acc, flags=re.DOTALL)
                 acc = re.sub(r"<think>.*?</think>\s*", "", acc, flags=re.DOTALL)
                 box.markdown(acc)
 

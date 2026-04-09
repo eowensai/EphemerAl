@@ -40,7 +40,7 @@ frontend, an Ollama LLM backend, and an Apache Tika document parsing server.
 - The app detects model capabilities (vision support, context size) at runtime via
   Ollama's `/api/show` endpoint, so it adapts to different models automatically.
 - Gemma 4 models may emit thought-channel blocks during streaming in the
-  `<|channel|>thought\n...<channel|>` format. The app includes a streaming filter
+  `<|channel>thought\n...<channel|>` format. The app includes a streaming filter
   that strips these, and thinking is controlled by the `<|think|>` token in the
   system prompt.
 
@@ -62,4 +62,4 @@ frontend, an Ollama LLM backend, and an Apache Tika document parsing server.
   documenting the reason.
 - Do not remove Gemma 4 thinking guidance from `system_prompt_template.md` or the
   thought-channel streaming filter from `ephemeral_app.py`. Both are required for
-  correct Gemma 4 model output (including `<|channel|>thought\n...<channel|>` blocks).
+  correct Gemma 4 model output (including `<|channel>thought\n...<channel|>` blocks).
