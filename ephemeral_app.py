@@ -180,8 +180,9 @@ def timestamp_local() -> str:
 
 tmpl_path = pathlib.Path(__file__).parent / "system_prompt_template.md"
 if tmpl_path.exists():
-    # Gemma 4 thinking is controlled via reasoning_effort in the API call,
-    # not via template tokens. The streaming think-block filter is defense-in-depth.
+    # Gemma 4 thinking is controlled by the <|think|> token in the system prompt.
+    # Our template omits that token, so thinking is off by default; the streaming
+    # think-block filter remains as defense-in-depth.
     SYSTEM_TMPL = string.Template(tmpl_path.read_text(encoding="utf-8"))
 else:
     SYSTEM_TMPL = string.Template(
@@ -1212,9 +1213,8 @@ if prompt_in is not None:
         with st.spinner("Thinking…"):
             try:
                 client = get_llm_client()
-                # Disable Ollama auto-thinking via reasoning_effort on the OpenAI-compat endpoint.
-                # See: https://github.com/ollama/ollama/issues/14820
-                _extra = {"reasoning_effort": "none"}
+                # Gemma 4 thinking is controlled by <|think|> in the system prompt;
+                # this template omits it, so no reasoning_effort override is sent.
 
                 # Try include_usage if supported, fall back otherwise.
                 try:
@@ -1223,14 +1223,12 @@ if prompt_in is not None:
                         messages=payload,
                         stream=True,
                         stream_options={"include_usage": True},
-                        extra_body=_extra,
                     )
                 except TypeError:
                     stream = client.chat.completions.create(
                         model=MODEL_NAME,
                         messages=payload,
                         stream=True,
-                        extra_body=_extra,
                     )
                 except Exception as e:
                     if "stream_options" in str(e) or "include_usage" in str(e):
@@ -1238,7 +1236,6 @@ if prompt_in is not None:
                             model=MODEL_NAME,
                             messages=payload,
                             stream=True,
-                            extra_body=_extra,
                         )
                     else:
                         raise
