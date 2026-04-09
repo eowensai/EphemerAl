@@ -38,6 +38,7 @@ services:
       - OLLAMA_FORCE_CUBLAS_LT=1
       - OLLAMA_KEEP_ALIVE=-1
       - OLLAMA_FLASH_ATTENTION=1
+      - OLLAMA_KV_CACHE_TYPE=q8_0          # Q8 KV cache: ~50% VRAM savings vs f16 default; requires FLASH_ATTENTION=1 above.
 
     # Intentionally internal-only on llm-net for privacy; temporarily switch to
     # ports: ["11434:11434"] for local host debugging with curl if needed.
