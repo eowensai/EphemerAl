@@ -32,8 +32,9 @@ CONTEXT_PREFIX = "Context:\n"
 # TTL for session-scoped Tika parse cache (seconds)
 TIKA_CACHE_TTL_S = 3600
 
-# Default approximation for a single image input (overridden if model metadata provides a value)
-IMG_TOKEN_COST_DEFAULT = 2048
+# Fallback per-image token cost for Gemma 4 vision when /api/show has no mm.tokens_per_image;
+# Gemma 4 uses discrete budgets (70/140/280/560/1120), so default to conservative max budget.
+IMG_TOKEN_COST_DEFAULT = 1120
 
 # Token estimation behavior
 TOKEN_HEURISTIC_CHARS_PER_TOKEN = 3.5
