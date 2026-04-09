@@ -1213,8 +1213,8 @@ if prompt_in is not None:
         with st.spinner("Thinking…"):
             try:
                 client = get_llm_client()
-                # Gemma 4 thinking is controlled by <|think|> in the system prompt;
-                # this template omits it, so no reasoning_effort override is sent.
+                # Ollama's Gemma 4 chat template enables thinking by default, regardless
+                # of system prompt content, so reasoning_effort must be forced to "none".
 
                 # Try include_usage if supported, fall back otherwise.
                 try:
@@ -1223,12 +1223,14 @@ if prompt_in is not None:
                         messages=payload,
                         stream=True,
                         stream_options={"include_usage": True},
+                        extra_body={"reasoning_effort": "none"},
                     )
                 except TypeError:
                     stream = client.chat.completions.create(
                         model=MODEL_NAME,
                         messages=payload,
                         stream=True,
+                        extra_body={"reasoning_effort": "none"},
                     )
                 except Exception as e:
                     if "stream_options" in str(e) or "include_usage" in str(e):
@@ -1236,6 +1238,7 @@ if prompt_in is not None:
                             model=MODEL_NAME,
                             messages=payload,
                             stream=True,
+                            extra_body={"reasoning_effort": "none"},
                         )
                     else:
                         raise
