@@ -39,8 +39,9 @@ services:
       - OLLAMA_KEEP_ALIVE=-1
       - OLLAMA_FLASH_ATTENTION=1
 
-    # Expose Ollama's API port to the host
-    ports: ["11434:11434"]
+    # Intentionally internal-only on llm-net for privacy; temporarily switch to
+    # ports: ["11434:11434"] for local host debugging with curl if needed.
+    expose: ["11434"]
 
     # GPU reservation for Docker Compose v3+
     deploy:
@@ -66,7 +67,9 @@ services:
     networks: [llm-net]
     environment:
       - JAVA_TOOL_OPTIONS=-Xmx2g -Xms512m
-    ports: ["9998:9998"]
+    # Intentionally internal-only on llm-net for privacy; temporarily switch to
+    # ports: ["9998:9998"] for local host debugging with curl if needed.
+    expose: ["9998"]
 
     # Keep /tmp in RAM so uploaded docs never touch disk inside the container
     tmpfs:
