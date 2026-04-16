@@ -208,11 +208,7 @@ git clone https://github.com/eowensai/EphemerAl.git ~/ephemeral-llm
 cd ~/ephemeral-llm
 ```
 
-The docker-compose.yml ships with `LLM_MODEL_NAME=ephemeral-default`, which expects a local model alias. For the simplest first-run experience, change this to use the Gemma 4 tag directly:
-
-```bash
-sed -i 's#LLM_MODEL_NAME=ephemeral-default#LLM_MODEL_NAME=gemma4:31b#' docker-compose.yml
-```
+The `docker-compose.yml` file already ships with `LLM_MODEL_NAME=gemma4:31b`, so no model-name change is needed for a standard first run.
 
 Now start the stack:
 
@@ -326,9 +322,9 @@ Every `wsl` call in this script explicitly targets `Ubuntu-24.04` with `-d`. Thi
 If the page works locally but not from another device, confirm your Windows network profile is set to **Private** (Settings → Network & Internet → your connection → Network profile type → Private), and verify the firewall rule from Step 6a was created successfully by running `Get-NetFirewallRule -DisplayName "EphemerAl*"` in PowerShell.
 
 
-## Optional: Stable Local Alias
+## Optional (Advanced/Operator): Stable Local Alias
 
-For users who want more control over model parameters, you can create a local alias that pins specific settings. This is useful if you want to lock the context window to a predictable size, enable or disable thinking mode explicitly, or insulate the app from upstream changes to the Ollama model tag.
+For operators who want more control over model parameters, you can create a local alias that pins specific settings. This is optional and not required for normal deployments. It is useful if you want to lock the context window to a predictable size, enable or disable thinking mode explicitly, or insulate the app from upstream changes to the Ollama model tag.
 
 Enter the Ollama container:
 
@@ -365,4 +361,3 @@ Some notes on the parameters in this Modelfile:
 - **num_ctx 4000** pins the context window to 4,000 tokens regardless of your VRAM. This is a conservative choice for predictable memory usage. Ollama's default auto-scaling would give you 32k on a 24–48 GB card, or 256k at 48+ GB. If you have VRAM headroom and want longer conversations or larger document uploads, increase this value or remove the line to let Ollama auto-scale.
 - **num_gpu 99** tells Ollama to offload as many layers as possible to the GPU.
 - **SYSTEM line** omits the `<|think|>` token, which tells Gemma 4 not to use extended reasoning. To enable thinking mode, change the line to: `SYSTEM "<|think|>\nYou are a helpful assistant."`. Be aware that thinking mode increases response time and VRAM usage, and the app's streaming filter will strip thought blocks from the displayed output.
-

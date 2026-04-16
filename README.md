@@ -1,6 +1,6 @@
 # EphemerAl: A Simple Self-Hosted Chat Interface for Local AI with Ollama that Accepts Documents and Images
 
-EphemerAl is a lightweight, open-source web interface for interacting with local LLMs on your hardware via Ollama. I designed it for my day job to help keep our team's sensitive info off cloud services, and to provide a modern AI experience to staff without the per-user cost required to achieve equivalent capabilities online. The repository now defaults to Qwen 3.5 35B, but can be retargeted to any Ollama model by changing one environment variable (`LLM_MODEL_NAME`).
+EphemerAl is a lightweight, open-source web interface for interacting with local LLMs on your hardware via Ollama. I designed it for my day job to help keep our team's sensitive info off cloud services, and to provide a modern AI experience to staff without the per-user cost required to achieve equivalent capabilities online. The repository now defaults to Gemma 4 31B, but can be retargeted to any Ollama model by changing one environment variable (`LLM_MODEL_NAME`).
 
 While it wasn't built for broad distribution, I'm sharing this generalized version in case it helps others looking for a local-only, account-free, multimodal LLM interface. . . whether to provide an operational tool, a staff learning environment, or bragging rights when friends visit on your home network.
 
@@ -23,8 +23,8 @@ While it wasn't built for broad distribution, I'm sharing this generalized versi
 
 ### Default target
 
-- **Model:** Qwen 3.5 35B
-- **Ollama tag:** `qwen3.5:35b-a3b`
+- **Model:** Gemma 4 31B
+- **Ollama tag:** `gemma4:31b`
 
 ### Retarget to a different model
 
@@ -56,11 +56,11 @@ EphemerAl is designed for trusted local networks (home, office LAN) and does not
 - Ollama API (OpenAI-compatible endpoint for chat)
 - Apache Tika server
 - Docker Compose (for the included deployment path)
-- Pinned Ollama container image in compose: `ollama/ollama:0.20.2`
+- Pinned Ollama container image in compose: `ollama/ollama:0.20.4`
 
 ## Hardware Planning (honest baseline)
 
-Qwen 3.5 35B is substantially heavier than small local models.
+Gemma 4 31B is substantially heavier than small local models.
 
 - **Recommended:** 32 GB+ total VRAM.
 - **Works for many users:** 24 GB total VRAM (usually with lower context).
@@ -73,7 +73,7 @@ If this model is too heavy for your machine, use a smaller Ollama model tag in `
 To run this interface effectively, the following specifications are recommended.
 
 - **Operating System:** Windows 11 Pro or Enterprise, fully updated. WSL will be installed as part of setup (if not already present).
-- **Graphics Processing Unit:** One or more discrete NVIDIA GPU(s), preferably from the 30-series or later. Qwen 3.5 35B benefits from 24GB+ VRAM; 32GB+ recommended for full context.
+- **Graphics Processing Unit:** One or more discrete NVIDIA GPU(s), preferably from the 30-series or later. Gemma 4 31B benefits from 24GB+ VRAM; 32GB+ recommended for full context.
 - **Nvidia Driver:** The most recent WHQL-certified NVIDIA GPU driver. Optional components may be omitted.
 - **Additional Note:** If available, connect display to integrated graphics to allocate more VRAM to the NVIDIA GPU(s).
 
@@ -85,10 +85,10 @@ Use the step-by-step guide:
 
 ### Migrating an existing Gemma-based install
 
-If your current stack still points at `gemma3-prod` (or another Gemma tag), use the migration section in the deployment guide to switch to either:
+If your current stack still points at an older Gemma tag (for example `gemma3-prod`), use the migration section in the deployment guide to move forward to Gemma 4 by switching to either:
 
-- `LLM_MODEL_NAME=qwen3.5:35b-a3b` directly, or
-- a neutral local alias like `ephemeral-default` that maps to `qwen3.5:35b-a3b`.
+- `LLM_MODEL_NAME=gemma4:31b` directly, or
+- a neutral local alias like `ephemeral-default` that maps to `gemma4:31b`.
 
 ## Accessing EphemerAl
 
