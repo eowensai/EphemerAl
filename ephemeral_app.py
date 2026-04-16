@@ -180,9 +180,9 @@ def timestamp_local() -> str:
 
 tmpl_path = pathlib.Path(__file__).parent / "system_prompt_template.md"
 if tmpl_path.exists():
-    # Gemma 4 thinking is controlled by the <|think|> token in the system prompt.
-    # Our template omits that token, so thinking is off by default; the streaming
-    # think-block filter remains as defense-in-depth.
+    # Default system template is model-agnostic and omits <|think|>.
+    # The request path also sends reasoning_effort="none", so extended reasoning
+    # is effectively disabled by default; keep the think-block filter as defense-in-depth.
     SYSTEM_TMPL = string.Template(tmpl_path.read_text(encoding="utf-8"))
 else:
     SYSTEM_TMPL = string.Template(
@@ -1213,8 +1213,9 @@ if prompt_in is not None:
         with st.spinner("Thinking…"):
             try:
                 client = get_llm_client()
-                # Ollama's Gemma 4 chat template enables thinking by default, regardless
-                # of system prompt content, so reasoning_effort must be forced to "none".
+                # Keep reasoning_effort set to "none" for shipped behavior. Combined with
+                # the default system template omitting <|think|>, this keeps extended
+                # reasoning effectively disabled by default.
 
                 # Try include_usage if supported, fall back otherwise.
                 try:
