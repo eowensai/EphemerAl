@@ -22,8 +22,8 @@ frontend, an Ollama LLM backend, and an Apache Tika document parsing server.
 - `System Deployment Guide.md` — End-user deployment instructions (target audience: IT
   generalists, not developers). Written for WSL2 + Docker on Windows 11.
 - `README.md` — Project overview, feature list, system requirements.
-- `system_prompt_template.md` — LLM system prompt template. Includes Gemma 4
-  thinking control guidance via the `<|think|>` token in the system prompt.
+- `system_prompt_template.md` — LLM system prompt template. The default template is
+  model-agnostic and omits `<|think|>`.
 - `.streamlit/config.toml` — Streamlit theme and config. The Dockerfile merges server
   settings into this file at build time.
 - `theme.css` — Custom CSS loaded by the app.
@@ -41,8 +41,8 @@ frontend, an Ollama LLM backend, and an Apache Tika document parsing server.
   Ollama's `/api/show` endpoint, so it adapts to different models automatically.
 - Gemma 4 models may emit thought-channel blocks during streaming in the
   `<|channel>thought\n...<channel|>` format. The app includes a streaming filter
-  that strips these, and thinking is controlled by the `<|think|>` token in the
-  system prompt.
+  that strips these. The shipped app also sends `reasoning_effort="none"` on chat
+  requests, so extended reasoning is effectively disabled by default.
 
 ## Testing
 - Verify Python syntax: `python -m py_compile ephemeral_app.py`
@@ -60,6 +60,6 @@ frontend, an Ollama LLM backend, and an Apache Tika document parsing server.
 - Do not modify `system_prompt_template.md` unless changing the LLM's system behavior.
 - Do not add new Python dependencies beyond what's in `requirements.txt` without
   documenting the reason.
-- Do not remove Gemma 4 thinking guidance from `system_prompt_template.md` or the
-  thought-channel streaming filter from `ephemeral_app.py`. Both are required for
-  correct Gemma 4 model output (including `<|channel>thought\n...<channel|>` blocks).
+- Do not remove the thought-channel streaming filter from `ephemeral_app.py`; it is
+  required to suppress Gemma 4 thought-channel output (`<|channel>thought\n...<channel|>`
+  blocks) from displayed responses.

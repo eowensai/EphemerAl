@@ -233,7 +233,7 @@ This will take a while depending on your internet speed. When it completes, you 
 
 **A note on context window size:** Ollama automatically scales the context window based on your available VRAM (4k tokens under 24 GB, 32k from 24–48 GB, 256k at 48+ GB). This auto-scaling is a good default for most users. If you want to pin a specific context size for more predictable VRAM usage, see the "Stable Local Alias" section below.
 
-**A note on thinking mode:** Gemma 4 supports an extended reasoning mode activated by including a `<|think|>` token in the system prompt. EphemerAl's default system prompt does not include this token, which tells the model not to use extended reasoning. However, Gemma 4 may still occasionally emit empty or minimal thought output even when thinking is not requested; the app's streaming logic filters this from the displayed response automatically. If you want to experiment with thinking mode, see the alias section below for how to enable it.
+**A note on thinking mode:** In the shipped app, extended reasoning is effectively disabled by default. The default `system_prompt_template.md` is model-agnostic and omits `<|think|>`, and chat requests also set `reasoning_effort="none"`. Gemma 4 may still occasionally emit thought-channel output, but the app's streaming logic filters that from displayed responses. If you want to experiment with thinking mode, plan on app/runtime changes in addition to any prompt or Modelfile edits.
 
 
 ## Step 5: Verify the Installation
@@ -324,7 +324,7 @@ If the page works locally but not from another device, confirm your Windows netw
 
 ## Optional (Advanced/Operator): Stable Local Alias
 
-For operators who want more control over model parameters, you can create a local alias that pins specific settings. This is optional and not required for normal deployments. It is useful if you want to lock the context window to a predictable size, enable or disable thinking mode explicitly, or insulate the app from upstream changes to the Ollama model tag.
+For operators who want more control over model parameters, you can create a local alias that pins specific settings. This is optional and not required for normal deployments. It is useful if you want to lock the context window to a predictable size or insulate the app from upstream changes to the Ollama model tag.
 
 Enter the Ollama container:
 
@@ -360,4 +360,4 @@ Some notes on the parameters in this Modelfile:
 
 - **num_ctx 4000** pins the context window to 4,000 tokens regardless of your VRAM. This is a conservative choice for predictable memory usage. Ollama's default auto-scaling would give you 32k on a 24–48 GB card, or 256k at 48+ GB. If you have VRAM headroom and want longer conversations or larger document uploads, increase this value or remove the line to let Ollama auto-scale.
 - **num_gpu 99** tells Ollama to offload as many layers as possible to the GPU.
-- **SYSTEM line** omits the `<|think|>` token, which tells Gemma 4 not to use extended reasoning. To enable thinking mode, change the line to: `SYSTEM "<|think|>\nYou are a helpful assistant."`. Be aware that thinking mode increases response time and VRAM usage, and the app's streaming filter will strip thought blocks from the displayed output.
+- **SYSTEM line** is intentionally simple and model-agnostic. In the shipped app, changing this line alone does not enable visible thinking mode because chat requests also force `reasoning_effort="none"`.

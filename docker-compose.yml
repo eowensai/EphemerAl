@@ -94,8 +94,8 @@ services:
     environment:
       - LLM_BASE_URL=http://ollama:11434/v1
       - LLM_MODEL_NAME=gemma4:31b          # CUSTOMIZE: Change to any Ollama tag or local alias if needed.
-                                            # NOTE: Gemma 4 does not use /no_think. Thinking is controlled by the <|think|> token in the system prompt.
-                                            #       The recommended alias Modelfile SYSTEM line omits <|think|>, so thinking is off by default.
+                                            # NOTE: The default prompt template omits <|think|>, and the app sends
+                                            #       reasoning_effort=none on chat requests, so extended reasoning is off by default.
       - TIKA_URL=http://tika-server:9998
       - TIKA_CLIENT_ONLY=true
       - STREAMLIT_SERVER_HEADLESS=true
