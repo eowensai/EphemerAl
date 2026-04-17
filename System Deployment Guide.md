@@ -210,6 +210,8 @@ cd ~/ephemeral-llm
 
 The `docker-compose.yml` file already ships with `LLM_MODEL_NAME=gemma4:31b`, so no model-name change is needed for a standard first run.
 
+If you are upgrading an existing install that already uses the `ephemeral-default` alias, you can keep that alias workflow. In that case, leave your alias in place and set `LLM_MODEL_NAME=ephemeral-default` instead of switching back to the raw upstream tag.
+
 Now start the stack:
 
 ```bash
@@ -218,7 +220,7 @@ docker compose up -d --build
 
 The first run takes several minutes because Docker needs to download container images and build the app. When it finishes, all three containers will be running in the background.
 
-The compose file pins Ollama to version `0.20.4` for tested compatibility with Gemma 4 (including flash attention and Q8 KV cache). Check the Ollama releases page before changing this version.
+The compose file pins Ollama to version `0.21.0` and Apache Tika to `3.3.0.0-full` for tested compatibility with Gemma 4 (including flash attention and Q8 KV cache). Check each project's release notes before changing these versions.
 
 
 ## Step 4: Download the AI Model
@@ -252,7 +254,7 @@ docker compose ps
 docker exec -it ollama ollama list
 ```
 
-You should see all three containers in a "running" state, and `gemma4:31b` listed in the Ollama model list.
+You should see all three containers in a "running" state, and either `gemma4:31b` or `ephemeral-default` listed in the Ollama model list (depending on whether you kept the direct model tag or adopted the alias workflow).
 
 If a container is not running, check its logs for errors:
 
