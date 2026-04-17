@@ -56,7 +56,8 @@ EphemerAl is designed for trusted local networks (home, office LAN) and does not
 - Ollama API (OpenAI-compatible endpoint for chat)
 - Apache Tika server
 - Docker Compose (for the included deployment path)
-- Pinned Ollama container image in compose: `ollama/ollama:0.20.4`
+- Pinned Ollama container image in compose: `ollama/ollama:0.21.0`
+- Pinned Apache Tika container image in compose: `apache/tika:3.3.0.0-full`
 
 ## Hardware Planning (honest baseline)
 
