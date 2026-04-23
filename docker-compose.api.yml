@@ -1,0 +1,15 @@
+###############################################################################
+# docker-compose.api.yml — optional Ollama API exposure override
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.api.yml up -d
+#
+# Security warning:
+#   Raw Ollama in this stack has no application-layer authentication.
+#   Do not expose it broadly without firewall, VPN, and/or reverse-proxy controls.
+###############################################################################
+
+services:
+  ollama:
+    ports:
+      - "${OLLAMA_API_BIND:-127.0.0.1}:11434:11434"
