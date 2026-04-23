@@ -1,6 +1,6 @@
 # EphemerAl: System Deployment Guide
 
-**Default model: Gemma 4 31B on Ollama**
+**Default model: Qwen3.6-35B-A3B via local alias `ephemeral-default`**
 
 This guide walks you through a complete installation of EphemerAl on a Windows 11 machine with an NVIDIA GPU. Every step is designed for copy-and-paste; no Linux experience is required.
 
@@ -16,15 +16,15 @@ When you are finished, you will have four things running inside a Linux subsyste
 
 **Operating system:** Windows 11 (Pro or Enterprise recommended, Home is supported), version 21H2 or higher, fully updated. Windows Server is not covered by this guide.
 
-**GPU:** Gemma 4 31B is a large dense model. Your NVIDIA VRAM determines how well it will run:
+**GPU target:** This deployment targets **32 GB total NVIDIA VRAM**, including setups like **2 x 16 GB GPUs**.
 
-- **48 GB or more total VRAM** gives comfortable headroom for longer conversations and larger documents. This is the recommended starting point.
-- **32 GB total VRAM** works for many users with default settings.
-- **CPU-only** is technically possible but far too slow for interactive use.
+- The expected target configuration is **256K context** (`num_ctx 262144`) using Qwen3.6 with q8 KV cache.
+- This is a practical target, not a guarantee. Real behavior depends on your GPU model(s), driver version, CUDA/container stack, and concurrent GPU usage.
+- After deployment, always verify the actual runtime state with `ollama ps`.
+- Only reduce context size if `ollama ps` shows CPU offload, if you hit out-of-memory behavior, or if latency becomes unacceptable.
+- CPU-only is technically possible but far too slow for interactive use.
 
-If your hardware is below 32 GB VRAM, consider targeting a smaller Ollama model instead of Gemma 4 31B. You can change the model at any time by editing one environment variable.
-
-**NVIDIA Driver:** Install the latest WHQL-certified driver from NVIDIA's website before proceeding. If your PC has both integrated graphics and a discrete NVIDIA card, connecting your monitor to the integrated output frees more VRAM for the AI.
+**NVIDIA Driver:** Install the latest WHQL-certified driver from NVIDIA's website before proceeding. If your PC has both integrated graphics and a discrete NVIDIA card, connecting your monitor to the integrated output can leave more VRAM available for AI workloads.
 
 
 ## Preflight Checks
@@ -196,9 +196,9 @@ docker run --rm --gpus all nvidia/cuda:12.6.3-base-ubuntu24.04 nvidia-smi
 You should see a table showing your GPU name, driver version, and VRAM. If this fails, your NVIDIA driver may need updating, or the toolkit install did not complete. Go back to Step 2c and confirm each command ran without errors.
 
 
-## Step 3: Deploy EphemerAl
+## Step 3: Deploy EphemerAl and Create the Qwen Alias
 
-This step downloads the EphemerAl repository and starts the three-container stack (Ollama, Tika, and the web app).
+This step starts the stack, pulls the Qwen model, and creates the local alias EphemerAl expects.
 
 ```bash
 git clone https://github.com/eowensai/EphemerAl.git ~/ephemeral-llm
@@ -208,55 +208,95 @@ git clone https://github.com/eowensai/EphemerAl.git ~/ephemeral-llm
 cd ~/ephemeral-llm
 ```
 
-The `docker-compose.yml` file already ships with `LLM_MODEL_NAME=gemma4:31b`, so no model-name change is needed for a standard first run.
-
-If you are upgrading an existing install that already uses the `ephemeral-default` alias, you can keep that alias workflow. In that case, leave your alias in place and set `LLM_MODEL_NAME=ephemeral-default` instead of switching back to the raw upstream tag.
-
-Now start the stack:
+Start the stack first:
 
 ```bash
 docker compose up -d --build
 ```
 
-The first run takes several minutes because Docker needs to download container images and build the app. When it finishes, all three containers will be running in the background.
-
-The compose file pins Ollama to version `0.21.0` and Apache Tika to `3.3.0.0-full` for tested compatibility with Gemma 4 (including flash attention and Q8 KV cache). Check each project's release notes before changing these versions.
-
-
-## Step 4: Download the AI Model
-
-This downloads roughly 20 GB of model weights into the Ollama container's persistent storage. It only needs to happen once.
+Then pull Qwen3.6:
 
 ```bash
-docker exec -it ollama ollama pull gemma4:31b
+docker exec -it ollama ollama pull qwen3.6:35b-a3b
 ```
 
-This will take a while depending on your internet speed. When it completes, you are ready to use the app.
+Now enter the Ollama container:
 
-**A note on context window size:** Ollama automatically scales the context window based on your available VRAM (4k tokens under 24 GB, 32k from 24–48 GB, 256k at 48+ GB). This auto-scaling is a good default for most users. If you want to pin a specific context size for more predictable VRAM usage, see the "Stable Local Alias" section below.
+```bash
+docker exec -it ollama bash
+```
 
-**A note on thinking mode:** In the shipped app, extended reasoning is effectively disabled by default. The default `system_prompt_template.md` is model-agnostic and omits `<|think|>`, and chat requests also set `reasoning_effort="none"`. Gemma 4 may still occasionally emit thought-channel output, but the app's streaming logic filters that from displayed responses. If you want to experiment with thinking mode, plan on app/runtime changes in addition to any prompt or Modelfile edits.
+Create `/root/Modelfile.qwen36-ephemeral` with this exact content:
+
+```bash
+cat > /root/Modelfile.qwen36-ephemeral <<'EOF_MODEL'
+FROM qwen3.6:35b-a3b
+
+PARAMETER num_ctx 262144
+PARAMETER num_predict -1
+
+PARAMETER temperature 0.7
+PARAMETER top_p 0.8
+PARAMETER top_k 20
+PARAMETER min_p 0
+PARAMETER repeat_penalty 1.0
+EOF_MODEL
+```
+
+Create the alias:
+
+```bash
+ollama create ephemeral-default -f /root/Modelfile.qwen36-ephemeral
+```
+
+Verify it exists:
+
+```bash
+ollama list
+```
+
+Check runtime status:
+
+```bash
+ollama ps
+```
+
+Exit the container shell when done:
+
+```bash
+exit
+```
+
+### What these settings mean (plain language)
+
+- `num_ctx 262144` pins the alias runtime context window to 256K tokens.
+- `num_predict -1` avoids an Ollama-side artificial output cap.
+- `temperature`, `top_p`, `top_k`, `min_p`, and `repeat_penalty` are practical Qwen non-thinking defaults that Ollama can store in the Modelfile.
+- `presence_penalty` is intentionally **not** in this Modelfile. EphemerAl sends `presence_penalty=1.5` per request. External OpenAI-compatible clients should also send `presence_penalty=1.5` in each request.
 
 
-## Step 5: Verify the Installation
+## Step 4: Verify the Installation (Pass Criteria)
 
-Open a browser on the same machine and navigate to:
-
-**http://localhost:8501**
-
-You should see the EphemerAl chat interface. Try sending a message to confirm the model responds.
-
-If the page loads but the model does not respond, check that the model finished downloading and that the containers are healthy:
+Run these checks from Ubuntu in your repo folder:
 
 ```bash
 cd ~/ephemeral-llm
 docker compose ps
 docker exec -it ollama ollama list
+docker exec -it ollama ollama ps
 ```
 
-You should see all three containers in a "running" state, and either `gemma4:31b` or `ephemeral-default` listed in the Ollama model list (depending on whether you kept the direct model tag or adopted the alias workflow).
+Pass criteria:
 
-If a container is not running, check its logs for errors:
+1. `docker compose ps` shows all services running.
+2. `ollama list` shows `ephemeral-default`.
+3. `ollama ps` shows `ephemeral-default` loaded.
+4. `CONTEXT` is `262144`.
+5. `PROCESSOR` is `100% GPU` (or otherwise clearly indicates the model is not CPU-offloaded).
+6. The browser app opens at **http://localhost:8501**.
+7. A simple prompt returns a normal answer without visible `<think>` content.
+
+If any container is not running, collect logs:
 
 ```bash
 docker compose logs ollama
@@ -264,16 +304,38 @@ docker compose logs ephemeral-app
 docker compose logs tika-server
 ```
 
+If `ollama ps` shows CPU offload, OOM behavior, or unacceptable latency, reduce `num_ctx` in `/root/Modelfile.qwen36-ephemeral`, recreate the alias, and test again.
 
-## Step 6: Network Access and Auto-Start
+
+## Non-Thinking Behavior (Important)
+
+EphemerAl disables Qwen "thinking mode" through the OpenAI-compatible request field:
+
+- `reasoning_effort="none"`
+
+Operator guidance:
+
+- Do **not** add `/nothink` to prompts.
+- Do **not** add `<think>` tags to the system prompt.
+- Visible reasoning output is intentionally suppressed by default.
+
+
+## Output Length Behavior (Important)
+
+- EphemerAl does **not** impose `max_tokens` by default.
+- `LLM_OUTPUT_RESERVE_TOKENS` reserves part of the input/document budget so the model has room to answer; it does **not** cap output length.
+- If endless-loop behavior ever appears, handle that as a separate stability issue. Do not cap normal document-analysis outputs to `8192` tokens as a blanket workaround.
+
+
+## Step 5: Network Access and Auto-Start (UI on Port 8501)
 
 These steps make EphemerAl available to other computers on your local network and ensure it starts automatically when you log in to Windows.
 
 ### Important context
 
-The application runs as a **user-level task**, not a system service. This means it will only start after a specific Windows user logs in. It will not run while the computer is sitting at the lock screen after a reboot. If you want "appliance" behavior where the machine starts everything on boot without a login, search for "netplwiz auto login" to configure automatic Windows login.
+The application runs as a **user-level task**, not a system service. This means it will only start after a specific Windows user logs in. It will not run while the computer is sitting at the lock screen after a reboot. If you want appliance-style behavior where the machine starts everything on boot without a login, search for "netplwiz auto login" to configure automatic Windows login.
 
-### 6a. Allow traffic through the Windows Firewall
+### 5a. Allow traffic through the Windows Firewall
 
 Switch to **PowerShell (Admin)** on the Windows side and run:
 
@@ -283,7 +345,7 @@ New-NetFirewallRule -DisplayName "EphemerAl Port 8501" -Direction Inbound -Proto
 
 This rule applies to all network profiles (Domain, Private, and Public). If you want to restrict it to private networks only, add `-Profile Private` to the command.
 
-### 6b. Create the startup script
+### 5b. Create the startup script
 
 WSL2 in its default networking mode gets a new internal IP address each time it starts, so Windows needs a small script that discovers that address and forwards incoming traffic on port 8501 to it.
 
@@ -301,7 +363,7 @@ wsl -d Ubuntu-24.04 -- sleep infinity
 
 Every `wsl` call in this script explicitly targets `Ubuntu-24.04` with `-d`. This prevents problems on machines that have multiple Linux distros installed, where bare `wsl` would target whichever distro is set as the default.
 
-### 6c. Schedule the script to run at login
+### 5c. Schedule the script to run at login
 
 1. Search Windows for **Task Scheduler** and open it as Administrator.
 2. Click **Create Task** in the right sidebar.
@@ -315,51 +377,109 @@ Every `wsl` call in this script explicitly targets `Ubuntu-24.04` with `-d`. Thi
 
 6. Click OK to save the task.
 
-### 6d. Test network access
+### 5d. Test network access (UI)
 
 1. Reboot your computer and log in to Windows. Wait about 30 seconds.
 2. Find your PC's IP address by opening PowerShell and running `ipconfig`. Look for the **IPv4 Address** under your active network adapter (for example, `192.168.1.50`).
 3. From a different device on the same network (phone, laptop, another PC), open a browser and go to `http://YOUR_IP_ADDRESS:8501`.
 
-If the page works locally but not from another device, confirm your Windows network profile is set to **Private** (Settings → Network & Internet → your connection → Network profile type → Private), and verify the firewall rule from Step 6a was created successfully by running `Get-NetFirewallRule -DisplayName "EphemerAl*"` in PowerShell.
+If the page works locally but not from another device, confirm your Windows network profile is set to **Private** (Settings → Network & Internet → your connection → Network profile type → Private), and verify the firewall rule from Step 5a was created successfully by running `Get-NetFirewallRule -DisplayName "EphemerAl*"` in PowerShell.
 
 
-## Optional (Advanced/Operator): Stable Local Alias
+## Optional: Expose Ollama as a Shared API Backend (Port 11434)
 
-For operators who want more control over model parameters, you can create a local alias that pins specific settings. This is optional and not required for normal deployments. It is useful if you want to lock the context window to a predictable size or insulate the app from upstream changes to the Ollama model tag.
+By default, this stack keeps raw Ollama internal. That is the safest default and is recommended for most operators.
 
-Enter the Ollama container:
+Use this only when you intentionally want professional development/dev tools to call Ollama directly.
 
-```bash
-docker exec -it ollama bash
-```
+### Start with API override
 
-Inside the container, paste this entire block:
+From `~/ephemeral-llm`, run:
 
 ```bash
-cat > Modelfile <<EOF_MODEL
-FROM gemma4:31b
-PARAMETER num_ctx 4000
-PARAMETER num_gpu 99
-PARAMETER temperature 1.0
-PARAMETER top_p 0.95
-PARAMETER top_k 64
-SYSTEM "You are a helpful assistant."
-EOF_MODEL
-ollama create ephemeral-default -f Modelfile
-exit
+docker compose -f docker-compose.yml -f docker-compose.api.yml up -d
 ```
 
-Then update the app to use the alias:
+This override defaults `OLLAMA_API_BIND` to `127.0.0.1`.
 
-```bash
-cd ~/ephemeral-llm
-sed -i 's#LLM_MODEL_NAME=gemma4:31b#LLM_MODEL_NAME=ephemeral-default#' docker-compose.yml
-docker compose up -d
+- `127.0.0.1` means local-host access only.
+- For LAN exposure, you must intentionally set `OLLAMA_API_BIND=0.0.0.0` (or another appropriate bind address), then apply Windows firewall and WSL portproxy rules as needed.
+
+### Security warning (read before exposing)
+
+Raw Ollama in this stack has **no app-level authentication**. Do not treat it as safe for broad LAN or internet exposure by default.
+
+For team use, place it behind one or more controls:
+
+- VPN access
+- firewall allow-list
+- reverse proxy with authentication and TLS
+
+### Optional Windows networking for API port 11434
+
+Only do this if you intentionally expose the API beyond localhost.
+
+**PowerShell (Admin):**
+
+```powershell
+New-NetFirewallRule -DisplayName "EphemerAl Ollama API 11434" -Direction Inbound -Protocol TCP -LocalPort 11434 -Action Allow
 ```
 
-Some notes on the parameters in this Modelfile:
+```powershell
+$wslIP = (wsl -d Ubuntu-24.04 -- hostname -I).Split()[0]
+netsh interface portproxy delete v4tov4 listenport=11434 listenaddress=0.0.0.0 2>$null
+netsh interface portproxy add v4tov4 listenport=11434 listenaddress=0.0.0.0 connectport=11434 connectaddress=$wslIP
+```
 
-- **num_ctx 4000** pins the context window to 4,000 tokens regardless of your VRAM. This is a conservative choice for predictable memory usage. Ollama's default auto-scaling would give you 32k on a 24–48 GB card, or 256k at 48+ GB. If you have VRAM headroom and want longer conversations or larger document uploads, increase this value or remove the line to let Ollama auto-scale.
-- **num_gpu 99** tells Ollama to offload as many layers as possible to the GPU.
-- **SYSTEM line** is intentionally simple and model-agnostic. In the shipped app, changing this line alone does not enable visible thinking mode because chat requests also force `reasoning_effort="none"`.
+Keep this section separate from the normal UI path on port 8501. Exposing 11434 is optional and should be deliberate.
+
+
+## External API Caller Examples (Optional)
+
+### OpenAI-compatible client example
+
+- `base_url`: `http://<server>:11434/v1`
+- `model`: `ephemeral-default`
+- `api_key`: any placeholder value (for example, `not-used`)
+- Include request fields:
+  - `reasoning_effort: "none"`
+  - `temperature: 0.7`
+  - `top_p: 0.8`
+  - `presence_penalty: 1.5`
+
+Example payload body:
+
+```json
+{
+  "model": "ephemeral-default",
+  "messages": [
+    {"role": "user", "content": "Summarize this incident report."}
+  ],
+  "reasoning_effort": "none",
+  "temperature": 0.7,
+  "top_p": 0.8,
+  "presence_penalty": 1.5
+}
+```
+
+### Native Ollama API example
+
+Endpoint: `POST http://<server>:11434/api/chat`
+
+```json
+{
+  "model": "ephemeral-default",
+  "messages": [
+    {"role": "user", "content": "Summarize this incident report."}
+  ],
+  "think": false,
+  "options": {
+    "temperature": 0.7,
+    "top_p": 0.8,
+    "top_k": 20,
+    "min_p": 0,
+    "repeat_penalty": 1.0,
+    "num_predict": -1
+  }
+}
+```
