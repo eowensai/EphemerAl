@@ -35,14 +35,70 @@ frontend, an Ollama LLM backend, and an Apache Tika document parsing server.
 - The app runs inside Docker. Environment variable defaults in `ephemeral_app.py` MUST
   use Docker service names (`http://ollama:11434/v1` and `http://tika-server:9998`),
   NOT `localhost`. Using localhost as defaults will break the Docker Compose deployment.
-- The default LLM model is `gemma4:31b`. The model tag is set via the
-  `LLM_MODEL_NAME` environment variable in `docker-compose.yml`.
+- The default LLM model is `ephemeral-default` (`LLM_MODEL_NAME=ephemeral-default` in
+  `docker-compose.yml`). The alias should be created from `qwen3.6:35b-a3b`.
 - The app detects model capabilities (vision support, context size) at runtime via
   Ollama's `/api/show` endpoint, so it adapts to different models automatically.
-- Gemma 4 models may emit thought-channel blocks during streaming in the
-  `<|channel>thought\n...<channel|>` format. The app includes a streaming filter
-  that strips these. The shipped app also sends `reasoning_effort="none"` on chat
-  requests, so extended reasoning is effectively disabled by default.
+
+## Qwen3.6 Defaults (Target Behavior)
+- `Qwen3.6-35B-A3B` is the default target model, exposed through the local Ollama alias
+  `ephemeral-default`.
+- Run Qwen in **non-thinking mode** by default. EphemerAl request defaults should be:
+  - `reasoning_effort="none"`
+  - `temperature=0.7`
+  - `top_p=0.8`
+  - `presence_penalty=1.5`
+- The Ollama alias `Modelfile` should define:
+  - `PARAMETER num_ctx 262144`
+  - `PARAMETER num_predict -1`
+  - `PARAMETER temperature 0.7`
+  - `PARAMETER top_p 0.8`
+  - `PARAMETER top_k 20`
+  - `PARAMETER min_p 0`
+  - `PARAMETER repeat_penalty 1.0`
+- Do **not** put `presence_penalty` in the Modelfile unless the installed Ollama
+  version explicitly supports it. Keep `presence_penalty` request-level for EphemerAl
+  and OpenAI-compatible clients.
+
+## Context and Output Policy
+- `PARAMETER num_ctx` in the alias Modelfile is the source of truth for actual Ollama
+  model context.
+- `LLM_CONTEXT_TOKENS` is only EphemerAl's document-budgeting hint.
+- `OLLAMA_CONTEXT_LENGTH` is not the primary approach for this stack because Ollama may
+  become a shared API backend.
+- `num_predict -1` avoids an Ollama-side artificial output cap.
+- EphemerAl should not send `max_tokens` unless `LLM_MAX_TOKENS` is explicitly set.
+- `LLM_OUTPUT_RESERVE_TOKENS` reserves input budget for large responses; it is not an
+  output cap.
+
+## Reasoning / Thinking Policy
+- Qwen3.6 thinking should be disabled via runtime/API controls, not prompt text.
+- Do not add `/nothink`, `<think>`, or "think step by step" to the system prompt.
+- EphemerAl should discard streamed reasoning deltas unless
+  `LLM_SHOW_REASONING=true`.
+- Keep think-block stripping as defense-in-depth.
+
+## Shared API Backend Policy
+- Raw Ollama should remain internal by default.
+- Optional API exposure should happen via a separate `docker-compose.api.yml`
+  override.
+- Keep `OLLAMA_MAX_LOADED_MODELS=1` and `OLLAMA_NUM_PARALLEL=1` unless capacity testing
+  proves otherwise.
+- Shared API users should call model `ephemeral-default`.
+- External OpenAI-compatible clients should send:
+  - `reasoning_effort="none"`
+  - `temperature=0.7`
+  - `top_p=0.8`
+  - `presence_penalty=1.5`
+
+## Review Guidelines
+When reviewing Codex changes, treat the following as high-priority checks:
+- privacy regressions
+- accidental logging of prompts, uploaded documents, or model output
+- Docker networking exposure changes
+- loss of non-thinking behavior
+- incorrect context/output budgeting
+- broken copy-paste commands in deployment docs
 
 ## Testing
 - Verify Python syntax: `python -m py_compile ephemeral_app.py`
@@ -60,6 +116,5 @@ frontend, an Ollama LLM backend, and an Apache Tika document parsing server.
 - Do not modify `system_prompt_template.md` unless changing the LLM's system behavior.
 - Do not add new Python dependencies beyond what's in `requirements.txt` without
   documenting the reason.
-- Do not remove the thought-channel streaming filter from `ephemeral_app.py`; it is
-  required to suppress Gemma 4 thought-channel output (`<|channel>thought\n...<channel|>`
-  blocks) from displayed responses.
+- Do not remove think-block/thought-channel streaming filters from `ephemeral_app.py`;
+  they are required as defense-in-depth against leaked reasoning output.
