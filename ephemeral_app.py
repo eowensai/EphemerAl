@@ -32,10 +32,6 @@ CONTEXT_PREFIX = "Context:\n"
 # TTL for session-scoped Tika parse cache (seconds)
 TIKA_CACHE_TTL_S = 3600
 
-# Fallback per-image token cost for Gemma 4 vision when /api/show has no mm.tokens_per_image;
-# Gemma 4 uses discrete budgets (70/140/280/560/1120), so default to conservative max budget.
-IMG_TOKEN_COST_DEFAULT = 1120
-
 # Token estimation behavior
 TOKEN_HEURISTIC_CHARS_PER_TOKEN = 3.5
 TOKEN_CACHE_MAX_ENTRIES = 256
@@ -85,12 +81,70 @@ except ImportError:
 
 # ── Backend configuration ─────────────────────────────────────────
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://ollama:11434/v1")
-# Default to the official Ollama model tag so installs work without a local alias.
-MODEL_NAME = os.getenv("LLM_MODEL_NAME", "gemma4:31b")
+MODEL_NAME = os.getenv("LLM_MODEL_NAME", "ephemeral-default")
 TIKA_URL = os.getenv("TIKA_URL", "http://tika-server:9998")
 TIKA_TIMEOUT_S = int(os.getenv("TIKA_TIMEOUT_S", "15"))
 DEFAULT_UPLOAD_PROMPT = os.getenv("DEFAULT_UPLOAD_PROMPT", "Please analyze the uploaded files.")
 LLM_SUPPORTS_VISION = os.getenv("LLM_SUPPORTS_VISION")
+
+
+def _float_env(name: str, default: float) -> float:
+    """Parse a float env var with safe fallback on missing/blank/invalid values."""
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    raw = raw.strip()
+    if not raw:
+        return default
+    try:
+        return float(raw)
+    except Exception:
+        return default
+
+
+def _int_env_optional(name: str) -> Optional[int]:
+    """Parse an optional int env var; return None for missing/blank/invalid/non-positive values."""
+    raw = os.getenv(name)
+    if raw is None:
+        return None
+    raw = raw.strip()
+    if not raw:
+        return None
+    try:
+        value = int(raw)
+        return value if value > 0 else None
+    except Exception:
+        return None
+
+
+def _int_env(name: str, default: int) -> int:
+    """Parse an int env var with safe fallback on missing/blank/invalid values."""
+    value = _int_env_optional(name)
+    return value if value is not None else default
+
+
+def _bool_env(name: str, default: bool = False) -> bool:
+    """Parse a bool env var with safe fallback on missing/blank/invalid values."""
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    value = raw.strip().lower()
+    if value in {"1", "true", "yes", "y", "on"}:
+        return True
+    if value in {"0", "false", "no", "n", "off"}:
+        return False
+    return default
+
+
+LLM_CONTEXT_TOKENS = _int_env_optional("LLM_CONTEXT_TOKENS")
+LLM_OUTPUT_RESERVE_TOKENS = _int_env("LLM_OUTPUT_RESERVE_TOKENS", 32768)
+LLM_TEMPERATURE = _float_env("LLM_TEMPERATURE", 0.7)
+LLM_TOP_P = _float_env("LLM_TOP_P", 0.8)
+LLM_PRESENCE_PENALTY = _float_env("LLM_PRESENCE_PENALTY", 1.5)
+LLM_REASONING_EFFORT = os.getenv("LLM_REASONING_EFFORT", "none").strip() or "none"
+LLM_SHOW_REASONING = _bool_env("LLM_SHOW_REASONING", False)
+LLM_MAX_TOKENS = _int_env_optional("LLM_MAX_TOKENS")
+IMG_TOKEN_COST_DEFAULT = _int_env("IMG_TOKEN_COST_DEFAULT", 2048)
 
 
 def _ollama_base_url() -> str:
@@ -181,8 +235,8 @@ def timestamp_local() -> str:
 tmpl_path = pathlib.Path(__file__).parent / "system_prompt_template.md"
 if tmpl_path.exists():
     # Default system template is model-agnostic and omits <|think|>.
-    # The request path also sends reasoning_effort="none", so extended reasoning
-    # is effectively disabled by default; keep the think-block filter as defense-in-depth.
+    # Request defaults also set reasoning_effort to "none"; keep the think-block
+    # filter as defense-in-depth even when reasoning visibility is toggled.
     SYSTEM_TMPL = string.Template(tmpl_path.read_text(encoding="utf-8"))
 else:
     SYSTEM_TMPL = string.Template(
@@ -285,7 +339,16 @@ def model_supports_images() -> bool:
 
 @st.cache_data(ttl=60, show_spinner=False)
 def get_model_ctx() -> Optional[int]:
-    """Return the model context size, if discoverable via /api/show."""
+    """
+    Return model context tokens for app-side budgeting.
+
+    If LLM_CONTEXT_TOKENS is set to a positive integer, that value is used first
+    as an application budgeting override (it does not change Ollama runtime model settings).
+    Otherwise, context is discovered from Ollama /api/show metadata.
+    """
+    if LLM_CONTEXT_TOKENS:
+        return LLM_CONTEXT_TOKENS
+
     payload = _ollama_show()
     if not payload:
         return None
@@ -852,9 +915,28 @@ with st.sidebar:
 
     if DEBUG_MODE:
         with st.expander("System status", expanded=False):
+            dbg_model_ctx = get_model_ctx()
+            dbg_effective_ctx = dbg_model_ctx if dbg_model_ctx else 32768
+            dbg_usable_ctx = int(dbg_effective_ctx * 0.95)
+            dbg_reserved_ctx = min(LLM_OUTPUT_RESERVE_TOKENS, int(dbg_effective_ctx * 0.25))
+            dbg_budget_ctx = max(4096, dbg_usable_ctx - dbg_reserved_ctx)
             st.caption(f"App version: {APP_VERSION}")
             st.caption(f"Model: {MODEL_NAME}")
             st.caption(f"LLM base URL: {LLM_BASE_URL}")
+            st.caption(
+                "Context budget: "
+                f"{dbg_budget_ctx:,} tokens"
+                + (f" (model ctx: {dbg_model_ctx:,})" if dbg_model_ctx else " (fallback model ctx: 32,768)")
+            )
+            st.caption(
+                "Request settings: "
+                f"temperature={LLM_TEMPERATURE}, top_p={LLM_TOP_P}, "
+                f"presence_penalty={LLM_PRESENCE_PENALTY}, reasoning_effort={LLM_REASONING_EFFORT!r}"
+            )
+            st.caption(
+                "LLM_MAX_TOKENS: "
+                + (str(LLM_MAX_TOKENS) if LLM_MAX_TOKENS is not None else "not set (max_tokens omitted)")
+            )
 
             tok_state = st.session_state.get("tokenizer_available")
             if not ENABLE_TOKEN_BUDGETING:
@@ -981,15 +1063,11 @@ if prompt_in is not None:
         st.session_state["last_token_count"] = 0
 
     model_ctx = get_model_ctx()
-    if model_ctx:
-        max_ctx = int(model_ctx * 0.95)
-        warn_ctx = int(model_ctx * 0.85)
-    else:
-        # Conservative Gemma 4 fallback when /api/show metadata is unavailable.
-        # Uses a likely Ollama runtime default num_ctx (32K), not Gemma 4 31B's
-        # theoretical 256K maximum, to avoid overstuffing prompts on lower-VRAM setups.
-        max_ctx = int(32768 * 0.95)
-        warn_ctx = int(max_ctx * 0.85)
+    effective_ctx = model_ctx if model_ctx else 32768
+    usable_ctx = int(effective_ctx * 0.95)
+    reserved_ctx = min(LLM_OUTPUT_RESERVE_TOKENS, int(effective_ctx * 0.25))
+    max_ctx = max(4096, usable_ctx - reserved_ctx)
+    warn_ctx = int(max_ctx * 0.85)
 
     image_token_cost = get_image_token_cost() if vision_supported else 0
 
@@ -1210,37 +1288,32 @@ if prompt_in is not None:
     assistant_msg_id = str(uuid.uuid4())
 
     with styled_chat_message("assistant", assistant_msg_id):
-        with st.spinner("Thinking…"):
+        with st.spinner("Generating…"):
             try:
                 client = get_llm_client()
-                # Keep reasoning_effort set to "none" for shipped behavior. Combined with
-                # the default system template omitting <|think|>, this keeps extended
-                # reasoning effectively disabled by default.
+                request_kwargs = {
+                    "model": MODEL_NAME,
+                    "messages": payload,
+                    "stream": True,
+                    "temperature": LLM_TEMPERATURE,
+                    "top_p": LLM_TOP_P,
+                    "presence_penalty": LLM_PRESENCE_PENALTY,
+                    "extra_body": {"reasoning_effort": LLM_REASONING_EFFORT},
+                }
+                if LLM_MAX_TOKENS is not None:
+                    request_kwargs["max_tokens"] = LLM_MAX_TOKENS
 
                 # Try include_usage if supported, fall back otherwise.
                 try:
                     stream = client.chat.completions.create(
-                        model=MODEL_NAME,
-                        messages=payload,
-                        stream=True,
+                        **request_kwargs,
                         stream_options={"include_usage": True},
-                        extra_body={"reasoning_effort": "none"},
                     )
                 except TypeError:
-                    stream = client.chat.completions.create(
-                        model=MODEL_NAME,
-                        messages=payload,
-                        stream=True,
-                        extra_body={"reasoning_effort": "none"},
-                    )
+                    stream = client.chat.completions.create(**request_kwargs)
                 except Exception as e:
                     if "stream_options" in str(e) or "include_usage" in str(e):
-                        stream = client.chat.completions.create(
-                            model=MODEL_NAME,
-                            messages=payload,
-                            stream=True,
-                            extra_body={"reasoning_effort": "none"},
-                        )
+                        stream = client.chat.completions.create(**request_kwargs)
                     else:
                         raise
 
@@ -1250,7 +1323,7 @@ if prompt_in is not None:
                 in_think_block = False
                 current_think_close_tag = ""
                 stream_parse_buffer = ""
-                # Filter both legacy (<think>...</think>) and Gemma 4
+                # Filter both legacy (<think>...</think>) and channel-tag
                 # (<|channel>thought\n...<channel|>) think-block formats.
                 think_tag_pairs = [
                     ("<|channel>thought\n", "<channel|>"),
@@ -1263,12 +1336,10 @@ if prompt_in is not None:
 
                 for chunk in stream:
                     if getattr(chunk, "choices", None):
-                        delta = chunk.choices[0].delta.content
-                        if not delta:
-                            # Workaround for Ollama vision+thinking bug (ollama/ollama#14716, fixed; workaround retained as defense-in-depth).
-                            # Through the OpenAI-compatible API, Ollama maps thinking output
-                            # to a non-standard `reasoning` field on the delta.
-                            delta = getattr(chunk.choices[0].delta, "reasoning", None)
+                        delta_obj = getattr(chunk.choices[0], "delta", None)
+                        delta = getattr(delta_obj, "content", None)
+                        if not delta and LLM_SHOW_REASONING:
+                            delta = getattr(delta_obj, "reasoning", None)
                         if delta:
                             stream_parse_buffer += delta
 
