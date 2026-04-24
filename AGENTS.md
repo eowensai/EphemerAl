@@ -112,7 +112,7 @@ When reviewing Codex changes, treat the following as high-priority checks:
 - broken copy-paste commands in deployment docs
 
 ## Testing
-- Verify Python syntax: `python -m py_compile ephemeral_app.py`
+- Verify Python syntax: `python -m py_compile ephemeral_app.py ephemeral/*.py`
 - Verify requirements install: `pip install -r requirements.txt && pip check`
 - Verify test tooling + run tests: `pip install -r requirements-dev.txt && python -m pytest`
 - Verify Markdown links resolve: all relative links in README.md and the deployment
@@ -133,5 +133,4 @@ When reviewing Codex changes, treat the following as high-priority checks:
 - Do not modify `system_prompt_template.md` unless changing the LLM's system behavior.
 - Do not add new Python dependencies beyond what's in `requirements.txt` without
   documenting the reason.
-- Do not remove think-block/thought-channel streaming filters from `ephemeral_app.py`;
-  they are required as defense-in-depth against leaked reasoning output.
+- Do not remove think-block/thought-channel filtering from `ephemeral/stream_filter.py` or from the streaming response path in `ephemeral_app.py`; it is required as defense-in-depth against leaked reasoning output.

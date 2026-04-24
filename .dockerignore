@@ -8,6 +8,14 @@
 *.local
 .streamlit/secrets.toml
 
+# Secret and credential files
+*.pem
+*.key
+*.crt
+*.pfx
+*.p12
+id_rsa*
+
 # Python caches and virtualenvs
 __pycache__/
 *.py[cod]
