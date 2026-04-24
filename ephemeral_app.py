@@ -77,6 +77,7 @@ except ImportError:
 
 # ── Backend configuration ─────────────────────────────────────────
 DEFAULT_UPLOAD_PROMPT = os.getenv("DEFAULT_UPLOAD_PROMPT", "Please analyze the uploaded files.")
+MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 
 
 def get_local_timezone() -> tzinfo:
@@ -482,11 +483,15 @@ if prompt_in is not None:
 
     for f in files:
         ftype = getattr(f, "type", "")
+        file_size = int(getattr(f, "size", 0) or 0)
+        if file_size > MAX_UPLOAD_BYTES:
+            st.error(
+                f"{f.name} is too large ({file_size / (1024 * 1024):.1f} MB). "
+                "The maximum file size is 50 MB."
+            )
+            continue
 
         if ftype.startswith("image/"):
-            if getattr(f, "size", 0) > 50 * 1024 * 1024:
-                st.info(f"{f.name} is a large image and may take a bit to process.")
-
             f.seek(0)
             img_bytes = f.getvalue()
             parts.append({"type": "text", "text": f"📷 *{f.name}*"})
