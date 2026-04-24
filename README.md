@@ -1,6 +1,6 @@
-# EphemerAl: A Simple Self-Hosted Chat Interface for Local AI with Ollama that Accepts Documents and Images
+# EphemerAl (EphemerAI UI): A Simple Self-Hosted Chat Interface for Local AI with Ollama that Accepts Documents and Images
 
-EphemerAl is a lightweight, open-source web interface for interacting with local LLMs on your hardware via Ollama. I designed it for my day job to help keep our team's sensitive info off cloud services, and to provide a modern AI experience to staff without the per-user cost required to achieve equivalent capabilities online. The repository now targets Qwen3.6-35B-A3B through a stable local alias (`ephemeral-default`) that you create from `qwen3.6:35b-a3b`, and can still be retargeted to other models by changing one environment variable (`LLM_MODEL_NAME`).
+EphemerAl is a lightweight, open-source web interface (user-facing brand: **EphemerAI**) for interacting with local LLMs on your hardware via Ollama. I designed it for my day job to help keep our team's sensitive info off cloud services, and to provide a modern AI experience to staff without the per-user cost required to achieve equivalent capabilities online. The repository now targets Qwen3.6-35B-A3B through a stable local alias (`ephemeral-default`) that you create from `qwen3.6:35b-a3b`, and can still be retargeted to other models by changing one environment variable (`LLM_MODEL_NAME`).
 
 While it wasn't built for broad distribution, I'm sharing this generalized version in case it helps others looking for a local-only, account-free, multimodal LLM interface. . . whether to provide an operational tool, a staff learning environment, or bragging rights when friends visit on your home network.
 
@@ -67,7 +67,7 @@ EphemerAl is designed for trusted local networks (home, office LAN) and does not
 
 ## Technical Stack
 
-- Python 3.11 + Streamlit
+- Python 3.11 + Streamlit 1.56.0
 - Ollama API (OpenAI-compatible endpoint for chat)
 - Apache Tika server
 - Docker Compose (for the included deployment path)
@@ -120,6 +120,21 @@ If your current stack still points at any older model tag, recreate or update yo
 
 - Local: `http://localhost:8501`
 - Network: `http://<host-ip>:8501`
+
+## UI Validation Checklist (Streamlit 1.56)
+
+After deployment (or after UI updates), run this quick manual checklist in a browser:
+
+1. Open the app and confirm the empty welcome screen renders before any chat messages.
+2. Send a text-only prompt and confirm normal response streaming.
+3. Upload a supported document (for example, PDF or DOCX) and confirm document chat still works.
+4. Upload an image and confirm behavior is model-aware:
+   - If the selected model supports vision, the image is accepted and included.
+   - If the selected model does not support vision, the UI shows a clear warning and continues text chat.
+5. Click **New chat** and confirm prior messages/attachments are cleared from the current session.
+6. After at least one exchanged message, click **Copy conversation** and confirm clipboard copy works.
+7. Temporarily stop Ollama or Tika and confirm the app UI still renders with backend-unavailable guidance.
+8. Narrow the browser window (or test on mobile) and confirm basic sidebar/chat usability.
 
 ## Stopping the Application
 
