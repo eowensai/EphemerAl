@@ -1,63 +1,50 @@
 /* ===================================================================
  * EphemerAl Theme CSS
- * Tested on: Streamlit 1.52.2
- * 
- * ⚠️  FRAGILE SELECTORS WARNING
- * This file uses Streamlit internal DOM selectors that may break on upgrades:
- *   - data-testid="stSidebar", "stBottom", "stChatMessage", etc.
- *   - button[title="View fullscreen"] (especially brittle)
- *   - [class*="st-key-..."] pattern for role-based message styling
- * 
- * Validate these selectors when upgrading Streamlit versions.
+ * Target: Streamlit 1.56.0
+ *
+ * Notes:
+ * - Keeps the :root custom-property architecture.
+ * - Preserves st-key-user- / st-key-assistant- message role styling.
+ * - Uses only system fonts for air-gapped environments.
+ * - Streamlit internal selectors are annotated below where used.
  * =================================================================== */
 
-/* ===================================================================
- * 🎨 CUSTOMIZE YOUR COLORS
- * 
- * Change these values to match your organization's branding.
- * The warm parchment defaults work well with most logos.
- * 
- * For a cooler/neutral feel, try:
- *   --color-bg-main: #F8F8F8;
- *   --color-bg-sidebar: #F0F0F0;
- *   --color-border: #E0E0E0;
- * =================================================================== */
 :root {
     color-scheme: light;
-    
-    /* ─── LAYOUT ─── */
-    --sidebar-width: 280px;
-    
-    /* ─── PRIMARY ACCENT (buttons, user messages, highlights) ─── */
-    --color-accent:           #E1654A;
-    
-    /* ─── SECONDARY ACCENT (assistant messages, wordmark gradient) ─── */
-    --color-accent-secondary: #5A4FCF;
-    
-    /* ─── BACKGROUNDS ─── */
-    --color-bg-main:          #FAF6F0;
-    --color-bg-sidebar:       #F3EEE6;
-    
-    /* ─── SURFACES & BORDERS ─── */
-    --color-surface:          #FFFFFF;
-    --color-border:           #E6DED3;
-    
-    /* ─── TEXT COLORS (usually don't need to change) ─── */
-    --color-text:             #1E242B;
-    --color-text-muted:       #5A646E;
-    --color-text-subtle:      #7A848E;
-    
-    /* ─── MESSAGE BACKGROUNDS ─── */
-    /* User messages get a warm tint, assistant messages stay white */
-    --color-user-msg-bg:      #FDF8F4;
-    --color-user-msg-border:  #E8A090;
-    --color-asst-msg-border:  #A9A3E0;
+
+    /* Layout */
+    --sidebar-width: 304px;
+    --radius-sm: 10px;
+    --radius-md: 14px;
+    --radius-lg: 18px;
+
+    /* Palette */
+    --color-accent: #4F5BEA;
+    --color-accent-strong: #404cdc;
+    --color-accent-soft: #eef0ff;
+    --color-bg-main: #f6f8fc;
+    --color-bg-sidebar: #f5f7fb;
+    --color-surface: #ffffff;
+    --color-border: #dce2ee;
+    --color-divider: #e7ebf3;
+    --color-text: #1d2a44;
+    --color-text-muted: #5f6f8a;
+    --color-text-subtle: #7b88a0;
+    --color-success: #39a66a;
+
+    /* Chat role surfaces */
+    --color-user-msg-bg: #eff2ff;
+    --color-user-msg-border: #99a7ff;
+    --color-asst-msg-bg: #ffffff;
+    --color-asst-msg-border: #7f8cff;
 }
 
-/* ===================================================================
- * System Font Stack (air-gapped, no external fonts)
- * =================================================================== */
-html, body, .stApp, .stChatMessage, .stButton > button {
+html,
+body,
+.stApp,
+.stButton > button,
+.stChatMessage,
+.stChatInput textarea {
     font-family:
         ui-sans-serif,
         system-ui,
@@ -79,337 +66,351 @@ html, body, .stApp, .stChatMessage, .stButton > button {
         "Segoe UI Symbol";
 }
 
-/* ===================================================================
- * Hide Streamlit Chrome
- * =================================================================== */
-#MainMenu, header, footer, .stDeployButton,
+#MainMenu,
+header,
+footer,
+.stDeployButton,
+/* Streamlit internal test IDs: hide top toolbar/status in app shell. */
 [data-testid="stToolbar"],
 [data-testid="stStatusWidget"] {
     display: none !important;
 }
 
-/* ===================================================================
- * Layout & Base Styling
- * =================================================================== */
-html, body {
-    overflow-x: hidden;
-    -webkit-text-size-adjust: 100%;
-}
-
-/* Main app background */
 .stApp {
     background: var(--color-bg-main) !important;
+    color: var(--color-text);
 }
 
-/* Sidebar */
+/* Streamlit internal test ID: sidebar root in 1.56. */
 section[data-testid="stSidebar"] {
     width: var(--sidebar-width) !important;
     background: var(--color-bg-sidebar) !important;
-    padding-top: 0.5rem;
     border-right: 1px solid var(--color-border) !important;
 }
 
+/* Streamlit internal test ID: sidebar content wrapper in 1.56. */
 section[data-testid="stSidebar"] > div {
     background: var(--color-bg-sidebar) !important;
+    padding-top: 0.35rem;
 }
 
-/* Main content area */
 .main .block-container {
-    background: var(--color-bg-main);
-    padding: 2rem 2rem 2rem 1rem;
-    max-width: 1200px;
+    max-width: 1180px;
+    padding: 1.6rem 2.2rem 1.5rem 1.6rem;
 }
 
-/* ===================================================================
- * Typography
- * =================================================================== */
-.stChatMessage p,
-.stChatMessage li,
-.stChatMessage blockquote,
-.stChatMessage code,
-.stChatInput textarea {
-    font-size: 1.05rem !important;
-    line-height: 1.5;
+/* Streamlit internal test IDs: keep hover chrome out of custom cards/buttons. */
+section[data-testid="stSidebar"] [data-testid="stElementToolbar"],
+.stChatMessage [data-testid="stElementToolbar"],
+button[title="View fullscreen"] {
+    display: none !important;
+}
+
+/* Sidebar brand block */
+.sidebar-brand {
+    text-align: center;
+    margin: 0.2rem 0 1.2rem;
+}
+
+.sidebar-brand-logo {
+    width: 108px;
+    height: 108px;
+    border-radius: 22px;
+    object-fit: cover;
+    border: 1px solid var(--color-border);
+    box-shadow: 0 8px 22px rgba(49, 70, 130, 0.12);
+}
+
+.sidebar-brand-fallback {
+    width: 108px;
+    height: 108px;
+    margin: 0 auto;
+    border-radius: 22px;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(145deg, #d5dbf4, #a8b3e9);
+    color: white;
+    font-size: 2rem;
+    font-weight: 800;
+}
+
+.sidebar-brand-title {
+    margin-top: 0.95rem;
+    font-size: 2rem;
+    line-height: 1.05;
     color: var(--color-text);
+    font-weight: 800;
+    letter-spacing: -0.02em;
 }
 
-.stChatMessage code {
-    font-family:
-        ui-monospace,
-        "SFMono-Regular",
-        Menlo,
-        Monaco,
-        Consolas,
-        "Liberation Mono",
-        "DejaVu Sans Mono",
-        monospace;
-}
-
-/* ===================================================================
- * Welcome Banner
- * =================================================================== */
-.welcome-text {
-    text-align: center;
-    padding: 4rem 1rem 2rem 1rem;
-    font-family: inherit;
-}
-
-/* Image-based wordmark (default) */
-.welcome-wordmark {
-    max-height: 60px;
-    width: auto;
-    margin-top: 0.5rem;
-}
-
-/* Text-based wordmark (fallback when image not present) */
-.welcome-text .ephemer {
-    font-size: 2.4em;
-    font-weight: 700;
-    letter-spacing: -0.5px;
-    color: var(--color-accent);
-}
-
-.welcome-text .al {
-    font-size: 2.4em;
-    font-weight: 700;
-    letter-spacing: -0.5px;
-    color: var(--color-accent-secondary);
-}
-
-/* Instruction block below welcome */
-.right-align-block {
-    text-align: center;
-    margin-top: 0.5rem;
-    line-height: 1.6;
+.sidebar-brand-subtitle {
+    margin-top: 0.18rem;
     font-size: 1rem;
     color: var(--color-text-muted);
-    font-weight: 400;
-    max-width: 600px;
-    margin-left: auto;
-    margin-right: auto;
-    padding: 0 1rem;
+    font-weight: 500;
 }
 
-/* Dot separators in welcome text */
-.welcome-dots {
-    text-align: center;
-    margin: 0.7rem 0;
-    font-size: 8px;
-    color: var(--color-text-subtle);
-    letter-spacing: 8px;
-}
-
-/* ===================================================================
- * Buttons
- * =================================================================== */
+/* Sidebar buttons */
 .stButton > button {
-    width: 100%;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border);
     background: var(--color-surface);
     color: var(--color-text);
-    border: 2px solid var(--color-accent);
-    font-weight: 600;
-    font-size: 0.95rem;
-    padding: 0.7rem 1rem;
-    margin-bottom: 0.5rem;
-    border-radius: 8px;
-    transition: all 0.2s ease;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-    cursor: pointer;
+    min-height: 54px;
+    font-size: 1.02rem;
+    font-weight: 700;
+    transition: all 0.15s ease;
 }
 
 .stButton > button:hover {
+    border-color: #b6c3df;
+    background: #f7f9fe;
+}
+
+.stButton > button:disabled {
+    opacity: 0.96;
+    color: var(--color-text-muted);
+    background: transparent;
+}
+
+/* Streamlit internal class fragment: key-based style for primary New chat button. */
+[class*="st-key-sidebar_new"] .stButton > button {
     background: var(--color-accent);
-    color: white;
-    transform: translateY(-1px);
-    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+    border-color: var(--color-accent);
+    color: #ffffff;
+    box-shadow: 0 8px 16px rgba(79, 91, 234, 0.3);
 }
 
-.stButton > button:active {
-    background: #C4503A !important;
-    color: white !important;
-    transform: translateY(0);
+[class*="st-key-sidebar_new"] .stButton > button:hover {
+    background: var(--color-accent-strong);
+    border-color: var(--color-accent-strong);
 }
 
-/* ===================================================================
- * Chat Messages - Role Distinction
- * 
- * CSS CONTRACT: ephemeral_app.py wraps each chat_message in a container
- * with a key formatted as "{role}-{message_id}" (e.g., "user-abc123").
- * Streamlit renders this as a class containing "st-key-user-" or 
- * "st-key-assistant-" which we target here.
- * 
- * The trailing hyphen in the selector prevents false matches on other
- * containers that might have "user" or "assistant" elsewhere in their key.
- * =================================================================== */
+/* Sidebar footer docking */
+.sidebar-footer-spacer {
+    min-height: 1.8rem;
+}
 
-/* Base chat message styling */
+/* Streamlit internal class fragment: key-based style for low-frequency footer controls. */
+[class*="st-key-sidebar_footer"] .stButton > button {
+    justify-content: flex-start;
+    min-height: 42px;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    padding-left: 0.7rem;
+    font-size: 0.98rem;
+    font-weight: 600;
+}
+
+[class*="st-key-sidebar_footer"] .stButton > button:hover {
+    background: #edf1fb;
+}
+
+/* Welcome foundation */
+.welcome-shell {
+    max-width: 730px;
+    margin: 2.1rem auto 0.7rem;
+    padding: 0 0.6rem;
+}
+
+.welcome-sparkle {
+    text-align: center;
+    color: var(--color-accent);
+    font-size: 1.7rem;
+    line-height: 1;
+    margin-bottom: 0.5rem;
+}
+
+.welcome-heading {
+    text-align: center;
+    color: var(--color-text);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    font-size: clamp(2rem, 3.2vw, 3rem);
+    margin: 0;
+}
+
+.welcome-heading-brand {
+    color: var(--color-accent);
+}
+
+.welcome-subtitle {
+    margin: 0.75rem auto 1.55rem;
+    text-align: center;
+    color: var(--color-text-muted);
+    font-size: 1.06rem;
+    font-weight: 500;
+}
+
+.welcome-features {
+    background: transparent;
+    border-radius: var(--radius-lg);
+}
+
+.welcome-feature {
+    display: flex;
+    gap: 0.92rem;
+    align-items: flex-start;
+    padding: 0.92rem 0.15rem;
+    border-top: 1px solid var(--color-divider);
+}
+
+.welcome-feature:first-child {
+    border-top: 0;
+}
+
+.feature-badge {
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    font-size: 1rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.feature-badge-blue {
+    background: #eaf0ff;
+    color: #4e62ee;
+}
+
+.feature-badge-indigo {
+    background: #edefff;
+    color: #5f67db;
+}
+
+.feature-badge-green {
+    background: #e9f7ef;
+    color: var(--color-success);
+}
+
+.feature-copy-strong {
+    color: var(--color-text);
+    font-size: 1.03rem;
+    font-weight: 700;
+}
+
+.feature-copy-muted {
+    color: var(--color-text-muted);
+    font-size: 0.96rem;
+    font-weight: 500;
+}
+
+.welcome-skeletons {
+    margin-top: 1.45rem;
+    display: grid;
+    gap: 0.78rem;
+}
+
+.skeleton-card {
+    border: 1px solid var(--color-border);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.72);
+    min-height: 84px;
+    display: flex;
+    align-items: center;
+    padding: 0.95rem;
+    gap: 0.85rem;
+}
+
+.skeleton-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 999px;
+    background: #edf1fb;
+}
+
+.skeleton-avatar-secondary {
+    background: #ebefff;
+}
+
+.skeleton-lines {
+    width: 100%;
+}
+
+.skeleton-line {
+    height: 12px;
+    border-radius: 999px;
+    background: #e5eaf5;
+    margin: 0.46rem 0;
+}
+
+.skeleton-line-lg {
+    width: 82%;
+}
+
+.skeleton-line-md {
+    width: 58%;
+}
+
+.skeleton-line-xl {
+    width: 94%;
+}
+
+.skeleton-line-sm {
+    width: 76%;
+}
+
+/* Streamlit internal test IDs for chat blocks in 1.56. */
 [data-testid="stChatMessage"] {
-    border-radius: 10px;
-    margin: 0.4rem 0;
-    padding: 0.1rem 0;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    border-radius: 14px;
+    padding: 0.12rem 0.15rem;
+    border: 1px solid var(--color-border);
+    box-shadow: 0 3px 12px rgba(24, 35, 65, 0.05);
 }
 
-/* User messages - warm tint with accent border */
+/* Preserve role wrapper architecture from st-key-{role}- containers. */
 [class*="st-key-user-"] [data-testid="stChatMessage"] {
     background: var(--color-user-msg-bg) !important;
     border-left: 3px solid var(--color-user-msg-border);
 }
 
-/* Assistant messages - clean white with secondary accent border */
 [class*="st-key-assistant-"] [data-testid="stChatMessage"] {
-    background: var(--color-surface) !important;
+    background: var(--color-asst-msg-bg) !important;
     border-left: 3px solid var(--color-asst-msg-border);
 }
 
-/* Avatar colors */
+/* Streamlit internal avatar test IDs in 1.56 chat message widgets. */
 [data-testid="chatAvatarIcon-user"] {
-    background-color: var(--color-accent) !important;
+    background: #e3e8ff !important;
+    color: #4458e6 !important;
 }
 
 [data-testid="chatAvatarIcon-assistant"] {
-    background-color: var(--color-accent-secondary) !important;
+    background: #e8ecff !important;
+    color: #4b57dc !important;
 }
 
-/* Image thumbnails in chat */
-.stChatMessage img {
-    max-width: 180px;
-    border-radius: 6px;
-    margin: 0.25rem 0;
-}
-
-/* Remove fullscreen button inside chat bubbles */
-.stChatMessage [data-testid="stElementToolbar"],
-.stChatMessage button[title="View fullscreen"] {
-    display: none !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
-}
-
-/* ===================================================================
- * Chat Input - Minimal styling (production-safe)
- * 
- * Strategy: Only customize focus color, let Streamlit handle layout.
- * This avoids fighting with the multiline expansion and file upload UI.
- * =================================================================== */
-
-/* Fix the bottom dock background (the white slab behind chat input) */
-[data-testid="stBottom"] > div {
-    background: var(--color-bg-main) !important;
-}
-
+/* Streamlit internal test IDs: chat input dock and input wrapper. */
+[data-testid="stBottom"] > div,
 [data-testid="stBottomBlockContainer"] {
     background: var(--color-bg-main) !important;
 }
 
-/* Only style focus state - don't override structure */
+[data-testid="stChatInput"] > div {
+    border: 1px solid var(--color-border) !important;
+    border-radius: 16px !important;
+    background: #ffffff !important;
+    box-shadow: 0 3px 14px rgba(41, 56, 91, 0.08);
+}
+
 [data-testid="stChatInput"] > div:focus-within {
     border-color: var(--color-accent) !important;
     box-shadow: 0 0 0 1px var(--color-accent) !important;
 }
 
-/* ===================================================================
- * Evaporation Edge - Subtle top fade
- * Uses --sidebar-width variable to stay aligned with sidebar
- * =================================================================== */
-.main .block-container::before {
-    content: "";
-    position: fixed;
-    top: 0;
-    left: var(--sidebar-width);
-    right: 0;
-    height: 60px;
-    background: linear-gradient(
-        to bottom,
-        var(--color-bg-main) 0%,
-        var(--color-bg-main) 40%,
-        transparent 100%
-    );
-    pointer-events: none;
-    z-index: 100;
-}
-
-/* ===================================================================
- * Sidebar Elements
- * =================================================================== */
-/* Logo spacing */
-section[data-testid="stSidebar"] img:first-of-type {
-    margin-bottom: 1.5rem;
-}
-
-/* Hide hover-toolbar in sidebar */
-section[data-testid="stSidebar"] [data-testid="stElementToolbar"],
-section[data-testid="stSidebar"] button[title="View fullscreen"] {
-    display: none !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
-}
-
-/* Error/warning boxes in sidebar */
-section[data-testid="stSidebar"] .stAlert {
-    font-size: 0.85rem;
-    padding: 0.5rem;
-    margin-bottom: 0.5rem;
-}
-
-/* ===================================================================
- * Mobile Responsiveness
- * =================================================================== */
-@media screen and (max-width: 768px) {
-    section[data-testid="stSidebar"] {
-        display: none !important;
-    }
-    
+@media (max-width: 900px) {
     .main .block-container {
-        padding: 1rem;
+        padding: 1.2rem 1rem 1.2rem 1rem;
     }
-    
-    /* Disable evaporation edge on mobile (no sidebar to account for) */
-    .main .block-container::before {
-        left: 0;
-    }
-    
-    .welcome-text {
-        padding: 2rem 0.5rem 1rem 0.5rem;
-    }
-    
-    .welcome-text .ephemer,
-    .welcome-text .al {
-        font-size: 1.8em;
-    }
-    
-    .welcome-wordmark {
-        max-height: 45px;
-    }
-    
-    .stChatMessage p,
-    .stChatInput textarea {
-        font-size: 1rem !important;
-    }
-    
-    .right-align-block {
-        font-size: 0.9rem;
-        padding: 0 0.5rem;
-    }
-}
 
-/* ===================================================================
- * Scrollbar Styling (subtle, modern)
- * =================================================================== */
-::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-}
+    .welcome-shell {
+        margin-top: 1.2rem;
+    }
 
-::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-    background: var(--color-border);
-    border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: var(--color-text-subtle);
+    .sidebar-brand-title {
+        font-size: 1.7rem;
+    }
 }
