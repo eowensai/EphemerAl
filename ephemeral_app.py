@@ -454,12 +454,50 @@ def render_content(content: Union[str, list]) -> None:
     Render either plain markdown or structured content (text + images).
     Synthetic context blocks (marked with _synthetic flag) are hidden from display.
     """
+    def _format_file_size(num_bytes: int) -> str:
+        if num_bytes <= 0:
+            return ""
+        units = ["B", "KB", "MB", "GB"]
+        size = float(num_bytes)
+        unit_idx = 0
+        while size >= 1024 and unit_idx < len(units) - 1:
+            size /= 1024.0
+            unit_idx += 1
+        if unit_idx == 0:
+            return f"{int(size)} {units[unit_idx]}"
+        return f"{size:.1f} {units[unit_idx]}"
+
+    def _render_attachment_badge(meta: dict) -> None:
+        filename = html_escape(meta.get("name", "Attachment"))
+        size_label = _format_file_size(int(meta.get("size", 0) or 0))
+        kind = meta.get("kind", "document")
+        icon = "🖼️" if kind == "image" else "📄"
+        subtitle = f"{kind.title()} upload"
+        if size_label:
+            subtitle = f"{subtitle} • {size_label}"
+        st.markdown(
+            (
+                '<div class="attachment-card" role="group" aria-label="Uploaded file">'
+                f'<div class="attachment-icon">{icon}</div>'
+                '<div class="attachment-copy">'
+                f'<div class="attachment-name">{filename}</div>'
+                f'<div class="attachment-meta">{html_escape(subtitle)}</div>'
+                "</div>"
+                "</div>"
+            ),
+            unsafe_allow_html=True,
+        )
+
     if isinstance(content, list):
         for part in content:
             ptype = part.get("type")
             if ptype == "text":
                 if not part.get("_synthetic"):
-                    st.markdown(part.get("text", ""))
+                    attachment = part.get("_attachment")
+                    if attachment:
+                        _render_attachment_badge(attachment)
+                    else:
+                        st.markdown(part.get("text", ""))
             elif ptype == "image":
                 try:
                     st.image(part.get("data"), width=180)
@@ -559,20 +597,33 @@ if prompt_in is not None:
         if ftype.startswith("image/"):
             f.seek(0)
             img_bytes = f.getvalue()
-            parts.append({"type": "text", "text": f"📷 *{f.name}*"})
+            parts.append(
+                {
+                    "type": "text",
+                    "text": f"📷 *{f.name}*",
+                    "_attachment": {"name": f.name, "size": file_size, "kind": "image"},
+                }
+            )
             parts.append(
                 {
                     "type": "image",
                     "data": img_bytes,
                     "mime_type": ftype or "image/jpeg",
                     "filename": f.name,
+                    "size": file_size,
                 }
             )
             image_count += 1
             continue
 
         # Document-like file
-        parts.append({"type": "text", "text": f"📄 *{f.name}*"})
+        parts.append(
+            {
+                "type": "text",
+                "text": f"📄 *{f.name}*",
+                "_attachment": {"name": f.name, "size": file_size, "kind": "document"},
+            }
+        )
         if not tika_ok:
             continue
 
