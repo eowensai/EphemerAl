@@ -1257,7 +1257,6 @@ if prompt_in is not None:
                         img_b64 = part.get("b64")
                         if not img_b64:
                             img_b64 = base64.b64encode(img_bytes).decode()
-                            part["b64"] = img_b64  # cache per-session
                         mime = part.get("mime_type", "image/jpeg")
                         api_parts.append(
                             {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{img_b64}"}}
