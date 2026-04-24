@@ -19,6 +19,8 @@ frontend, an Ollama LLM backend, and an Apache Tika document parsing server.
 - `ephemeral/` — Import-safe utility package (no Streamlit side effects at import time).
 - `ephemeral/config.py` — Env parsing helpers and shared configuration constants.
 - `ephemeral/export.py` — Conversation transcript/export builders (Markdown/HTML).
+- `ephemeral/tika_client.py` — Tika health check and document parsing client helpers.
+- `ephemeral/llm_client.py` — Ollama/OpenAI client helpers, model metadata probes, and token counting.
 - `ephemeral/stream_filter.py` — Stateful think-block/thought-channel stream filter.
 - `ephemeral/token_budget.py` — Token estimation helpers.
 - `docker-compose.yml` — Stack definition. Pins Ollama and Tika image versions.
