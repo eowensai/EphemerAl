@@ -1,4 +1,4 @@
-streamlit==1.52.2
+streamlit==1.56.0
 streamlit-browser-engine==0.0.3
 requests==2.32.5
 pytz==2025.2

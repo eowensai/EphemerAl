@@ -4,12 +4,12 @@ import pathlib
 import string
 import uuid
 import logging
+import inspect
 from datetime import datetime, tzinfo
 from html import escape as html_escape
 from typing import Union, Tuple, List, Dict, Optional
 
 import streamlit as st
-import streamlit.components.v1 as components
 import pytz
 from ephemeral.config import (
     APP_VERSION,
@@ -52,9 +52,14 @@ from ephemeral.llm_client import (
 
 # ── Page config ───────────────────────────────────────────────────
 st.set_page_config(
-    page_title="EphemerAl",
+    page_title="EphemerAI",
     layout="wide",
-    initial_sidebar_state="auto",
+    initial_sidebar_state=304,
+    menu_items={
+        "Get help": None,
+        "Report a Bug": None,
+        "About": "EphemerAI is a privacy-focused document chat assistant.",
+    },
 )
 
 def load_css(path: str = "theme.css") -> None:
@@ -132,8 +137,14 @@ else:
 # ── Chat message wrapper for CSS styling ──────────────────────────
 def styled_chat_message(role: str, message_id: str = None):
     """Return a chat_message wrapped in a keyed container for CSS styling."""
-    key = f"{role}-{message_id}" if message_id else f"{role}-{uuid.uuid4()}"
-    return st.container(key=key).chat_message(role)
+    normalized_role = "user" if role == "user" else "assistant"
+    key = f"{normalized_role}-{message_id}" if message_id else f"{normalized_role}-{uuid.uuid4()}"
+    chat_kwargs = {
+        "avatar": ":material/person:" if normalized_role == "user" else ":material/auto_awesome:",
+    }
+    if "width" in inspect.signature(st.chat_message).parameters:
+        chat_kwargs["width"] = "stretch"
+    return st.container(key=key).chat_message(normalized_role, **chat_kwargs)
 
 
 def render_copy_button(export_text_plain: str, export_html: str) -> None:
@@ -145,19 +156,19 @@ def render_copy_button(export_text_plain: str, export_html: str) -> None:
         "Chat content is cleared when you start a new conversation or close your browser."
     )
 
-    components.html(
-        f"""
+    iframe_html = f"""
         <style>
           html, body {{
             margin: 0;
             padding: 0;
+            background: transparent;
           }}
           #copy-btn {{
             width: 100%;
             box-sizing: border-box;
-            background: white;
-            color: #1E242B;
-            border: 2px solid #E1654A;
+            background: #FFFFFF;
+            color: #18223A;
+            border: 2px solid #4F5BEA;
             font-weight: 600;
             font-size: .95rem;
             font-family:
@@ -178,21 +189,21 @@ def render_copy_button(export_text_plain: str, export_html: str) -> None:
             white-space: nowrap;
           }}
           #copy-btn:hover {{
-            background: #E1654A;
-            color: #1E242B;
+            background: #4F5BEA;
+            color: #FFFFFF;
             transform: translateY(-1px);
             box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
           }}
           #copy-btn:active {{
-            background: #C4503A !important;
-            color: white !important;
-            border-color: #C4503A !important;
+            background: #3E49CB !important;
+            color: #FFFFFF !important;
+            border-color: #3E49CB !important;
             transform: translateY(0);
           }}
           #copy-btn.copied {{
-            background: #E1654A !important;
-            color: white !important;
-            border-color: #E1654A !important;
+            background: #4F5BEA !important;
+            color: #FFFFFF !important;
+            border-color: #4F5BEA !important;
             transform: translateY(0) !important;
           }}
           #copy-btn.failed {{
@@ -274,10 +285,9 @@ def render_copy_button(export_text_plain: str, export_html: str) -> None:
             }}
           }});
         </script>
-        """,
-        height=70,
-        scrolling=False,
-    )
+        """
+    iframe_src = "data:text/html;base64," + base64.b64encode(iframe_html.encode("utf-8")).decode("ascii")
+    st.iframe(iframe_src, height=70, width="stretch", scrolling=False)
 
 
 # ── Session state ─────────────────────────────────────────────────
@@ -302,7 +312,7 @@ with st.sidebar:
     if not tika_alive():
         st.info("Document reading is temporarily unavailable. You can still chat, but uploads may not be readable.")
 
-    if st.button("New Conversation", key="sidebar_new", use_container_width=True, help="Clears chat history and starts fresh"):
+    if st.button("New Conversation", key="sidebar_new", width="stretch", help="Clears chat history and starts fresh"):
         st.session_state.clear()
         st.rerun()
 
@@ -423,13 +433,19 @@ for m in st.session_state.messages:
 
 # ── Mobile convenience button ─────────────────────────────────────
 if HAS_DEVICE_DETECTION and device and device.is_mobile:
-    if st.button("🔄 New Conversation", key="mobile_new", use_container_width=True):
+    if st.button("🔄 New Conversation", key="mobile_new", width="stretch"):
         st.session_state.clear()
         st.rerun()
 
 
 # ── Chat input ───────────────────────────────────────────────────
-prompt_in = st.chat_input("Ask me anything…", accept_file="multiple", key="main_chat")
+prompt_in = st.chat_input(
+    "Ask me anything...",
+    accept_file="multiple",
+    max_upload_size=50,
+    height=68,
+    key="main_chat",
+)
 
 if prompt_in is not None:
     if st.session_state.show_welcome:
