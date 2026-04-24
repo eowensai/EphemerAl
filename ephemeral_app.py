@@ -1209,11 +1209,18 @@ if prompt_in is not None:
         }
     )
 
-    # If still too large even after dropping docs, respond as assistant and stop.
+    # If still too large even after dropping docs, remove the just-appended oversized
+    # user turn so it doesn't poison subsequent requests, then respond as assistant and stop.
     if prompt_token_estimate > max_ctx:
+        if st.session_state.messages:
+            last_msg = st.session_state.messages[-1]
+            if last_msg.get("role") == "user" and last_msg.get("id") == user_msg_id:
+                st.session_state.messages.pop()
+
         assistant_msg_id = str(uuid.uuid4())
         error_text = (
-            "That request is too large for this AI model right now. "
+            "That request is too large for this AI model right now, so I omitted that oversized request "
+            "from conversation history to keep this session usable. "
             "Try removing a few attachments, shortening your message, or starting a new conversation."
         )
         with styled_chat_message("assistant", assistant_msg_id):
