@@ -50,17 +50,6 @@ st.set_page_config(
     initial_sidebar_state="auto",
 )
 
-# ── Anti-caching meta tags ────────────────────────────────────────
-st.markdown(
-    """
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
-    """,
-    unsafe_allow_html=True,
-)
-
-
 def load_css(path: str = "theme.css") -> None:
     """Load optional CSS overrides to customize Streamlit's default look."""
     css_path = pathlib.Path(path)

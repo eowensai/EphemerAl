@@ -27,6 +27,8 @@ frontend, an Ollama LLM backend, and an Apache Tika document parsing server.
 - `.streamlit/config.toml` — Streamlit theme and config. The Dockerfile merges server
   settings into this file at build time.
 - `theme.css` — Custom CSS loaded by the app.
+- `.gitignore` — Git hygiene for local/dev artifacts (venvs, caches, editor files, secrets).
+- `.dockerignore` — Docker build-context hygiene to keep non-runtime files out of images; must not exclude `.streamlit/config.toml`.
 - `static/` — Logo and static assets.
 
 ## Conventions

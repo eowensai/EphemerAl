@@ -1,0 +1,47 @@
+# VCS metadata
+.git
+.gitignore
+
+# Local environment/secrets
+.env
+.env.*
+*.local
+.streamlit/secrets.toml
+
+# Python caches and virtualenvs
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+ENV/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# Editor/OS junk
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Non-runtime docs and local media artifacts
+AGENTS.md
+README.md
+LICENSE.md
+System Deployment Guide.md
+Ephemeral Screenshot.jpg
+docker-compose.yml
+docker-compose.api.yml
