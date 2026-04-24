@@ -45,3 +45,5 @@ System Deployment Guide.md
 Ephemeral Screenshot.jpg
 docker-compose.yml
 docker-compose.api.yml
+tests/
+requirements-dev.txt

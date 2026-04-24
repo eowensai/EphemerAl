@@ -24,7 +24,6 @@ ENABLE_TOKEN_BUDGETING = os.getenv("ENABLE_TOKEN_BUDGETING", "1").strip().lower(
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://ollama:11434/v1")
 LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "ephemeral-default")
 TIKA_URL = os.getenv("TIKA_URL", "http://tika-server:9998")
-TIKA_TIMEOUT_S = int(os.getenv("TIKA_TIMEOUT_S", "15"))
 LLM_SUPPORTS_VISION = os.getenv("LLM_SUPPORTS_VISION")
 
 
@@ -76,6 +75,7 @@ def _bool_env(name: str, default: bool = False) -> bool:
     return default
 
 
+TIKA_TIMEOUT_S = _int_env("TIKA_TIMEOUT_S", 15)
 LLM_CONTEXT_TOKENS = _int_env_optional("LLM_CONTEXT_TOKENS")
 LLM_OUTPUT_RESERVE_TOKENS = _int_env("LLM_OUTPUT_RESERVE_TOKENS", 32768)
 LLM_REQUEST_TIMEOUT_S = _float_env("LLM_REQUEST_TIMEOUT_S", 1800.0)

@@ -29,9 +29,6 @@ from ephemeral.config import (
     TIKA_URL,
 )
 from ephemeral.export import (
-    _extract_export_info,
-    _inline_md_to_html,
-    _md_to_html_basic,
     build_conversation_html,
     build_conversation_markdown,
     build_message_text,

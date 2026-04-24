@@ -16,7 +16,7 @@ frontend, an Ollama LLM backend, and an Apache Tika document parsing server.
 
 ## Key Files
 - `ephemeral_app.py` — Main application. All state is in-memory (session_state).
-- `ephemeral/` — Import-safe utility package (no Streamlit side effects at import time).
+- `ephemeral/` — Mixed package: pure utility modules (`config`, `export`, `stream_filter`, `token_budget`) are import-safe with no Streamlit dependency, while client modules (`tika_client`, `llm_client`) are Streamlit-aware by design.
 - `ephemeral/config.py` — Env parsing helpers and shared configuration constants.
 - `ephemeral/export.py` — Conversation transcript/export builders (Markdown/HTML).
 - `ephemeral/tika_client.py` — Tika health check and document parsing client helpers.
@@ -119,8 +119,11 @@ When reviewing Codex changes, treat the following as high-priority checks:
   guide should point to files that exist in the repo.
 - Full stack test: `docker compose up -d --build` inside WSL2, then access
   `http://localhost:8501`.
-- Keep `ephemeral/` modules import-safe: no Streamlit imports or Streamlit side effects
-  at import time.
+- Keep pure utility modules import-safe (`config`, `export`, `stream_filter`,
+  `token_budget`): no Streamlit imports or Streamlit side effects at import time, so
+  tests run without Streamlit.
+- `ephemeral/tika_client.py` and `ephemeral/llm_client.py` are Streamlit-aware by
+  design and may use Streamlit caching decorators/session state.
 
 ## Do Not
 - Do not change environment variable defaults in `ephemeral_app.py` to use `localhost`.
