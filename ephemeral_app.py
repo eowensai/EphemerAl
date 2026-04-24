@@ -1426,8 +1426,13 @@ if prompt_in is not None:
                 lower = msg.lower()
 
                 if "context" in lower and ("length" in lower or "too long" in lower or "maximum" in lower):
+                    if st.session_state.messages:
+                        last_msg = st.session_state.messages[-1]
+                        if last_msg.get("role") == "user" and last_msg.get("id") == user_msg_id:
+                            st.session_state.messages.pop()
                     st.error(
                         "That message is too long for this AI model. "
+                        "I omitted that oversized request from conversation history to keep this session usable. "
                         "Try removing a few attachments, shortening your message, or starting a new conversation."
                     )
                 elif "connection" in lower or "timed out" in lower or "timeout" in lower:
