@@ -17,31 +17,47 @@ import requests
 import pytz
 from tika import parser
 from openai import OpenAI
+from ephemeral.config import (
+    APP_VERSION,
+    CONTEXT_PREFIX,
+    DEBUG_MODE,
+    ENABLE_TOKEN_BUDGETING,
+    IMG_TOKEN_COST_DEFAULT,
+    LLM_BASE_URL,
+    LLM_CONTEXT_TOKENS,
+    LLM_MAX_RETRIES,
+    LLM_MAX_TOKENS,
+    LLM_MODEL_NAME,
+    LLM_OUTPUT_RESERVE_TOKENS,
+    LLM_PRESENCE_PENALTY,
+    LLM_REASONING_EFFORT,
+    LLM_REQUEST_TIMEOUT_S,
+    LLM_SHOW_REASONING,
+    LLM_SUPPORTS_VISION,
+    LLM_TEMPERATURE,
+    LLM_TOP_P,
+    TIKA_CACHE_TTL_S,
+    TIKA_TIMEOUT_S,
+    TIKA_URL,
+    TOKEN_CACHE_MAX_ENTRIES,
+    TOKENIZE_TIMEOUT_S,
+    _ollama_base_url,
+)
+from ephemeral.export import (
+    _extract_export_info,
+    _inline_md_to_html,
+    _md_to_html_basic,
+    build_conversation_html,
+    build_conversation_markdown,
+    build_message_text,
+)
+from ephemeral.stream_filter import ThinkStreamFilter, strip_think_blocks
+from ephemeral.token_budget import _heuristic_token_estimate
 
 # EphemerAl main Streamlit application.
 # - Provides an ephemeral chat UI for working with uploaded documents and images.
 # - Talks to an LLM backend and an Apache Tika server over HTTP endpoints configured via environment variables.
 # - Uses Streamlit's in-memory session_state only, this script does not write chat content or uploads to disk.
-
-APP_VERSION = "1.8.1"
-
-# Prefix used for synthetic context blocks injected into user messages.
-# We use a flag (_synthetic) to identify these, not string matching.
-CONTEXT_PREFIX = "Context:\n"
-
-# TTL for session-scoped Tika parse cache (seconds)
-TIKA_CACHE_TTL_S = 3600
-
-# Token estimation behavior
-TOKEN_HEURISTIC_CHARS_PER_TOKEN = 3.5
-TOKEN_CACHE_MAX_ENTRIES = 256
-TOKENIZE_TIMEOUT_S = 2.0  # keep UI snappy; budgeting degrades silently if tokenize is slow/unavailable
-
-# Debug mode (shows technical status in sidebar, and error detail expanders)
-DEBUG_MODE = os.getenv("EPHEMERAL_DEBUG", "0").strip().lower() in {"1", "true", "yes", "y", "on"}
-
-# Feature toggle (operator-only)
-ENABLE_TOKEN_BUDGETING = os.getenv("ENABLE_TOKEN_BUDGETING", "1").strip().lower() not in {"0", "false", "no"}
 
 # ── Page config ───────────────────────────────────────────────────
 st.set_page_config(
@@ -69,81 +85,7 @@ except ImportError:
     device = None  # type: ignore
 
 # ── Backend configuration ─────────────────────────────────────────
-LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://ollama:11434/v1")
-MODEL_NAME = os.getenv("LLM_MODEL_NAME", "ephemeral-default")
-TIKA_URL = os.getenv("TIKA_URL", "http://tika-server:9998")
-TIKA_TIMEOUT_S = int(os.getenv("TIKA_TIMEOUT_S", "15"))
 DEFAULT_UPLOAD_PROMPT = os.getenv("DEFAULT_UPLOAD_PROMPT", "Please analyze the uploaded files.")
-LLM_SUPPORTS_VISION = os.getenv("LLM_SUPPORTS_VISION")
-
-
-def _float_env(name: str, default: float) -> float:
-    """Parse a float env var with safe fallback on missing/blank/invalid values."""
-    raw = os.getenv(name)
-    if raw is None:
-        return default
-    raw = raw.strip()
-    if not raw:
-        return default
-    try:
-        return float(raw)
-    except Exception:
-        return default
-
-
-def _int_env_optional(name: str) -> Optional[int]:
-    """Parse an optional int env var; return None for missing/blank/invalid/non-positive values."""
-    raw = os.getenv(name)
-    if raw is None:
-        return None
-    raw = raw.strip()
-    if not raw:
-        return None
-    try:
-        value = int(raw)
-        return value if value > 0 else None
-    except Exception:
-        return None
-
-
-def _int_env(name: str, default: int) -> int:
-    """Parse an int env var with safe fallback on missing/blank/invalid values."""
-    value = _int_env_optional(name)
-    return value if value is not None else default
-
-
-def _bool_env(name: str, default: bool = False) -> bool:
-    """Parse a bool env var with safe fallback on missing/blank/invalid values."""
-    raw = os.getenv(name)
-    if raw is None:
-        return default
-    value = raw.strip().lower()
-    if value in {"1", "true", "yes", "y", "on"}:
-        return True
-    if value in {"0", "false", "no", "n", "off"}:
-        return False
-    return default
-
-
-LLM_CONTEXT_TOKENS = _int_env_optional("LLM_CONTEXT_TOKENS")
-LLM_OUTPUT_RESERVE_TOKENS = _int_env("LLM_OUTPUT_RESERVE_TOKENS", 32768)
-LLM_REQUEST_TIMEOUT_S = _float_env("LLM_REQUEST_TIMEOUT_S", 1800.0)
-LLM_MAX_RETRIES = _int_env("LLM_MAX_RETRIES", 0)
-LLM_TEMPERATURE = _float_env("LLM_TEMPERATURE", 0.7)
-LLM_TOP_P = _float_env("LLM_TOP_P", 0.8)
-LLM_PRESENCE_PENALTY = _float_env("LLM_PRESENCE_PENALTY", 1.5)
-LLM_REASONING_EFFORT = os.getenv("LLM_REASONING_EFFORT", "none").strip() or "none"
-LLM_SHOW_REASONING = _bool_env("LLM_SHOW_REASONING", False)
-LLM_MAX_TOKENS = _int_env_optional("LLM_MAX_TOKENS")
-IMG_TOKEN_COST_DEFAULT = _int_env("IMG_TOKEN_COST_DEFAULT", 2048)
-
-
-def _ollama_base_url() -> str:
-    """
-    Convert an OpenAI-style base URL like http://host:11434/v1 into the native Ollama base http://host:11434.
-    If /v1 isn't present, returns the URL without trailing slash.
-    """
-    return LLM_BASE_URL.rstrip("/").split("/v1")[0]
 
 
 # ── Health checks (cached to reduce UI jank) ──────────────────────
@@ -293,7 +235,7 @@ def _ollama_show() -> Optional[Dict]:
     """Cached wrapper for Ollama /api/show. Returns JSON dict on success, else None."""
     try:
         show_url = f"{_ollama_base_url()}/api/show"
-        resp = requests.post(show_url, json={"model": MODEL_NAME}, timeout=2)
+        resp = requests.post(show_url, json={"model": LLM_MODEL_NAME}, timeout=2)
         if resp.ok:
             return resp.json()
     except Exception as e:
@@ -398,12 +340,6 @@ def get_image_token_cost() -> int:
 
 
 # ── Token counting ────────────────────────────────────────────────
-def _heuristic_token_estimate(text: str) -> int:
-    if not text:
-        return 0
-    return max(1, int(len(text) / TOKEN_HEURISTIC_CHARS_PER_TOKEN))
-
-
 def _get_token_cache() -> Dict[str, int]:
     return st.session_state.setdefault("_token_count_cache", {})
 
@@ -442,7 +378,7 @@ def count_text_tokens(text: str) -> int:
     try:
         resp = requests.post(
             tokenize_url,
-            json={"model": MODEL_NAME, "content": text},
+            json={"model": LLM_MODEL_NAME, "content": text},
             timeout=TOKENIZE_TIMEOUT_S,
         )
 
@@ -481,257 +417,6 @@ def styled_chat_message(role: str, message_id: str = None):
     """Return a chat_message wrapped in a keyed container for CSS styling."""
     key = f"{role}-{message_id}" if message_id else f"{role}-{uuid.uuid4()}"
     return st.container(key=key).chat_message(role)
-
-
-def build_message_text(messages: List[dict]) -> str:
-    """Flatten message content into text for token estimation."""
-    chunks: List[str] = []
-    for msg in messages:
-        content = msg.get("content", "")
-        if isinstance(content, list):
-            for part in content:
-                if part.get("type") == "text":
-                    text = part.get("text")
-                    if text:
-                        chunks.append(text)
-        else:
-            if content:
-                chunks.append(str(content))
-    return "\n".join(chunks)
-
-
-# ── Copy helpers (sidebar-only) ───────────────────────────────────
-def _extract_export_info(content: Union[str, list]) -> Tuple[List[str], List[str], str]:
-    """
-    Extract (doc_lines, img_lines, message_text) from message content.
-
-    Notes:
-    - We do NOT export the full extracted document text from Context:, only filenames and counts.
-    - Synthetic context parts (marked with _synthetic flag) are parsed for metadata only.
-    """
-    doc_lines: List[str] = []
-    img_lines: List[str] = []
-    text_chunks: List[str] = []
-
-    if not isinstance(content, list):
-        return doc_lines, img_lines, "" if content is None else str(content)
-
-    doc_seen = set()
-    img_seen = set()
-    img_marker_names: List[str] = []
-
-    for part in content:
-        ptype = part.get("type")
-
-        if ptype == "text":
-            text = part.get("text", "")
-
-            if part.get("_synthetic"):
-                ctx = text[len(CONTEXT_PREFIX) :] if text.startswith(CONTEXT_PREFIX) else text
-                blocks = re.split(r"(?m)^---\s*(.+?)\s*---\s*$", ctx)
-                for i in range(1, len(blocks), 2):
-                    fname = (blocks[i] or "").strip()
-                    extracted = blocks[i + 1] if i + 1 < len(blocks) else ""
-                    char_count = len((extracted or "").strip())
-                    if fname and fname not in doc_seen:
-                        doc_seen.add(fname)
-                        doc_lines.append(f"- 📄 {fname} ({char_count:,} characters extracted)")
-
-            elif text.startswith("📄 *") and text.endswith("*"):
-                fname = text[len("📄 *") : -1].strip()
-                if fname and fname not in doc_seen:
-                    doc_seen.add(fname)
-                    doc_lines.append(f"- 📄 {fname}")
-
-            elif text.startswith("📷 *") and text.endswith("*"):
-                fname = text[len("📷 *") : -1].strip()
-                if fname:
-                    img_marker_names.append(fname)
-
-            else:
-                if text and text.strip():
-                    text_chunks.append(text.strip())
-
-        elif ptype == "image":
-            fname = (part.get("filename") or "image").strip()
-            if fname and fname not in img_seen:
-                img_seen.add(fname)
-                img_lines.append(f"- 📷 {fname}")
-
-        elif ptype == "image_url":
-            fname = (part.get("filename") or "image").strip()
-            if fname and fname not in img_seen:
-                img_seen.add(fname)
-                img_lines.append(f"- 📷 {fname}")
-
-    for fname in img_marker_names:
-        if fname not in img_seen:
-            img_seen.add(fname)
-            img_lines.append(f"- 📷 {fname}")
-
-    message_text = "\n\n".join(text_chunks).strip()
-    return doc_lines, img_lines, message_text
-
-
-def build_conversation_markdown(messages: List[dict]) -> str:
-    """Build a Markdown transcript used as plain-text clipboard fallback."""
-    lines: List[str] = ["# EphemerAl Conversation", ""]
-
-    for msg in messages:
-        role = msg.get("role", "assistant")
-        role_title = "User" if role == "user" else "Assistant"
-        lines.append(f"**{role_title}**")
-
-        doc_lines, img_lines, message_text = _extract_export_info(msg.get("content", ""))
-
-        if doc_lines or img_lines:
-            lines.append("")
-            lines.append("Attachments:")
-            lines.extend(doc_lines)
-            lines.extend(img_lines)
-
-        if message_text:
-            lines.append("")
-            lines.append(message_text)
-
-        lines.append("")
-        lines.append("---")
-        lines.append("")
-
-    return "\n".join(lines).rstrip() + "\n"
-
-
-def _inline_md_to_html(text: str) -> str:
-    """Minimal inline Markdown -> HTML for clipboard friendliness."""
-    t = html_escape(text)
-    t = re.sub(r"`([^`]+)`", r"<code>\1</code>", t)
-    t = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", t)
-    t = re.sub(r"(?<!\*)\*([^*]+)\*(?!\*)", r"<em>\1</em>", t)
-    return t
-
-
-def _md_block_to_html(md_block: str) -> str:
-    """Minimal block Markdown -> HTML for clipboard friendliness."""
-    md_block = (md_block or "").replace("\r\n", "\n")
-    lines = md_block.split("\n")
-
-    out: List[str] = []
-    para: List[str] = []
-    in_ul = False
-    in_ol = False
-
-    def flush_para() -> None:
-        nonlocal para
-        if para:
-            out.append("<p>" + "<br>".join(para) + "</p>")
-            para = []
-
-    def close_lists() -> None:
-        nonlocal in_ul, in_ol
-        if in_ul:
-            out.append("</ul>")
-            in_ul = False
-        if in_ol:
-            out.append("</ol>")
-            in_ol = False
-
-    for raw in lines:
-        stripped = (raw or "").strip()
-
-        if stripped == "":
-            flush_para()
-            continue
-
-        if stripped in {"---", "***", "___"}:
-            flush_para()
-            close_lists()
-            out.append("<hr>")
-            continue
-
-        m = re.match(r"^(#{1,6})\s+(.*)$", stripped)
-        if m:
-            flush_para()
-            close_lists()
-            level = len(m.group(1))
-            out.append(f"<h{level}>" + _inline_md_to_html(m.group(2)) + f"</h{level}>")
-            continue
-
-        m = re.match(r"^[-*•]\s+(.*)$", stripped)
-        if m:
-            flush_para()
-            if in_ol:
-                out.append("</ol>")
-                in_ol = False
-            if not in_ul:
-                out.append("<ul>")
-                in_ul = True
-            out.append("<li>" + _inline_md_to_html(m.group(1)) + "</li>")
-            continue
-
-        m = re.match(r"^\d+\.\s+(.*)$", stripped)
-        if m:
-            flush_para()
-            if in_ul:
-                out.append("</ul>")
-                in_ul = False
-            if not in_ol:
-                out.append("<ol>")
-                in_ol = True
-            out.append("<li>" + _inline_md_to_html(m.group(1)) + "</li>")
-            continue
-
-        close_lists()
-        para.append(_inline_md_to_html(stripped))
-
-    flush_para()
-    close_lists()
-    return "\n".join(out)
-
-
-def _md_to_html_basic(md: str) -> str:
-    """Minimal Markdown -> HTML converter for copy/paste purposes."""
-    md = (md or "").replace("\r\n", "\n")
-    parts = md.split("```")
-    out: List[str] = []
-
-    for i, part in enumerate(parts):
-        if i % 2 == 1:
-            code = html_escape(part.strip("\n"))
-            out.append("<pre><code>" + code + "</code></pre>")
-        else:
-            block_html = _md_block_to_html(part)
-            if block_html.strip():
-                out.append(block_html)
-
-    return "\n".join(out).strip()
-
-
-def build_conversation_html(messages: List[dict]) -> str:
-    """Rich transcript as HTML for clipboard copy."""
-    chunks: List[str] = ["<div>", "<p><strong>EphemerAl Conversation</strong></p>"]
-
-    for msg in messages:
-        role = msg.get("role", "assistant")
-        role_title = "User" if role == "user" else "Assistant"
-        chunks.append(f"<p><strong>{html_escape(role_title)}</strong></p>")
-
-        doc_lines, img_lines, message_text = _extract_export_info(msg.get("content", ""))
-
-        if doc_lines or img_lines:
-            chunks.append("<p><strong>Attachments:</strong></p>")
-            chunks.append("<ul>")
-            for line in (doc_lines + img_lines):
-                item = line.lstrip("- ").strip()
-                chunks.append("<li>" + _inline_md_to_html(item) + "</li>")
-            chunks.append("</ul>")
-
-        if message_text:
-            chunks.append(_md_to_html_basic(message_text))
-
-        chunks.append("<hr>")
-
-    chunks.append("</div>")
-    return "\n".join(chunks).strip()
 
 
 def render_copy_button(export_text_plain: str, export_html: str) -> None:
@@ -917,7 +602,7 @@ with st.sidebar:
             dbg_reserved_ctx = min(LLM_OUTPUT_RESERVE_TOKENS, int(dbg_effective_ctx * 0.25))
             dbg_budget_ctx = max(4096, dbg_usable_ctx - dbg_reserved_ctx)
             st.caption(f"App version: {APP_VERSION}")
-            st.caption(f"Model: {MODEL_NAME}")
+            st.caption(f"Model: {LLM_MODEL_NAME}")
             st.caption(f"LLM base URL: {LLM_BASE_URL}")
             st.caption(
                 "Context budget: "
@@ -1294,7 +979,7 @@ if prompt_in is not None:
             try:
                 client = get_llm_client()
                 request_kwargs = {
-                    "model": MODEL_NAME,
+                    "model": LLM_MODEL_NAME,
                     "messages": payload,
                     "stream": True,
                     "temperature": LLM_TEMPERATURE,
@@ -1322,19 +1007,7 @@ if prompt_in is not None:
                 acc = ""
                 box = st.empty()
                 used_usage_from_backend = False
-                in_think_block = False
-                current_think_close_tag = ""
-                stream_parse_buffer = ""
-                # Filter both legacy (<think>...</think>) and channel-tag
-                # (<|channel>thought\n...<channel|>) think-block formats.
-                think_tag_pairs = [
-                    ("<|channel>thought\n", "<channel|>"),
-                    ("<think>", "</think>"),
-                ]
-                open_tag_tail_len = max(len(open_tag) for open_tag, _ in think_tag_pairs) - 1
-                close_tag_tail_lens = {
-                    close_tag: len(close_tag) - 1 for _, close_tag in think_tag_pairs
-                }
+                stream_filter = ThinkStreamFilter()
 
                 for chunk in stream:
                     if getattr(chunk, "choices", None):
@@ -1343,44 +1016,7 @@ if prompt_in is not None:
                         if not delta and LLM_SHOW_REASONING:
                             delta = getattr(delta_obj, "reasoning", None)
                         if delta:
-                            stream_parse_buffer += delta
-
-                            while stream_parse_buffer:
-                                if in_think_block:
-                                    close_idx = stream_parse_buffer.find(current_think_close_tag)
-                                    if close_idx == -1:
-                                        close_tag_tail_len = close_tag_tail_lens[current_think_close_tag]
-                                        if len(stream_parse_buffer) > close_tag_tail_len:
-                                            stream_parse_buffer = stream_parse_buffer[-close_tag_tail_len:]
-                                        break
-
-                                    stream_parse_buffer = stream_parse_buffer[
-                                        close_idx + len(current_think_close_tag) :
-                                    ]
-                                    in_think_block = False
-                                    current_think_close_tag = ""
-                                    continue
-
-                                nearest_open = None
-                                for open_tag, close_tag in think_tag_pairs:
-                                    open_idx = stream_parse_buffer.find(open_tag)
-                                    if open_idx == -1:
-                                        continue
-                                    if nearest_open is None or open_idx < nearest_open[0]:
-                                        nearest_open = (open_idx, open_tag, close_tag)
-
-                                if nearest_open is None:
-                                    if len(stream_parse_buffer) > open_tag_tail_len:
-                                        acc += stream_parse_buffer[:-open_tag_tail_len]
-                                        stream_parse_buffer = stream_parse_buffer[-open_tag_tail_len:]
-                                    break
-
-                                open_idx, open_tag, close_tag = nearest_open
-                                acc += stream_parse_buffer[:open_idx]
-                                stream_parse_buffer = stream_parse_buffer[open_idx + len(open_tag) :]
-                                in_think_block = True
-                                current_think_close_tag = close_tag
-
+                            acc += stream_filter.process_chunk(delta)
                             box.markdown(acc + "▌")
 
                     usage = getattr(chunk, "usage", None)
@@ -1388,19 +1024,18 @@ if prompt_in is not None:
                         st.session_state.last_token_count = int(usage.total_tokens)
                         used_usage_from_backend = True
 
-                if in_think_block and DEBUG_MODE:
+                if stream_filter.in_think_block and DEBUG_MODE:
                     logging.debug("Unclosed think block detected at end of stream.")
 
-                if stream_parse_buffer:
-                    if not in_think_block:
-                        acc += stream_parse_buffer
-                    elif DEBUG_MODE:
-                        logging.debug(
-                            "Discarding trailing stream buffer because stream ended inside a think block."
-                        )
+                tail = stream_filter.finalize()
+                if tail:
+                    acc += tail
+                elif stream_filter.in_think_block and DEBUG_MODE:
+                    logging.debug(
+                        "Discarding trailing stream buffer because stream ended inside a think block."
+                    )
 
-                acc = re.sub(r"<\|channel>thought\n.*?<channel\|>\s*", "", acc, flags=re.DOTALL)
-                acc = re.sub(r"<think>.*?</think>\s*", "", acc, flags=re.DOTALL)
+                acc = strip_think_blocks(acc)
                 box.markdown(acc)
 
                 # If backend didn't provide usage totals, keep hybrid behavior with a fast estimate.
