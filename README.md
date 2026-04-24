@@ -105,6 +105,7 @@ If your current stack still points at any older model tag, recreate or update yo
 ## Shared Ollama API Backend (optional)
 
 - Raw Ollama remains internal by default in this stack.
+- Ollama cloud features are disabled by default (`OLLAMA_NO_CLOUD=1`) to keep this deployment local-only/privacy-aligned.
 - If you intentionally want shared API access, use the `docker-compose.api.yml` override to expose port `11434`.
 - External OpenAI-compatible clients should use:
   - `model: "ephemeral-default"`
