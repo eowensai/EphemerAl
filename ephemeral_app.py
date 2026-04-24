@@ -299,12 +299,30 @@ st.session_state.setdefault("_vision_supported", None)
 
 # ── Sidebar ───────────────────────────────────────────────────────
 with st.sidebar:
-    try:
-        logo_path = pathlib.Path("static/ephemeral_logo.png")
-        if logo_path.exists():
-            st.image(str(logo_path), use_container_width=True)
-    except Exception:
-        st.markdown("EphemerAl")
+    logo_path = pathlib.Path("static/ephemeral_logo.png")
+    if logo_path.exists():
+        logo_b64 = base64.b64encode(logo_path.read_bytes()).decode("ascii")
+        st.markdown(
+            f"""
+            <div class="sidebar-brand">
+                <img src="data:image/png;base64,{logo_b64}" alt="EphemerAI logo" class="sidebar-brand-logo">
+                <div class="sidebar-brand-title">EphemerAI</div>
+                <div class="sidebar-brand-subtitle">Private AI Assistant</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            """
+            <div class="sidebar-brand">
+                <div class="sidebar-brand-fallback">E</div>
+                <div class="sidebar-brand-title">EphemerAI</div>
+                <div class="sidebar-brand-subtitle">Private AI Assistant</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
     # Friendly status messages for non-technical users.
     if not llm_alive():
@@ -312,7 +330,7 @@ with st.sidebar:
     if not tika_alive():
         st.info("Document reading is temporarily unavailable. You can still chat, but uploads may not be readable.")
 
-    if st.button("New Conversation", key="sidebar_new", width="stretch", help="Clears chat history and starts fresh"):
+    if st.button("✚  New chat", key="sidebar_new", width="stretch", help="Clears chat history and starts fresh"):
         st.session_state.clear()
         st.rerun()
 
@@ -356,44 +374,75 @@ with st.sidebar:
             else:
                 st.caption("Token counting: not checked yet")
 
+    st.markdown('<div class="sidebar-footer-spacer"></div>', unsafe_allow_html=True)
+    sidebar_footer = st.container(key="sidebar_footer")
+    with sidebar_footer:
+        if st.button(
+            "⚙ Settings",
+            key="sidebar_settings",
+            width="stretch",
+            help="Opens a safe placeholder message.",
+        ):
+            st.info("Settings UI is coming soon. Core chat privacy and model behavior are unchanged.")
+        if st.button(
+            "❔ Help",
+            key="sidebar_help",
+            width="stretch",
+            help="Opens a safe placeholder message.",
+        ):
+            st.info("Help is coming soon. You can start a new chat any time to clear this conversation.")
+
 
 # ── Welcome banner ────────────────────────────────────────────────
 if st.session_state.show_welcome:
-    wordmark_png = pathlib.Path("static/ephemeral_wordmark.png")
-    wordmark_svg = pathlib.Path("static/ephemeral_wordmark.svg")
-    wordmark_path = wordmark_png if wordmark_png.exists() else (wordmark_svg if wordmark_svg.exists() else None)
-
-    if wordmark_path:
-        wordmark_b64 = base64.b64encode(wordmark_path.read_bytes()).decode()
-        mime_type = "image/svg+xml" if wordmark_path.suffix == ".svg" else "image/png"
-        st.markdown(
-            f"""
-            <div class='welcome-text'>
-                <span style='font-size:1.6em;font-weight:600;'>Welcome&nbsp;to</span><br>
-                <img src='data:{mime_type};base64,{wordmark_b64}'
-                     class='welcome-wordmark' alt='EphemerAl'>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    else:
-        st.markdown(
-            "<div class='welcome-text'>"
-            "<span style='font-size:1.6em;font-weight:600;'>Welcome&nbsp;to</span> "
-            "<span class='ephemer'>Ephemer</span><span class='al'>Al</span>"
-            "</div>",
-            unsafe_allow_html=True,
-        )
-
     st.markdown(
         """
-        <div class="right-align-block">
-          I can read many document types, and sometimes images (depending on the model).
-          <div class="welcome-dots">•&nbsp;&nbsp;•&nbsp;&nbsp;•</div>
-          Conversations are cleared when you start a new conversation or close your browser.
-          <div class="welcome-dots">•&nbsp;&nbsp;•&nbsp;&nbsp;•</div>
-          I try to be helpful, but I can be wrong. Please double-check important answers.
-        </div>
+        <section class="welcome-shell" aria-label="Welcome">
+          <div class="welcome-sparkle">✧</div>
+          <h1 class="welcome-heading">Welcome to <span class="welcome-heading-brand">EphemerAI</span></h1>
+          <p class="welcome-subtitle">Your private workspace for focused, ephemeral conversations.</p>
+
+          <div class="welcome-features" role="list">
+            <div class="welcome-feature" role="listitem">
+              <div class="feature-badge feature-badge-blue">📄</div>
+              <div class="feature-copy">
+                <div class="feature-copy-strong">I can read many document types, and sometimes images</div>
+                <div class="feature-copy-muted">depending on the model.</div>
+              </div>
+            </div>
+            <div class="welcome-feature" role="listitem">
+              <div class="feature-badge feature-badge-indigo">🛡</div>
+              <div class="feature-copy">
+                <div class="feature-copy-strong">Conversations are cleared when you start a new chat</div>
+                <div class="feature-copy-muted">or close your browser.</div>
+              </div>
+            </div>
+            <div class="welcome-feature" role="listitem">
+              <div class="feature-badge feature-badge-green">✓</div>
+              <div class="feature-copy">
+                <div class="feature-copy-strong">I try to be helpful, but I can be wrong.</div>
+                <div class="feature-copy-muted">Please double-check important answers.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="welcome-skeletons" aria-hidden="true">
+            <div class="skeleton-card">
+              <div class="skeleton-avatar"></div>
+              <div class="skeleton-lines">
+                <div class="skeleton-line skeleton-line-lg"></div>
+                <div class="skeleton-line skeleton-line-md"></div>
+              </div>
+            </div>
+            <div class="skeleton-card">
+              <div class="skeleton-avatar skeleton-avatar-secondary"></div>
+              <div class="skeleton-lines">
+                <div class="skeleton-line skeleton-line-xl"></div>
+                <div class="skeleton-line skeleton-line-sm"></div>
+              </div>
+            </div>
+          </div>
+        </section>
         """,
         unsafe_allow_html=True,
     )
