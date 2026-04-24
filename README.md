@@ -97,9 +97,9 @@ Use the step-by-step guide:
 
 - [System Deployment Guide](System%20Deployment%20Guide.md)
 
-### Migration note for existing Gemma-based installs
+### Migration note for pre-Qwen installs
 
-If your current stack still points at an older Gemma tag, recreate or update your local `ephemeral-default` alias to point to `qwen3.6:35b-a3b` using the deployment guide, then confirm `docker-compose.yml` uses `LLM_MODEL_NAME=ephemeral-default`.
+If your current stack still points at any older model tag, recreate or update your local `ephemeral-default` alias to point to `qwen3.6:35b-a3b` using the deployment guide, then confirm `docker-compose.yml` uses `LLM_MODEL_NAME=ephemeral-default`.
 
 ## Shared Ollama API Backend (optional)
 
