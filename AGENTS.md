@@ -16,9 +16,16 @@ frontend, an Ollama LLM backend, and an Apache Tika document parsing server.
 
 ## Key Files
 - `ephemeral_app.py` — Main application. All state is in-memory (session_state).
+- `ephemeral/` — Import-safe utility package (no Streamlit side effects at import time).
+- `ephemeral/config.py` — Env parsing helpers and shared configuration constants.
+- `ephemeral/export.py` — Conversation transcript/export builders (Markdown/HTML).
+- `ephemeral/stream_filter.py` — Stateful think-block/thought-channel stream filter.
+- `ephemeral/token_budget.py` — Token estimation helpers.
 - `docker-compose.yml` — Stack definition. Pins Ollama and Tika image versions.
 - `Dockerfile` — Builds the Streamlit app container image.
 - `requirements.txt` — Python dependencies (installed inside the app container).
+- `requirements-dev.txt` — Development-only test dependencies (pytest/coverage).
+- `tests/` — Pytest suite for import-safe utility modules.
 - `System Deployment Guide.md` — End-user deployment instructions (target audience: IT
   generalists, not developers). Written for WSL2 + Docker on Windows 11.
 - `README.md` — Project overview, feature list, system requirements.
@@ -105,10 +112,13 @@ When reviewing Codex changes, treat the following as high-priority checks:
 ## Testing
 - Verify Python syntax: `python -m py_compile ephemeral_app.py`
 - Verify requirements install: `pip install -r requirements.txt && pip check`
+- Verify test tooling + run tests: `pip install -r requirements-dev.txt && python -m pytest`
 - Verify Markdown links resolve: all relative links in README.md and the deployment
   guide should point to files that exist in the repo.
 - Full stack test: `docker compose up -d --build` inside WSL2, then access
   `http://localhost:8501`.
+- Keep `ephemeral/` modules import-safe: no Streamlit imports or Streamlit side effects
+  at import time.
 
 ## Do Not
 - Do not change environment variable defaults in `ephemeral_app.py` to use `localhost`.
