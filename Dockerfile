@@ -20,6 +20,7 @@ RUN mkdir -p .streamlit && \
         'headless = true' \
         'enableCORS = false' \
         'enableXsrfProtection = false' \
+        'maxUploadSize = 50' \
         'port = 8501' \
         'address = "0.0.0.0"' \
         '' \

@@ -3,6 +3,7 @@ streamlit-browser-engine==0.0.3
 requests==2.32.5
 pytz==2025.2
 tika==3.1.0
+# Latest available `tika` release on PyPI as of 2026-04-24.
 openai==1.97.2
 # Pinned transitive dependency used by Streamlit image handling; kept for reproducible container builds.
 pillow==11.3.0

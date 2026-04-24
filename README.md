@@ -14,6 +14,7 @@ While it wasn't built for broad distribution, I'm sharing this generalized versi
 
 - **Local AI chat:** Real-time chat against a local Ollama model.
 - **Document ingestion:** Upload PDFs, Office docs, text files, and more (via Apache Tika).
+- **Upload guardrail:** Each uploaded file is capped at 50 MB to prevent accidental oversized uploads.
 - **Image + text chat:** If your selected model supports vision, image uploads are included in the request automatically.
 - **Streaming responses:** Assistant output streams token-by-token.
 - **Ephemeral by default:** Conversation state is in-memory for the session; no app-level database.
