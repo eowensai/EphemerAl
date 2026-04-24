@@ -51,6 +51,38 @@ frontend, an Ollama LLM backend, and an Apache Tika document parsing server.
 - The app detects model capabilities (vision support, context size) at runtime via
   Ollama's `/api/show` endpoint, so it adapts to different models automatically.
 
+## Runtime and Branding Targets
+- Target runtime is Python 3.10+.
+- Streamlit migration target is 1.56.0 for UI work.
+- Repository/package names may remain `EphemerAl`, but user-facing UI copy should use
+  **EphemerAI** unless a broader rename is explicitly requested.
+
+## Streamlit 1.56 UI Guidance
+- `st.set_page_config(initial_sidebar_state=304)` is valid in Streamlit 1.56 and should
+  be used when a 304px default sidebar is needed while preserving auto behavior.
+- `st.chat_message(..., width="stretch")` is valid in Streamlit 1.56; `"stretch"` is
+  also the default.
+- `st.chat_input(..., height=68, max_upload_size=50)` is valid in Streamlit 1.56. Keep
+  Python-side upload size validation as defense-in-depth.
+- Prefer `st.iframe` over `streamlit.components.v1.html`/`components.html` for the
+  sidebar copy button behavior.
+- Do not adopt `st.container(autoscroll=True)` unless chat history is moved into a
+  fixed-height container. Avoid fixed-height chat containers unless explicitly requested.
+
+## CSS and UI Constraints
+- Preserve `theme.css` `:root` custom-property architecture.
+- Preserve `st-key-{role}-` message wrapper patterns for user/assistant styling.
+- No external fonts, web fonts, CDNs, or externally loaded assets; keep the app
+  air-gapped friendly.
+- Use a system font stack and standard font weights: 400, 500, 600, 700, 800.
+- CSS targeting Streamlit internals, `data-testid`, or generated DOM is brittle; add
+  comments on selectors that are new/changed for Streamlit 1.56.
+- Keep **New chat** and **Copy conversation** visible in the sidebar.
+- `st.menu_button` is allowed only for lower-frequency sidebar actions (Help, About,
+  Settings, debug/status views).
+- Do not hide the sidebar with aggressive mobile CSS; let Streamlit handle responsive
+  sidebar behavior.
+
 ## Qwen3.6 Defaults (Target Behavior)
 - `Qwen3.6-35B-A3B` is the default target model, exposed through the local Ollama alias
   `ephemeral-default`.
@@ -110,6 +142,7 @@ When reviewing Codex changes, treat the following as high-priority checks:
 - loss of non-thinking behavior
 - incorrect context/output budgeting
 - broken copy-paste commands in deployment docs
+- changes that regress Streamlit 1.56 UI migration compatibility
 
 ## Testing
 - Verify Python syntax: `python -m py_compile ephemeral_app.py ephemeral/*.py`
@@ -124,6 +157,13 @@ When reviewing Codex changes, treat the following as high-priority checks:
   tests run without Streamlit.
 - `ephemeral/tika_client.py` and `ephemeral/llm_client.py` are Streamlit-aware by
   design and may use Streamlit caching decorators/session state.
+- Manual UI validation checklist:
+  - empty welcome state
+  - text-only chat
+  - file-upload chat
+  - long assistant response rendering/streaming
+  - mobile viewport behavior
+  - backend-unavailable state (Ollama or Tika down)
 
 ## Do Not
 - Do not change environment variable defaults in `ephemeral_app.py` to use `localhost`.
@@ -134,3 +174,5 @@ When reviewing Codex changes, treat the following as high-priority checks:
 - Do not add new Python dependencies beyond what's in `requirements.txt` without
   documenting the reason.
 - Do not remove think-block/thought-channel filtering from `ephemeral/stream_filter.py` or from the streaming response path in `ephemeral_app.py`; it is required as defense-in-depth against leaked reasoning output.
+- Do not persist prompts, uploaded files, parsed document text, or model output to disk.
+- Do not log chat content, uploaded document content, or model output.
