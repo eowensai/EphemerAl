@@ -99,6 +99,8 @@ services:
       - LLM_CONTEXT_TOKENS=262144          # App-side budgeting hint for document/context packing.
       # Actual Ollama context window is set by PARAMETER num_ctx in the ephemeral-default Modelfile.
       - LLM_OUTPUT_RESERVE_TOKENS=${LLM_OUTPUT_RESERVE_TOKENS:-32768}
+      - LLM_REQUEST_TIMEOUT_S=${LLM_REQUEST_TIMEOUT_S:-1800}
+      - LLM_MAX_RETRIES=${LLM_MAX_RETRIES:-0}
       - LLM_REASONING_EFFORT=none
       - LLM_SHOW_REASONING=false
       - LLM_TEMPERATURE=0.7

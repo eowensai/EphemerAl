@@ -36,6 +36,7 @@ Using a stable local alias is intentional: it lets you pin runtime defaults (lik
 - **Non-thinking by default:** requests use `reasoning_effort="none"`.
 - **No default EphemerAl output cap:** the app does not set `max_tokens` unless you explicitly configure `LLM_MAX_TOKENS`.
 - **Document budgeting reserve:** `LLM_OUTPUT_RESERVE_TOKENS` keeps response headroom while loading documents into context; it is not an output cap.
+- **OpenAI SDK client controls:** defaults are `LLM_REQUEST_TIMEOUT_S=1800` and `LLM_MAX_RETRIES=0` for local long-running inference without hidden retries.
 
 ### Retarget to a different model
 

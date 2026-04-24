@@ -138,6 +138,8 @@ def _bool_env(name: str, default: bool = False) -> bool:
 
 LLM_CONTEXT_TOKENS = _int_env_optional("LLM_CONTEXT_TOKENS")
 LLM_OUTPUT_RESERVE_TOKENS = _int_env("LLM_OUTPUT_RESERVE_TOKENS", 32768)
+LLM_REQUEST_TIMEOUT_S = _float_env("LLM_REQUEST_TIMEOUT_S", 1800.0)
+LLM_MAX_RETRIES = _int_env("LLM_MAX_RETRIES", 0)
 LLM_TEMPERATURE = _float_env("LLM_TEMPERATURE", 0.7)
 LLM_TOP_P = _float_env("LLM_TOP_P", 0.8)
 LLM_PRESENCE_PENALTY = _float_env("LLM_PRESENCE_PENALTY", 1.5)
@@ -288,7 +290,12 @@ def parse_with_tika(data: bytes, filename: str) -> str:
 @st.cache_resource
 def get_llm_client() -> OpenAI:
     """Return a cached OpenAI client instance configured for the backend."""
-    return OpenAI(base_url=LLM_BASE_URL, api_key="not-needed")
+    return OpenAI(
+        base_url=LLM_BASE_URL,
+        api_key="not-needed",
+        timeout=LLM_REQUEST_TIMEOUT_S,
+        max_retries=LLM_MAX_RETRIES,
+    )
 
 
 # ── Ollama model metadata ─────────────────────────────────────────
