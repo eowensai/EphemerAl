@@ -1,10 +1,7 @@
 import os
 import base64
-import hashlib
 import pathlib
-import re
 import string
-import time
 import uuid
 import logging
 from datetime import datetime, tzinfo
@@ -13,35 +10,23 @@ from typing import Union, Tuple, List, Dict, Optional
 
 import streamlit as st
 import streamlit.components.v1 as components
-import requests
 import pytz
-from tika import parser
-from openai import OpenAI
 from ephemeral.config import (
     APP_VERSION,
     CONTEXT_PREFIX,
     DEBUG_MODE,
     ENABLE_TOKEN_BUDGETING,
-    IMG_TOKEN_COST_DEFAULT,
     LLM_BASE_URL,
     LLM_CONTEXT_TOKENS,
-    LLM_MAX_RETRIES,
     LLM_MAX_TOKENS,
     LLM_MODEL_NAME,
     LLM_OUTPUT_RESERVE_TOKENS,
     LLM_PRESENCE_PENALTY,
     LLM_REASONING_EFFORT,
-    LLM_REQUEST_TIMEOUT_S,
     LLM_SHOW_REASONING,
-    LLM_SUPPORTS_VISION,
     LLM_TEMPERATURE,
     LLM_TOP_P,
-    TIKA_CACHE_TTL_S,
-    TIKA_TIMEOUT_S,
     TIKA_URL,
-    TOKEN_CACHE_MAX_ENTRIES,
-    TOKENIZE_TIMEOUT_S,
-    _ollama_base_url,
 )
 from ephemeral.export import (
     _extract_export_info,
@@ -53,6 +38,15 @@ from ephemeral.export import (
 )
 from ephemeral.stream_filter import ThinkStreamFilter, strip_think_blocks
 from ephemeral.token_budget import _heuristic_token_estimate
+from ephemeral.tika_client import parse_with_tika, tika_alive
+from ephemeral.llm_client import (
+    count_text_tokens,
+    get_image_token_cost,
+    get_llm_client,
+    get_model_ctx,
+    llm_alive,
+    model_supports_images,
+)
 
 # EphemerAl main Streamlit application.
 # - Provides an ephemeral chat UI for working with uploaded documents and images.
@@ -86,47 +80,6 @@ except ImportError:
 
 # ── Backend configuration ─────────────────────────────────────────
 DEFAULT_UPLOAD_PROMPT = os.getenv("DEFAULT_UPLOAD_PROMPT", "Please analyze the uploaded files.")
-
-
-# ── Health checks (cached to reduce UI jank) ──────────────────────
-@st.cache_data(ttl=5, show_spinner=False)
-def tika_alive() -> bool:
-    """Lightweight health check for the Tika server."""
-    try:
-        base = TIKA_URL.rstrip("/")
-        endpoints = (f"{base}/tika", f"{base}/version", base)
-        for url in endpoints:
-            r = requests.get(url, timeout=2)
-            if r.ok:
-                return True
-        return False
-    except Exception:
-        return False
-
-
-@st.cache_data(ttl=5, show_spinner=False)
-def llm_alive() -> bool:
-    """
-    Lightweight health check for the LLM backend.
-    Tries OpenAI-compatible /models endpoint first, then falls back to Ollama /api/tags.
-    Treats 401/403 as "alive" since auth errors prove the service is reachable.
-    """
-    try:
-        base_url = LLM_BASE_URL.rstrip("/")
-
-        if base_url.endswith("/v1"):
-            models_url = base_url + "/models"
-        else:
-            models_url = base_url + "/v1/models"
-
-        r = requests.get(models_url, timeout=2)
-        if r.status_code in (200, 401, 403):
-            return True
-
-        r2 = requests.get(_ollama_base_url() + "/api/tags", timeout=2)
-        return r2.ok
-    except Exception:
-        return False
 
 
 def get_local_timezone() -> tzinfo:
@@ -176,240 +129,6 @@ else:
         "You are a helpful AI assistant. The current local time is ${current_time_local}. "
         "Answer concisely and accurately based on the context provided."
     )
-
-
-# ── Session-scoped Tika parsing cache ─────────────────────────────
-def _get_tika_cache() -> dict:
-    """Return the session-scoped Tika parse cache, creating if needed."""
-    return st.session_state.setdefault("_tika_cache", {})
-
-
-def parse_with_tika(data: bytes, filename: str) -> str:
-    """
-    Parse document bytes with Tika via TIKA_URL.
-    Cached per-session by content hash (SHA-256) with TTL.
-    """
-    key = hashlib.sha256(data).hexdigest()
-    cache = _get_tika_cache()
-    now = time.time()
-
-    expired = [k for k, (ts, _) in cache.items() if now - ts > TIKA_CACHE_TTL_S]
-    for k in expired:
-        del cache[k]
-
-    if key in cache:
-        return cache[key][1]
-
-    with st.spinner(f"Reading {filename}…"):
-        try:
-            parsed = parser.from_buffer(
-                data,
-                serverEndpoint=TIKA_URL,
-                requestOptions={"timeout": TIKA_TIMEOUT_S},
-            )
-        except TypeError:
-            parsed = parser.from_buffer(data, serverEndpoint=TIKA_URL)
-
-    text = (parsed.get("content") or "").strip()
-    if text:
-        cache[key] = (now, text)
-
-    return text
-
-
-# ── Cached OpenAI client ──────────────────────────────────────────
-@st.cache_resource
-def get_llm_client() -> OpenAI:
-    """Return a cached OpenAI client instance configured for the backend."""
-    return OpenAI(
-        base_url=LLM_BASE_URL,
-        api_key="not-needed",
-        timeout=LLM_REQUEST_TIMEOUT_S,
-        max_retries=LLM_MAX_RETRIES,
-    )
-
-
-# ── Ollama model metadata ─────────────────────────────────────────
-@st.cache_data(ttl=60, show_spinner=False)
-def _ollama_show() -> Optional[Dict]:
-    """Cached wrapper for Ollama /api/show. Returns JSON dict on success, else None."""
-    try:
-        show_url = f"{_ollama_base_url()}/api/show"
-        resp = requests.post(show_url, json={"model": LLM_MODEL_NAME}, timeout=2)
-        if resp.ok:
-            return resp.json()
-    except Exception as e:
-        logging.debug("Ollama /api/show probe failed: %s", e)
-    return None
-
-
-@st.cache_data(ttl=60, show_spinner=False)
-def model_supports_images() -> bool:
-    """
-    Return True if the configured model appears to support vision inputs.
-
-    Uses:
-      1) LLM_SUPPORTS_VISION env var if provided.
-      2) Ollama /api/show capabilities (preferred).
-      3) Ollama model_info heuristics as a fallback.
-    """
-    if LLM_SUPPORTS_VISION is not None:
-        return LLM_SUPPORTS_VISION.strip().lower() in {"1", "true", "yes", "y", "on"}
-
-    payload = _ollama_show()
-    if not payload:
-        return False
-
-    capabilities = payload.get("capabilities")
-    if isinstance(capabilities, list) and "vision" in capabilities:
-        return True
-
-    model_info = payload.get("model_info") or {}
-    for key in model_info.keys():
-        if not isinstance(key, str):
-            continue
-        key_lower = key.lower()
-        if "vision" in key_lower or "clip" in key_lower or "projector" in key_lower:
-            return True
-
-    return False
-
-
-@st.cache_data(ttl=60, show_spinner=False)
-def get_model_ctx() -> Optional[int]:
-    """
-    Return model context tokens for app-side budgeting.
-
-    If LLM_CONTEXT_TOKENS is set to a positive integer, that value is used first
-    as an application budgeting override (it does not change Ollama runtime model settings).
-    Otherwise, context is discovered from Ollama /api/show metadata.
-    """
-    if LLM_CONTEXT_TOKENS:
-        return LLM_CONTEXT_TOKENS
-
-    payload = _ollama_show()
-    if not payload:
-        return None
-
-    parameters = payload.get("parameters")
-    if isinstance(parameters, str):
-        match = re.search(r"\bnum_ctx\s+(\d+)", parameters)
-        if match:
-            try:
-                return int(match.group(1))
-            except Exception:
-                pass
-
-    model_info = payload.get("model_info") or {}
-
-    for key in ("num_ctx", "context_length"):
-        value = model_info.get(key)
-        if isinstance(value, int):
-            return value
-        if isinstance(value, str) and value.isdigit():
-            return int(value)
-
-    for key, value in model_info.items():
-        if isinstance(key, str) and key.endswith(".context_length"):
-            if isinstance(value, int):
-                return value
-            if isinstance(value, str) and value.isdigit():
-                return int(value)
-
-    return None
-
-
-@st.cache_data(ttl=60, show_spinner=False)
-def get_image_token_cost() -> int:
-    """Return tokens-per-image if provided by model metadata, else default."""
-    payload = _ollama_show()
-    if not payload:
-        return IMG_TOKEN_COST_DEFAULT
-
-    model_info = payload.get("model_info") or {}
-    for key, value in model_info.items():
-        if not isinstance(key, str):
-            continue
-        if key.endswith("mm.tokens_per_image"):
-            if isinstance(value, int):
-                return value
-            if isinstance(value, str) and value.isdigit():
-                return int(value)
-
-    return IMG_TOKEN_COST_DEFAULT
-
-
-# ── Token counting ────────────────────────────────────────────────
-def _get_token_cache() -> Dict[str, int]:
-    return st.session_state.setdefault("_token_count_cache", {})
-
-
-def count_text_tokens(text: str) -> int:
-    """
-    Best-effort token count for text.
-
-    If ENABLE_TOKEN_BUDGETING is on, we try Ollama /api/tokenize.
-    If unavailable or slow, we silently fall back to a heuristic.
-
-    UX rule: this function must not show user-facing warnings.
-    """
-    if not text:
-        return 0
-
-    cache = _get_token_cache()
-    if len(cache) > TOKEN_CACHE_MAX_ENTRIES:
-        cache.clear()
-
-    key = hashlib.sha256(text.encode("utf-8", errors="ignore")).hexdigest()
-    if key in cache:
-        return cache[key]
-
-    if not ENABLE_TOKEN_BUDGETING:
-        n = _heuristic_token_estimate(text)
-        cache[key] = n
-        return n
-
-    if st.session_state.get("tokenizer_available") is False:
-        n = _heuristic_token_estimate(text)
-        cache[key] = n
-        return n
-
-    tokenize_url = f"{_ollama_base_url()}/api/tokenize"
-    try:
-        resp = requests.post(
-            tokenize_url,
-            json={"model": LLM_MODEL_NAME, "content": text},
-            timeout=TOKENIZE_TIMEOUT_S,
-        )
-
-        if resp.status_code == 404:
-            st.session_state["tokenizer_available"] = False
-            n = _heuristic_token_estimate(text)
-            cache[key] = n
-            return n
-
-        resp.raise_for_status()
-        payload = resp.json()
-
-        tokens = payload.get("tokens")
-        if isinstance(tokens, list):
-            n = len(tokens)
-        elif isinstance(tokens, int):
-            n = tokens
-        elif isinstance(tokens, str) and tokens.isdigit():
-            n = int(tokens)
-        else:
-            st.session_state["tokenizer_available"] = False
-            n = _heuristic_token_estimate(text)
-
-        st.session_state["tokenizer_available"] = True
-        cache[key] = n
-        return n
-    except Exception:
-        st.session_state["tokenizer_available"] = False
-        n = _heuristic_token_estimate(text)
-        cache[key] = n
-        return n
 
 
 # ── Chat message wrapper for CSS styling ──────────────────────────
