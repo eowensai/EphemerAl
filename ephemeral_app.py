@@ -1392,8 +1392,10 @@ if prompt_in is not None:
                 if stream_parse_buffer:
                     if not in_think_block:
                         acc += stream_parse_buffer
-                    elif not acc.strip():
-                        acc += stream_parse_buffer
+                    elif DEBUG_MODE:
+                        logging.debug(
+                            "Discarding trailing stream buffer because stream ended inside a think block."
+                        )
 
                 acc = re.sub(r"<\|channel>thought\n.*?<channel\|>\s*", "", acc, flags=re.DOTALL)
                 acc = re.sub(r"<think>.*?</think>\s*", "", acc, flags=re.DOTALL)
