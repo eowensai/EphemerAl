@@ -545,16 +545,6 @@ button[title="View fullscreen"] {
     box-shadow: 0 0 0 1px var(--color-accent) !important;
 }
 
-/* Streamlit 1.56 internals: normalize chat input row layout to prevent wrapped controls. */
-[data-testid="stChatInput"] form,
-[data-testid="stChatInput"] form > div {
-    display: flex;
-    align-items: center;
-    flex-wrap: nowrap;
-    gap: 0.5rem;
-    width: 100%;
-}
-
 /* Streamlit 1.56 internals: textarea wrapper + textarea should stay transparent. */
 [data-testid="stChatInputTextArea"],
 [data-testid="stChatInputTextArea"] > div,
@@ -577,43 +567,37 @@ button[title="View fullscreen"] {
     padding: 0.35rem 0.2rem !important;
 }
 
-/* Streamlit 1.56 internals: upload control in chat input left rail. */
-/* Uses localized aria-label fragments exposed by Streamlit's native file-enabled chat_input. */
-[data-testid="stChatInput"] button[kind="secondary"][aria-label*="Attach"],
-[data-testid="stChatInput"] button[kind="secondary"][aria-label*="Upload"] {
-    width: 2.15rem;
-    height: 2.15rem;
-    border-radius: 10px;
-    border: 1px solid #dbe2f2;
-    background: #f7f9ff;
-    padding: 0;
+/* Streamlit 1.56 internals: upload button (data-testid is on wrapper div). */
+[data-testid="stChatInputFileUploadButton"] button {
+    width: 2.15rem !important;
+    height: 2.15rem !important;
+    border-radius: 10px !important;
+    border: 1px solid #dbe2f2 !important;
+    background: #f7f9ff !important;
+    padding: 0 !important;
     flex: 0 0 auto;
 }
 
-/* Streamlit 1.56 internals: submit button container + button styling. */
-[data-testid="stChatInputSubmitButton"] {
-    margin-left: auto;
-}
-
-[data-testid="stChatInputSubmitButton"] button {
-    min-width: 2.25rem;
-    height: 2.25rem;
-    border-radius: 10px;
-    border: 1px solid var(--color-accent);
-    background: var(--color-accent);
-    color: #fff;
+/* Streamlit 1.56 internals: submit button (data-testid is on the button itself). */
+button[data-testid="stChatInputSubmitButton"] {
+    min-width: 2.25rem !important;
+    height: 2.25rem !important;
+    border-radius: 10px !important;
+    border: 1px solid var(--color-accent) !important;
+    background: var(--color-accent) !important;
+    color: #fff !important;
     box-shadow: 0 4px 10px rgba(79, 91, 234, 0.28);
 }
 
-[data-testid="stChatInputSubmitButton"] button:hover:enabled {
-    background: var(--color-accent-strong);
-    border-color: var(--color-accent-strong);
+button[data-testid="stChatInputSubmitButton"]:hover:enabled {
+    background: var(--color-accent-strong) !important;
+    border-color: var(--color-accent-strong) !important;
 }
 
-[data-testid="stChatInputSubmitButton"] button:disabled {
-    border-color: #d0d7e8;
-    background: #e9edf5;
-    color: #8a96ad;
+button[data-testid="stChatInputSubmitButton"]:disabled {
+    border-color: #d0d7e8 !important;
+    background: #e9edf5 !important;
+    color: #8a96ad !important;
     box-shadow: none;
 }
 
