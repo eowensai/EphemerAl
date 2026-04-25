@@ -99,23 +99,7 @@ def build_conversation_markdown(messages: List[dict]) -> str:
     lines: List[str] = ["# EphemerAl Conversation", ""]
 
     for msg in messages:
-        role = msg.get("role", "assistant")
-        role_title = "User" if role == "user" else "Assistant"
-        lines.append(f"**{role_title}**")
-
-        doc_lines, img_lines, message_text = _extract_export_info(msg.get("content", ""))
-
-        if doc_lines or img_lines:
-            lines.append("")
-            lines.append("Attachments:")
-            lines.extend(doc_lines)
-            lines.extend(img_lines)
-
-        if message_text:
-            lines.append("")
-            lines.append(message_text)
-
-        lines.append("")
+        lines.extend(_build_message_markdown_lines(msg))
         lines.append("---")
         lines.append("")
 
@@ -232,24 +216,58 @@ def build_conversation_html(messages: List[dict]) -> str:
     chunks: List[str] = ["<div>", "<p><strong>EphemerAl Conversation</strong></p>"]
 
     for msg in messages:
-        role = msg.get("role", "assistant")
-        role_title = "User" if role == "user" else "Assistant"
-        chunks.append(f"<p><strong>{html_escape(role_title)}</strong></p>")
-
-        doc_lines, img_lines, message_text = _extract_export_info(msg.get("content", ""))
-
-        if doc_lines or img_lines:
-            chunks.append("<p><strong>Attachments:</strong></p>")
-            chunks.append("<ul>")
-            for line in (doc_lines + img_lines):
-                item = line.lstrip("- ").strip()
-                chunks.append("<li>" + _inline_md_to_html(item) + "</li>")
-            chunks.append("</ul>")
-
-        if message_text:
-            chunks.append(_md_to_html_basic(message_text))
-
+        chunks.append(build_message_html(msg))
         chunks.append("<hr>")
 
     chunks.append("</div>")
+    return "\n".join(chunks).strip()
+
+
+def _build_message_markdown_lines(message: dict) -> List[str]:
+    """Build Markdown lines for a single message export."""
+    role = message.get("role", "assistant")
+    role_title = "User" if role == "user" else "Assistant"
+    lines: List[str] = [f"**{role_title}**"]
+
+    doc_lines, img_lines, message_text = _extract_export_info(message.get("content", ""))
+
+    if doc_lines or img_lines:
+        lines.append("")
+        lines.append("Attachments:")
+        lines.extend(doc_lines)
+        lines.extend(img_lines)
+
+    if message_text:
+        lines.append("")
+        lines.append(message_text)
+
+    lines.append("")
+    return lines
+
+
+def build_message_markdown(message: dict) -> str:
+    """Build clipboard-friendly Markdown for one message turn."""
+    return "\n".join(_build_message_markdown_lines(message)).strip() + "\n"
+
+
+def build_message_html(message: dict) -> str:
+    """Build clipboard-friendly HTML for one message turn."""
+    chunks: List[str] = []
+    role = message.get("role", "assistant")
+    role_title = "User" if role == "user" else "Assistant"
+    chunks.append(f"<p><strong>{html_escape(role_title)}</strong></p>")
+
+    doc_lines, img_lines, message_text = _extract_export_info(message.get("content", ""))
+
+    if doc_lines or img_lines:
+        chunks.append("<p><strong>Attachments:</strong></p>")
+        chunks.append("<ul>")
+        for line in (doc_lines + img_lines):
+            item = line.lstrip("- ").strip()
+            chunks.append("<li>" + _inline_md_to_html(item) + "</li>")
+        chunks.append("</ul>")
+
+    if message_text:
+        chunks.append(_md_to_html_basic(message_text))
+
     return "\n".join(chunks).strip()

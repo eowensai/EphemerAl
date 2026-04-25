@@ -32,6 +32,8 @@ from ephemeral.config import (
 from ephemeral.export import (
     build_conversation_html,
     build_conversation_markdown,
+    build_message_html,
+    build_message_markdown,
     build_message_text,
 )
 from ephemeral.stream_filter import ThinkStreamFilter, strip_think_blocks
@@ -342,6 +344,185 @@ def render_copy_button(export_text_plain: str, export_html: str) -> None:
     st.iframe(iframe_src, height=58, width="stretch")
 
 
+def render_turn_copy_button(export_text_plain: str, export_html: str, button_id: str) -> None:
+    """Inline per-turn copy button with rich-copy fallback sequence."""
+    safe_plain = html_escape(export_text_plain)
+    hover_tip = "Copy this message"
+    normalized_button_id = "".join(ch if (ch.isalnum() or ch in "-_") else "-" for ch in button_id)
+    safe_button_id = html_escape(normalized_button_id, quote=True)
+
+    iframe_html = f"""
+        <meta charset="utf-8" />
+        <style>
+          html, body {{
+            margin: 0;
+            padding: 0;
+            background: transparent;
+          }}
+          .turn-copy {{
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            width: 100%;
+          }}
+          #turn-copy-btn-{safe_button_id} {{
+            box-sizing: border-box;
+            background: #FFFFFF;
+            color: #1d2a44;
+            border: 1px solid #dce2ee;
+            font-weight: 500;
+            font-size: 0.82rem;
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI Variable", "Segoe UI", Roboto, sans-serif;
+            line-height: 1;
+            padding: 0.30rem 0.55rem;
+            border-radius: 999px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all .15s ease;
+          }}
+          #turn-copy-btn-{safe_button_id}:hover {{
+            border-color: #b6c3df;
+            background: #f7f9fe;
+          }}
+          #turn-copy-btn-{safe_button_id}:active {{
+            background: #eef0ff !important;
+            border-color: #99a7ff !important;
+          }}
+          #turn-copy-btn-{safe_button_id}.copied {{
+            background: #4F5BEA !important;
+            color: #FFFFFF !important;
+            border-color: #4F5BEA !important;
+          }}
+          #turn-copy-btn-{safe_button_id}.failed {{
+            background: #B00020 !important;
+            color: #FFFFFF !important;
+            border-color: #B00020 !important;
+          }}
+        </style>
+
+        <div class="turn-copy">
+          <button id="turn-copy-btn-{safe_button_id}" title="{html_escape(hover_tip)}">⧉ Copy</button>
+        </div>
+
+        <textarea id="turn-copy-plain-{safe_button_id}"
+                  style="position:absolute; left:-9999px; top:-9999px;">{safe_plain}</textarea>
+
+        <div id="turn-copy-rich-{safe_button_id}"
+             contenteditable="true"
+             style="position:absolute; left:-9999px; top:-9999px; width:900px;">
+          {export_html}
+        </div>
+
+        <script>
+          const btn = document.getElementById("turn-copy-btn-{safe_button_id}");
+          const plain = document.getElementById("turn-copy-plain-{safe_button_id}");
+          const rich = document.getElementById("turn-copy-rich-{safe_button_id}");
+          const originalLabel = btn.textContent;
+
+          function flash(stateClass, label, ms) {{
+            btn.disabled = true;
+            btn.classList.add(stateClass);
+            btn.textContent = label;
+
+            window.setTimeout(() => {{
+              btn.disabled = false;
+              btn.classList.remove(stateClass);
+              btn.textContent = originalLabel;
+            }}, ms);
+          }}
+
+          function copySelectionFrom(el) {{
+            const selection = window.getSelection();
+            const range = document.createRange();
+            range.selectNodeContents(el);
+            selection.removeAllRanges();
+            selection.addRange(range);
+            el.focus();
+
+            let ok = false;
+            try {{
+              ok = document.execCommand("copy");
+            }} catch (e) {{
+              ok = false;
+            }}
+
+            selection.removeAllRanges();
+            return ok;
+          }}
+
+          function copyWithExecHtml() {{
+            let copied = false;
+            const onCopy = (event) => {{
+              try {{
+                event.preventDefault();
+                event.clipboardData.setData("text/plain", plain.value);
+                event.clipboardData.setData("text/html", rich.innerHTML);
+                copied = true;
+              }} catch (e) {{
+                copied = false;
+              }}
+            }};
+
+            document.addEventListener("copy", onCopy, {{ once: true }});
+
+            try {{
+              document.execCommand("copy");
+            }} catch (e) {{
+              copied = false;
+            }}
+
+            return copied;
+          }}
+
+          function copyPlain() {{
+            plain.focus();
+            plain.select();
+            let ok = false;
+            try {{
+              ok = document.execCommand("copy");
+            }} catch (e) {{
+              ok = false;
+            }}
+            return ok;
+          }}
+
+          async function copyWithClipboardApi() {{
+            if (!navigator.clipboard || !window.ClipboardItem) {{
+              return false;
+            }}
+
+            try {{
+              const item = new ClipboardItem({{
+                "text/plain": new Blob([plain.value], {{ type: "text/plain;charset=utf-8" }}),
+                "text/html": new Blob([rich.innerHTML], {{ type: "text/html;charset=utf-8" }}),
+              }});
+              await navigator.clipboard.write([item]);
+              return true;
+            }} catch (e) {{
+              return false;
+            }}
+          }}
+
+          btn.addEventListener("click", async () => {{
+            const modernOk = await copyWithClipboardApi();
+            const eventOk = modernOk ? true : copyWithExecHtml();
+            const richOk = eventOk ? true : copySelectionFrom(rich);
+            const ok = richOk || copyPlain();
+
+            if (ok) {{
+              flash("copied", "Copied", 850);
+            }} else {{
+              flash("failed", "Copy failed", 1500);
+            }}
+          }});
+        </script>
+        """
+    iframe_src = "data:text/html;charset=utf-8;base64," + base64.b64encode(
+        iframe_html.encode("utf-8")
+    ).decode("ascii")
+    st.iframe(iframe_src, height=38, width="stretch")
+
+
 # ── Session state ─────────────────────────────────────────────────
 st.session_state.setdefault("messages", [])
 st.session_state.setdefault("show_welcome", True)
@@ -534,6 +715,10 @@ def render_content(content: Union[str, list]) -> None:
 for m in st.session_state.messages:
     with styled_chat_message(m["role"], m.get("id")):
         render_content(m["content"])
+        turn_copy_md = build_message_markdown(m)
+        turn_copy_html = build_message_html(m)
+        turn_copy_id = m.get("id") or str(uuid.uuid4())
+        render_turn_copy_button(turn_copy_md, turn_copy_html, turn_copy_id)
 
 
 # ── Mobile convenience button ─────────────────────────────────────
