@@ -110,3 +110,21 @@ def test_clipboard_module_is_used():
     assert "from ephemeral.clipboard import render_copy_button, render_turn_copy_button" in app_text
     assert "def render_copy_button(" not in app_text
     assert "def render_turn_copy_button(" not in app_text
+
+
+def test_sidebar_state_uses_streamlit_156_pixel_width_contract():
+    app_text = (REPO_ROOT / "ephemeral_app.py").read_text(encoding="utf-8")
+    assert "initial_sidebar_state=304" in app_text
+    assert "HTTP status code" not in app_text
+    assert 'initial_sidebar_state="auto"' not in app_text
+    assert "initial_sidebar_state='auto'" not in app_text
+
+
+def test_vision_support_check_uses_current_files_and_history_guard():
+    app_text = (REPO_ROOT / "ephemeral_app.py").read_text(encoding="utf-8")
+    assert "def _message_has_image(" in app_text
+    assert "has_image_files" in app_text
+    assert "has_image_history" in app_text
+    assert '_message_has_image(m.get("content"))' in app_text
+    assert "has_image_files or has_image_history" in app_text
+    assert "cached_vision" not in app_text
