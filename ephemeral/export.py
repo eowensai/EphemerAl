@@ -123,6 +123,7 @@ def _md_block_to_html(md_block: str) -> str:
     out: List[str] = []
     para: List[str] = []
     list_stack: List[str] = []
+    list_item_open: List[bool] = []
 
     def _list_indent_level(raw_line: str) -> int:
         """Return list nesting level from leading whitespace (2 spaces per level)."""
@@ -136,25 +137,36 @@ def _md_block_to_html(md_block: str) -> str:
             out.append("<p>" + "<br>".join(para) + "</p>")
             para = []
 
-    def close_lists() -> None:
-        while list_stack:
+    def close_lists(target_depth: int = 0) -> None:
+        while len(list_stack) > target_depth:
+            level = len(list_stack) - 1
+            if list_item_open[level]:
+                out.append("</li>")
+                list_item_open[level] = False
             out.append(f"</{list_stack.pop()}>")
+            list_item_open.pop()
 
-    def align_list_stack(target_level: int, list_tag: str) -> None:
-        while len(list_stack) > target_level + 1:
-            out.append(f"</{list_stack.pop()}>")
+    def _ensure_list_level(target_level: int, list_tag: str) -> None:
+        if len(list_stack) > target_level + 1:
+            close_lists(target_level + 1)
 
         if len(list_stack) == target_level + 1 and list_stack[-1] != list_tag:
-            out.append(f"</{list_stack.pop()}>")
+            close_lists(target_level)
 
         while len(list_stack) < target_level + 1:
             out.append(f"<{list_tag}>")
             list_stack.append(list_tag)
+            list_item_open.append(False)
 
-        if list_stack and list_stack[-1] != list_tag:
-            out.append(f"</{list_stack.pop()}>")
-            out.append(f"<{list_tag}>")
-            list_stack.append(list_tag)
+    def append_list_item(raw_line: str, list_tag: str, item_text: str) -> None:
+        target_level = _list_indent_level(raw_line)
+        _ensure_list_level(target_level, list_tag)
+
+        if list_item_open[target_level]:
+            out.append("</li>")
+
+        out.append("<li>" + _inline_md_to_html(item_text))
+        list_item_open[target_level] = True
 
     for raw in lines:
         line = raw or ""
@@ -181,15 +193,13 @@ def _md_block_to_html(md_block: str) -> str:
         m = re.match(r"^\s*[-*•]\s+(.*)$", line)
         if m:
             flush_para()
-            align_list_stack(_list_indent_level(line), "ul")
-            out.append("<li>" + _inline_md_to_html(m.group(1)) + "</li>")
+            append_list_item(line, "ul", m.group(1))
             continue
 
         m = re.match(r"^\s*\d+\.\s+(.*)$", line)
         if m:
             flush_para()
-            align_list_stack(_list_indent_level(line), "ol")
-            out.append("<li>" + _inline_md_to_html(m.group(1)) + "</li>")
+            append_list_item(line, "ol", m.group(1))
             continue
 
         close_lists()
