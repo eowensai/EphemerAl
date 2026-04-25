@@ -173,7 +173,7 @@ button[title="View fullscreen"] {
     background: transparent;
 }
 
-/* Streamlit internal class fragment in 1.56: key-based style for primary New Conversation button. */
+/* Streamlit internal class fragment in 1.56: key-based style for primary New Chat button. */
 [class*="st-key-sidebar_new"] .stButton > button,
 [class*="st-key-sidebar-new"] .stButton > button {
     background: var(--color-accent);
@@ -211,7 +211,7 @@ button[title="View fullscreen"] {
 
 /* Welcome foundation */
 .welcome-shell {
-    max-width: 620px;
+    max-width: 660px;
     margin: 3rem auto 0.7rem;
     padding: 0 0.6rem;
 }
@@ -267,8 +267,9 @@ button[title="View fullscreen"] {
     border-radius: 999px;
     display: grid;
     place-items: center;
-    font-size: 1rem;
+    font-size: 1.02rem;
     font-weight: 700;
+    line-height: 1;
     flex-shrink: 0;
 }
 
@@ -282,21 +283,40 @@ button[title="View fullscreen"] {
     color: #5f67db;
 }
 
-.feature-badge-green {
-    background: #e9f7ef;
-    color: var(--color-success);
+.feature-badge-amber {
+    background: #fff7e9;
+    color: #8c650f;
 }
 
 .feature-copy-strong {
     color: var(--color-text);
     font-size: 1.03rem;
     font-weight: 700;
+    line-height: 1.35;
 }
 
 .feature-copy-muted {
     color: var(--color-text-muted);
     font-size: 0.96rem;
     font-weight: 500;
+    line-height: 1.42;
+    margin-top: 0.18rem;
+}
+
+@media (max-width: 720px) {
+    .welcome-shell {
+        max-width: 620px;
+    }
+
+    .welcome-feature {
+        gap: 0.78rem;
+    }
+
+    .feature-badge {
+        width: 34px;
+        height: 34px;
+        font-size: 0.96rem;
+    }
 }
 
 .welcome-skeletons {

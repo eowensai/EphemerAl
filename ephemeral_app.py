@@ -336,7 +336,7 @@ with st.sidebar:
     if not tika_alive():
         st.info("Document reading is temporarily unavailable. You can still chat, but uploads may not be readable.")
 
-    if st.button("New Conversation", key="sidebar_new", width="stretch"):
+    if st.button("New Chat", key="sidebar_new", width="stretch"):
         st.session_state.clear()
         st.rerun()
 
@@ -391,24 +391,24 @@ if st.session_state.show_welcome:
           <div class="welcome-card">
             <div class="welcome-features" role="list">
               <div class="welcome-feature" role="listitem">
-                <div class="feature-badge feature-badge-blue">📄</div>
+                <div class="feature-badge feature-badge-blue">+</div>
                 <div class="feature-copy">
-                  <div class="feature-copy-strong">I can read many document types, and sometimes images</div>
-                  <div class="feature-copy-muted">depending on the model.</div>
+                  <div class="feature-copy-strong">Attach files, not just prompts</div>
+                  <div class="feature-copy-muted">PDFs, Office files, spreadsheets, text, and more. Images work when the model supports them.</div>
                 </div>
               </div>
               <div class="welcome-feature" role="listitem">
-                <div class="feature-badge feature-badge-indigo">🛡</div>
+                <div class="feature-badge feature-badge-indigo">↺</div>
                 <div class="feature-copy">
-                  <div class="feature-copy-strong">Conversations are cleared when you start a new chat</div>
-                  <div class="feature-copy-muted">or close your browser.</div>
+                  <div class="feature-copy-strong">Local and session-only</div>
+                  <div class="feature-copy-muted">No account or saved chat history in this app. New Chat clears messages and uploads.</div>
                 </div>
               </div>
               <div class="welcome-feature" role="listitem">
-                <div class="feature-badge feature-badge-green">✓</div>
+                <div class="feature-badge feature-badge-amber">!</div>
                 <div class="feature-copy">
-                  <div class="feature-copy-strong">I try to be helpful, but I can be wrong.</div>
-                  <div class="feature-copy-muted">Please double-check important answers.</div>
+                  <div class="feature-copy-strong">Verify important answers</div>
+                  <div class="feature-copy-muted">This local model has no live web access and may be wrong, especially on current facts.</div>
                 </div>
               </div>
             </div>
@@ -492,14 +492,14 @@ for m in st.session_state.messages:
 
 # ── Mobile convenience button ─────────────────────────────────────
 if HAS_DEVICE_DETECTION and device and device.is_mobile:
-    if st.button("🔄 New Conversation", key="mobile_new", width="stretch"):
+    if st.button("🔄 New Chat", key="mobile_new", width="stretch"):
         st.session_state.clear()
         st.rerun()
 
 
 # ── Chat input ───────────────────────────────────────────────────
 prompt_in = st.chat_input(
-    "Ask me anything...",
+    "Ask a question or attach files...",
     accept_file="multiple",
     max_upload_size=50,
     key="main_chat",
