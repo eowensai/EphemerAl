@@ -77,6 +77,27 @@ def test_streamlit_156_api_cleanup_contracts():
     assert "use_container_width=" not in app_text
 
 
+def test_welcome_state_copy_contracts():
+    app_text = (REPO_ROOT / "ephemeral_app.py").read_text(encoding="utf-8")
+    assert "Attach files, not just prompts" in app_text
+    assert "Local and session-only" in app_text
+    assert "Verify important answers" in app_text
+    assert (
+        "PDFs, Office files, spreadsheets, text, and more. Images work when the model supports them." in app_text
+    )
+    assert "No account or saved chat history in this app. New Chat clears messages and uploads." in app_text
+    assert (
+        "This local model has no live web access and may be wrong, especially on current facts." in app_text
+    )
+
+
+def test_new_chat_labels_and_placeholder_contracts():
+    app_text = (REPO_ROOT / "ephemeral_app.py").read_text(encoding="utf-8")
+    assert "Ask a question or attach files..." in app_text
+    assert "New Chat" in app_text
+    assert "🔄 New Chat" in app_text
+
+
 def test_docker_service_name_defaults_are_preserved():
     config_text = (REPO_ROOT / "ephemeral/config.py").read_text(encoding="utf-8")
     assert 'LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://ollama:11434/v1")' in config_text
