@@ -144,7 +144,7 @@ def styled_chat_message(role: str, message_id: str = None):
     normalized_role = "user" if role == "user" else "assistant"
     key = f"{normalized_role}-{message_id}" if message_id else f"{normalized_role}-{uuid.uuid4()}"
     chat_kwargs = {
-        "avatar": ":material/person:" if normalized_role == "user" else ":material/auto_awesome:",
+        "avatar": ":material/account_circle:" if normalized_role == "user" else ":material/assistant:",
     }
     if "width" in inspect.signature(st.chat_message).parameters:
         chat_kwargs["width"] = "content" if normalized_role == "user" else "stretch"
@@ -374,26 +374,26 @@ def render_turn_copy_button(export_text_plain: str, export_html: str, button_id:
           }}
           #turn-copy-btn-{safe_button_id} {{
             box-sizing: border-box;
-            background: #FFFFFF;
+            width: 2.05rem;
+            height: 2.05rem;
+            display: inline-grid;
+            place-items: center;
+            background: linear-gradient(180deg, #ffffff 0%, #f6f8ff 100%);
             color: #1d2a44;
             border: 1px solid #dce2ee;
-            font-weight: 500;
-            font-size: 0.82rem;
-            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI Variable", "Segoe UI", Roboto, sans-serif;
-            line-height: 1;
-            padding: 0.30rem 0.55rem;
             border-radius: 999px;
             cursor: pointer;
-            white-space: nowrap;
             transition: all .15s ease;
           }}
           #turn-copy-btn-{safe_button_id}:hover {{
             border-color: #b6c3df;
-            background: #f7f9fe;
+            background: #ffffff;
+            box-shadow: 0 2px 8px rgba(50, 68, 118, 0.14);
           }}
           #turn-copy-btn-{safe_button_id}:active {{
             background: #eef0ff !important;
             border-color: #99a7ff !important;
+            box-shadow: none !important;
           }}
           #turn-copy-btn-{safe_button_id}.copied {{
             background: #4F5BEA !important;
@@ -405,10 +405,24 @@ def render_turn_copy_button(export_text_plain: str, export_html: str, button_id:
             color: #FFFFFF !important;
             border-color: #B00020 !important;
           }}
+          #turn-copy-btn-{safe_button_id} svg {{
+            width: 0.95rem;
+            height: 0.95rem;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 1.8;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+          }}
         </style>
 
         <div class="turn-copy">
-          <button id="turn-copy-btn-{safe_button_id}" title="{html_escape(hover_tip)}" aria-label="{html_escape(hover_tip)}">⧉</button>
+          <button id="turn-copy-btn-{safe_button_id}" title="{html_escape(hover_tip)}" aria-label="{html_escape(hover_tip)}">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <rect x="9" y="9" width="11" height="11" rx="2"></rect>
+              <rect x="4" y="4" width="11" height="11" rx="2"></rect>
+            </svg>
+          </button>
         </div>
 
         <textarea id="turn-copy-plain-{safe_button_id}"
@@ -424,7 +438,7 @@ def render_turn_copy_button(export_text_plain: str, export_html: str, button_id:
           const btn = document.getElementById("turn-copy-btn-{safe_button_id}");
           const plain = document.getElementById("turn-copy-plain-{safe_button_id}");
           const rich = document.getElementById("turn-copy-rich-{safe_button_id}");
-          const originalLabel = btn.textContent;
+          const iconMarkup = btn.innerHTML;
 
           function flash(stateClass, label, ms) {{
             btn.disabled = true;
@@ -434,7 +448,7 @@ def render_turn_copy_button(export_text_plain: str, export_html: str, button_id:
             window.setTimeout(() => {{
               btn.disabled = false;
               btn.classList.remove(stateClass);
-              btn.textContent = originalLabel;
+              btn.innerHTML = iconMarkup;
             }}, ms);
           }}
 

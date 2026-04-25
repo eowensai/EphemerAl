@@ -541,41 +541,55 @@ button[title="View fullscreen"] {
 /* Streamlit internal avatar test IDs in 1.56 chat message widgets. */
 [data-testid="stChatMessageAvatarUser"],
 [data-testid="stChatMessageAvatarAssistant"] {
-    width: 2.15rem;
-    height: 2.15rem;
+    width: 2.2rem;
+    height: 2.2rem;
     border-radius: 999px;
     display: grid;
     place-items: center;
-    border: 1px solid #d4dcf8;
-    box-shadow: 0 4px 12px rgba(40, 55, 104, 0.12);
+    border: 1px solid #dce3f8;
+    background: #ffffff;
+    box-shadow: 0 3px 10px rgba(40, 55, 104, 0.1);
 }
 
 [data-testid="chatAvatarIcon-user"] {
-    background: var(--color-user-avatar-bg) !important;
-    color: var(--color-user-avatar-icon) !important;
+    background: linear-gradient(180deg, #ffffff 0%, #f6f8ff 100%) !important;
+    color: #4a5be7 !important;
     border-radius: 999px !important;
-    border: 1px solid #d5ddff !important;
-    width: 2.15rem !important;
-    height: 2.15rem !important;
+    border: 1px solid #d9e0ff !important;
+    width: 2.2rem !important;
+    height: 2.2rem !important;
     display: inline-grid !important;
     place-items: center !important;
-    font-size: 1.04rem !important;
+    font-size: 1.08rem !important;
     line-height: 1 !important;
-    box-shadow: 0 3px 10px rgba(66, 82, 161, 0.15);
+    box-shadow: 0 3px 10px rgba(66, 82, 161, 0.12);
 }
 
 [data-testid="chatAvatarIcon-assistant"] {
-    background: var(--color-asst-avatar-bg) !important;
-    color: var(--color-asst-avatar-icon) !important;
-    border-radius: 999px !important;
-    border: 1px solid #d4dcff !important;
-    width: 2.15rem !important;
-    height: 2.15rem !important;
+    background: linear-gradient(180deg, #ffffff 0%, #f3f5ff 100%) !important;
+    color: #4f5bea !important;
+    border-radius: 12px !important;
+    border: 1px solid #d7defe !important;
+    width: 2.2rem !important;
+    height: 2.2rem !important;
     display: inline-grid !important;
     place-items: center !important;
-    font-size: 1.04rem !important;
+    font-size: 1.06rem !important;
     line-height: 1 !important;
-    box-shadow: 0 3px 10px rgba(66, 82, 161, 0.15);
+    box-shadow: 0 3px 10px rgba(66, 82, 161, 0.13);
+}
+
+/* Streamlit 1.56 internals: Material Symbols render as inline SVG in avatar nodes. */
+[data-testid="chatAvatarIcon-user"] svg,
+[data-testid="chatAvatarIcon-assistant"] svg {
+    width: 1.05rem !important;
+    height: 1.05rem !important;
+    display: block !important;
+}
+
+[data-testid="chatAvatarIcon-user"] svg * ,
+[data-testid="chatAvatarIcon-assistant"] svg * {
+    fill: currentColor !important;
 }
 
 /* Streamlit internal test IDs: chat input dock and input wrapper. */
