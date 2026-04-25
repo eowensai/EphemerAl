@@ -211,17 +211,9 @@ button[title="View fullscreen"] {
 
 /* Welcome foundation */
 .welcome-shell {
-    max-width: 730px;
-    margin: 2.1rem auto 0.7rem;
+    max-width: 620px;
+    margin: 3rem auto 0.7rem;
     padding: 0 0.6rem;
-}
-
-.welcome-sparkle {
-    text-align: center;
-    color: var(--color-accent);
-    font-size: 1.7rem;
-    line-height: 1;
-    margin-bottom: 0.5rem;
 }
 
 .welcome-heading {
@@ -238,23 +230,30 @@ button[title="View fullscreen"] {
 }
 
 .welcome-subtitle {
-    margin: 0.75rem auto 1.55rem;
+    margin: 0.6rem auto 1.6rem;
     text-align: center;
     color: var(--color-text-muted);
     font-size: 1.06rem;
     font-weight: 500;
 }
 
+.welcome-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 0.4rem 1.3rem;
+    box-shadow: 0 2px 10px rgba(24, 35, 65, 0.04);
+}
+
 .welcome-features {
     background: transparent;
-    border-radius: var(--radius-lg);
 }
 
 .welcome-feature {
     display: flex;
     gap: 0.92rem;
     align-items: flex-start;
-    padding: 0.92rem 0.15rem;
+    padding: 0.85rem 0;
     border-top: 1px solid var(--color-divider);
 }
 
