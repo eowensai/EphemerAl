@@ -545,10 +545,14 @@ button[title="View fullscreen"] {
     box-shadow: 0 0 0 1px var(--color-accent) !important;
 }
 
-/* Streamlit 1.56 internals: textarea Root wrapper + textarea should stay transparent.
-   BaseWeb Textarea uses a Root > Input structure.  The data-testid sits on the inner
-   textarea; the Root wrapper div above it carries its own background and needs :has(). */
-[data-testid="stChatInput"] div:has(> [data-testid="stChatInputTextArea"]),
+/* Streamlit 1.56 internals: textarea wrappers must be transparent.
+   BaseWeb Textarea renders three nested layers:
+     StyledTextAreaRoot   [data-baseweb="textarea"]     – outer div
+     StyledTextareaContainer [data-baseweb="base-input"] – inner div (BaseInput Root replacement)
+     <textarea>           [data-testid="stChatInputTextArea"]
+   All three carry their own background from BaseWeb/Streamlit theming. */
+[data-testid="stChatInput"] [data-baseweb="textarea"],
+[data-testid="stChatInput"] [data-baseweb="base-input"],
 [data-testid="stChatInputTextArea"] {
     background: transparent !important;
     background-color: transparent !important;
@@ -556,7 +560,7 @@ button[title="View fullscreen"] {
     box-shadow: none !important;
 }
 
-[data-testid="stChatInput"] div:has(> [data-testid="stChatInputTextArea"]) {
+[data-testid="stChatInput"] [data-baseweb="textarea"] {
     flex: 1 1 auto;
     min-height: 0;
     width: 100%;
