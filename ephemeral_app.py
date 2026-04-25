@@ -287,7 +287,7 @@ def render_copy_button(export_text_plain: str, export_html: str) -> None:
         </script>
         """
     iframe_src = "data:text/html;base64," + base64.b64encode(iframe_html.encode("utf-8")).decode("ascii")
-    st.iframe(iframe_src, height=70, width="stretch", scrolling=False)
+    st.iframe(iframe_src, height=70, width="stretch")
 
 
 # ── Session state ─────────────────────────────────────────────────
@@ -374,25 +374,6 @@ with st.sidebar:
             else:
                 st.caption("Token counting: not checked yet")
 
-    st.markdown('<div class="sidebar-footer-spacer"></div>', unsafe_allow_html=True)
-    sidebar_footer = st.container(key="sidebar_footer")
-    with sidebar_footer:
-        if st.button(
-            "⚙ Settings",
-            key="sidebar_settings",
-            width="stretch",
-            help="Opens a safe placeholder message.",
-        ):
-            st.info("Settings UI is coming soon. Core chat privacy and model behavior are unchanged.")
-        if st.button(
-            "❔ Help",
-            key="sidebar_help",
-            width="stretch",
-            help="Opens a safe placeholder message.",
-        ):
-            st.info("Help is coming soon. You can start a new chat any time to clear this conversation.")
-
-
 # ── Welcome banner ────────────────────────────────────────────────
 if st.session_state.show_welcome:
     st.markdown(
@@ -426,22 +407,6 @@ if st.session_state.show_welcome:
             </div>
           </div>
 
-          <div class="welcome-skeletons" aria-hidden="true">
-            <div class="skeleton-card">
-              <div class="skeleton-avatar"></div>
-              <div class="skeleton-lines">
-                <div class="skeleton-line skeleton-line-lg"></div>
-                <div class="skeleton-line skeleton-line-md"></div>
-              </div>
-            </div>
-            <div class="skeleton-card">
-              <div class="skeleton-avatar skeleton-avatar-secondary"></div>
-              <div class="skeleton-lines">
-                <div class="skeleton-line skeleton-line-xl"></div>
-                <div class="skeleton-line skeleton-line-sm"></div>
-              </div>
-            </div>
-          </div>
         </section>
         """,
         unsafe_allow_html=True,
