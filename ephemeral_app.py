@@ -5,6 +5,7 @@ import string
 import uuid
 import logging
 import inspect
+from contextlib import contextmanager
 from datetime import datetime, tzinfo
 from html import escape as html_escape
 from typing import Union, List
@@ -135,16 +136,29 @@ else:
 
 
 # ── Chat message wrapper for CSS styling ──────────────────────────
+@contextmanager
 def styled_chat_message(role: str, message_id: str = None):
-    """Return a chat_message wrapped in a keyed container for CSS styling."""
+    """Yield a chat_message wrapped in keyed containers for stable role CSS hooks."""
     normalized_role = "user" if role == "user" else "assistant"
     key = f"{normalized_role}-{message_id}" if message_id else f"{normalized_role}-{uuid.uuid4()}"
     chat_kwargs = {
         "avatar": ":material/person:" if normalized_role == "user" else ":material/auto_awesome:",
     }
     if "width" in inspect.signature(st.chat_message).parameters:
-        chat_kwargs["width"] = "stretch"
-    return st.container(key=key).chat_message(normalized_role, **chat_kwargs)
+        chat_kwargs["width"] = "content" if normalized_role == "user" else "stretch"
+
+    with st.container(key=key):
+        if normalized_role == "user":
+            if "horizontal_alignment" in inspect.signature(st.container).parameters:
+                with st.container(horizontal_alignment="right"):
+                    with st.chat_message(normalized_role, **chat_kwargs):
+                        yield
+            else:
+                with st.chat_message(normalized_role, **chat_kwargs):
+                    yield
+        else:
+            with st.chat_message(normalized_role, **chat_kwargs):
+                yield
 
 
 def render_copy_button(export_text_plain: str, export_html: str) -> None:
