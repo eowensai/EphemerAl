@@ -285,6 +285,12 @@ def render_copy_button(export_text_plain: str, export_html: str) -> None:
             }};
 
             document.addEventListener("copy", onCopy, {{ once: true }});
+            const selection = window.getSelection();
+            const range = document.createRange();
+            range.selectNodeContents(rich);
+            selection.removeAllRanges();
+            selection.addRange(range);
+            rich.focus();
 
             try {{
               document.execCommand("copy");
@@ -292,6 +298,7 @@ def render_copy_button(export_text_plain: str, export_html: str) -> None:
               copied = false;
             }}
 
+            selection.removeAllRanges();
             return copied;
           }}
 
@@ -464,6 +471,12 @@ def render_turn_copy_button(export_text_plain: str, export_html: str, button_id:
             }};
 
             document.addEventListener("copy", onCopy, {{ once: true }});
+            const selection = window.getSelection();
+            const range = document.createRange();
+            range.selectNodeContents(rich);
+            selection.removeAllRanges();
+            selection.addRange(range);
+            rich.focus();
 
             try {{
               document.execCommand("copy");
@@ -471,6 +484,7 @@ def render_turn_copy_button(export_text_plain: str, export_html: str, button_id:
               copied = false;
             }}
 
+            selection.removeAllRanges();
             return copied;
           }}
 

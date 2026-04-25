@@ -124,6 +124,7 @@ def test_md_to_html_basic_preserves_nested_bullets():
     html = _md_to_html_basic(md)
     assert "<ul>" in html
     assert html.count("<ul>") >= 2
-    assert "<li>Parent</li>" in html
-    assert "<li>Child A</li>" in html
-    assert "<li>Child B</li>" in html
+    assert "<li>Parent" in html
+    assert "<li>Parent\n<ul>" in html
+    assert "<li>Child A\n</li>" in html
+    assert "<li>Child B\n</li>" in html
