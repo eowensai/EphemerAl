@@ -168,6 +168,7 @@ def render_copy_button(export_text_plain: str, export_html: str) -> None:
     hover_tip = "Copy conversation to clipboard"
 
     iframe_html = f"""
+        <meta charset="utf-8" />
         <style>
           html, body {{
             margin: 0;
@@ -280,8 +281,26 @@ def render_copy_button(export_text_plain: str, export_html: str) -> None:
             return ok;
           }}
 
-          btn.addEventListener("click", () => {{
-            const richOk = copySelectionFrom(rich);
+          async function copyWithClipboardApi() {{
+            if (!navigator.clipboard || !window.ClipboardItem) {{
+              return false;
+            }}
+
+            try {{
+              const item = new ClipboardItem({{
+                "text/plain": new Blob([plain.value], {{ type: "text/plain;charset=utf-8" }}),
+                "text/html": new Blob([rich.innerHTML], {{ type: "text/html;charset=utf-8" }}),
+              }});
+              await navigator.clipboard.write([item]);
+              return true;
+            }} catch (e) {{
+              return false;
+            }}
+          }}
+
+          btn.addEventListener("click", async () => {{
+            const modernOk = await copyWithClipboardApi();
+            const richOk = modernOk ? true : copySelectionFrom(rich);
             const ok = richOk || copyPlain();
 
             if (ok) {{
@@ -292,7 +311,9 @@ def render_copy_button(export_text_plain: str, export_html: str) -> None:
           }});
         </script>
         """
-    iframe_src = "data:text/html;base64," + base64.b64encode(iframe_html.encode("utf-8")).decode("ascii")
+    iframe_src = "data:text/html;charset=utf-8;base64," + base64.b64encode(
+        iframe_html.encode("utf-8")
+    ).decode("ascii")
     st.iframe(iframe_src, height=58, width="stretch")
 
 
