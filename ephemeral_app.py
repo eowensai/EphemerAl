@@ -401,7 +401,7 @@ def render_turn_copy_button(export_text_plain: str, export_html: str, button_id:
         </style>
 
         <div class="turn-copy">
-          <button id="turn-copy-btn-{safe_button_id}" title="{html_escape(hover_tip)}">⧉ Copy</button>
+          <button id="turn-copy-btn-{safe_button_id}" title="{html_escape(hover_tip)}" aria-label="{html_escape(hover_tip)}">⧉</button>
         </div>
 
         <textarea id="turn-copy-plain-{safe_button_id}"
