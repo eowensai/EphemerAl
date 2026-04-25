@@ -360,6 +360,13 @@ def render_content(content: Union[str, list]) -> None:
         st.markdown(content or "")
 
 
+def _message_has_image(content: Union[str, list]) -> bool:
+    """Return True if a stored message content structure contains image parts."""
+    return isinstance(content, list) and any(
+        part.get("type") in {"image", "image_url"} for part in content
+    )
+
+
 # ── Render chat history ───────────────────────────────────────────
 for m in st.session_state.messages:
     with styled_chat_message(m["role"], m.get("id")):
@@ -406,13 +413,21 @@ if prompt_in is not None:
 
     sys_prompt = SYSTEM_TMPL.safe_substitute(current_time_local=timestamp_local())
 
-    vision_supported = model_supports_images()
+    has_image_files = any(getattr(f, "type", "").startswith("image/") for f in files)
+    has_image_history = any(
+        _message_has_image(m.get("content")) for m in st.session_state.messages
+    )
+
+    if has_image_files or has_image_history:
+        vision_supported = model_supports_images()
+    else:
+        vision_supported = False
+
     prev_vision = st.session_state.get("_vision_supported")
-    if prev_vision is None:
+    if prev_vision != vision_supported:
         st.session_state["_vision_supported"] = vision_supported
-    elif prev_vision != vision_supported:
-        st.session_state["_vision_supported"] = vision_supported
-        st.session_state["last_token_count"] = 0
+        if prev_vision is not None:
+            st.session_state["last_token_count"] = 0
 
     model_ctx = get_model_ctx()
     effective_ctx = model_ctx if model_ctx else 32768
