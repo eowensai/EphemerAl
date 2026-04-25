@@ -545,21 +545,20 @@ button[title="View fullscreen"] {
     box-shadow: 0 0 0 1px var(--color-accent) !important;
 }
 
-/* Streamlit 1.56 internals: textarea wrapper + textarea should stay transparent. */
-[data-testid="stChatInputTextArea"],
-[data-testid="stChatInputTextArea"] > div,
-[data-testid="stChatInputTextArea"] textarea {
+/* Streamlit 1.56 internals: textarea Root wrapper + textarea should stay transparent.
+   BaseWeb Textarea uses a Root > Input structure.  The data-testid sits on the inner
+   textarea; the Root wrapper div above it carries its own background and needs :has(). */
+[data-testid="stChatInput"] div:has(> [data-testid="stChatInputTextArea"]),
+[data-testid="stChatInputTextArea"] {
     background: transparent !important;
+    background-color: transparent !important;
     border: 0 !important;
     box-shadow: none !important;
 }
 
-[data-testid="stChatInputTextArea"] {
+[data-testid="stChatInput"] div:has(> [data-testid="stChatInputTextArea"]) {
     flex: 1 1 auto;
     min-height: 0;
-}
-
-[data-testid="stChatInputTextArea"] > div {
     width: 100%;
 }
 
