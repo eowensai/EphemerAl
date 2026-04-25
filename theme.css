@@ -402,7 +402,9 @@ button[title="View fullscreen"] {
 /* Streamlit internal structure: user row wrapper to emulate right aligned bubbles + avatar. */
 [class*="st-key-user-"] [data-testid="stChatMessage"] > div,
 [class*="st-key-user_"] [data-testid="stChatMessage"] > div {
-    flex-direction: row;
+    /* Streamlit 1.56 internals: chat row wraps avatar + message content as siblings.
+       Use row-reverse so user avatar renders on the right side of the bubble. */
+    flex-direction: row-reverse;
     justify-content: flex-end;
     align-items: center;
     gap: 0.72rem;
