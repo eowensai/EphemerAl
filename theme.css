@@ -173,13 +173,13 @@ button[title="View fullscreen"] {
     background: transparent;
 }
 
-/* Streamlit internal class fragment in 1.56: key-based style for primary New chat button. */
+/* Streamlit internal class fragment in 1.56: key-based style for primary New Conversation button. */
 [class*="st-key-sidebar_new"] .stButton > button,
 [class*="st-key-sidebar-new"] .stButton > button {
     background: var(--color-accent);
     border-color: var(--color-accent);
     color: #ffffff;
-    box-shadow: 0 8px 16px rgba(79, 91, 234, 0.3);
+    box-shadow: 0 4px 12px rgba(79, 91, 234, 0.2);
 }
 
 [class*="st-key-sidebar_new"] .stButton > button:hover,
