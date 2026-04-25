@@ -922,9 +922,8 @@ if prompt_in is not None:
             for part in parts
             if not (
                 part.get("type") == "text"
-                and part.get("text", "").strip().startswith("📄 *")
-                and part.get("text", "").strip().endswith("*")
-                and part.get("text", "").strip()[3:-1].strip() in dropped_set
+                and part.get("_attachment", {}).get("kind") == "document"
+                and part.get("_attachment", {}).get("name") in dropped_set
             )
         ]
 

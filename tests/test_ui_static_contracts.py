@@ -89,3 +89,10 @@ def test_docker_service_name_defaults_are_preserved():
     config_text = (REPO_ROOT / "ephemeral/config.py").read_text(encoding="utf-8")
     assert 'LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://ollama:11434/v1")' in config_text
     assert 'TIKA_URL = os.getenv("TIKA_URL", "http://tika-server:9998")' in config_text
+
+
+def test_ghost_doc_cleanup_uses_attachment_metadata_not_marker_text():
+    app_text = (REPO_ROOT / "ephemeral_app.py").read_text(encoding="utf-8")
+    assert 'part.get("_attachment", {}).get("kind") == "document"' in app_text
+    assert 'part.get("_attachment", {}).get("name") in dropped_set' in app_text
+    assert 'startswith("\U0001f4c4 *")' not in app_text
