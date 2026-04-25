@@ -96,3 +96,10 @@ def test_ghost_doc_cleanup_uses_attachment_metadata_not_marker_text():
     assert 'part.get("_attachment", {}).get("kind") == "document"' in app_text
     assert 'part.get("_attachment", {}).get("name") in dropped_set' in app_text
     assert 'startswith("\U0001f4c4 *")' not in app_text
+
+
+def test_sidebar_logo_encoding_is_cached():
+    app_text = (REPO_ROOT / "ephemeral_app.py").read_text(encoding="utf-8")
+    assert "@st.cache_data(show_spinner=False)" in app_text
+    assert "def _load_logo_b64(" in app_text
+    assert "logo_b64 = _load_logo_b64()" in app_text

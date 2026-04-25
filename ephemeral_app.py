@@ -137,6 +137,15 @@ else:
     )
 
 
+@st.cache_data(show_spinner=False)
+def _load_logo_b64(path: str = "static/ephemeral_logo.png") -> str:
+    """Read and base64-encode the logo once, cached across reruns."""
+    logo_path = pathlib.Path(path)
+    if logo_path.exists():
+        return base64.b64encode(logo_path.read_bytes()).decode("ascii")
+    return ""
+
+
 # ── Chat message wrapper for CSS styling ──────────────────────────
 @contextmanager
 def styled_chat_message(role: str, message_id: str = None):
@@ -560,9 +569,8 @@ st.session_state.setdefault("_vision_supported", None)
 
 # ── Sidebar ───────────────────────────────────────────────────────
 with st.sidebar:
-    logo_path = pathlib.Path("static/ephemeral_logo.png")
-    if logo_path.exists():
-        logo_b64 = base64.b64encode(logo_path.read_bytes()).decode("ascii")
+    logo_b64 = _load_logo_b64()
+    if logo_b64:
         st.markdown(
             f"""
             <div class="sidebar-brand">
