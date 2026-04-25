@@ -1,6 +1,7 @@
 import hashlib
 import logging
 import re
+from collections import OrderedDict
 from typing import Dict, Optional
 
 import streamlit as st
@@ -171,8 +172,30 @@ def get_image_token_cost() -> int:
 
 
 # ── Token counting ────────────────────────────────────────────────
-def _get_token_cache() -> Dict[str, int]:
-    return st.session_state.setdefault("_token_count_cache", {})
+def _get_token_cache() -> OrderedDict:
+    """Return the session-scoped LRU token cache, creating it if needed."""
+    if "_token_count_cache" not in st.session_state:
+        st.session_state["_token_count_cache"] = OrderedDict()
+
+    cache = st.session_state["_token_count_cache"]
+
+    # Migration path for existing sessions that still have a plain dict.
+    if not isinstance(cache, OrderedDict):
+        cache = OrderedDict(cache)
+        st.session_state["_token_count_cache"] = cache
+
+    return cache
+
+
+def _cache_put(cache: OrderedDict, key: str, value: int) -> None:
+    """Insert into the token cache and evict the oldest entries when over capacity."""
+    cache[key] = value
+    cache.move_to_end(key)
+
+    if len(cache) > TOKEN_CACHE_MAX_ENTRIES:
+        evict_count = max(1, TOKEN_CACHE_MAX_ENTRIES // 4)
+        for _ in range(evict_count):
+            cache.popitem(last=False)
 
 
 def count_text_tokens(text: str) -> int:
@@ -188,21 +211,20 @@ def count_text_tokens(text: str) -> int:
         return 0
 
     cache = _get_token_cache()
-    if len(cache) > TOKEN_CACHE_MAX_ENTRIES:
-        cache.clear()
 
     key = hashlib.sha256(text.encode("utf-8", errors="ignore")).hexdigest()
     if key in cache:
+        cache.move_to_end(key)
         return cache[key]
 
     if not ENABLE_TOKEN_BUDGETING:
         n = _heuristic_token_estimate(text)
-        cache[key] = n
+        _cache_put(cache, key, n)
         return n
 
     if st.session_state.get("tokenizer_available") is False:
         n = _heuristic_token_estimate(text)
-        cache[key] = n
+        _cache_put(cache, key, n)
         return n
 
     tokenize_url = f"{_ollama_base_url()}/api/tokenize"
@@ -216,13 +238,14 @@ def count_text_tokens(text: str) -> int:
         if resp.status_code == 404:
             st.session_state["tokenizer_available"] = False
             n = _heuristic_token_estimate(text)
-            cache[key] = n
+            _cache_put(cache, key, n)
             return n
 
         resp.raise_for_status()
         payload = resp.json()
 
         tokens = payload.get("tokens")
+        tokenizer_ok = True
         if isinstance(tokens, list):
             n = len(tokens)
         elif isinstance(tokens, int):
@@ -230,14 +253,14 @@ def count_text_tokens(text: str) -> int:
         elif isinstance(tokens, str) and tokens.isdigit():
             n = int(tokens)
         else:
-            st.session_state["tokenizer_available"] = False
+            tokenizer_ok = False
             n = _heuristic_token_estimate(text)
 
-        st.session_state["tokenizer_available"] = True
-        cache[key] = n
+        st.session_state["tokenizer_available"] = tokenizer_ok
+        _cache_put(cache, key, n)
         return n
     except Exception:
         st.session_state["tokenizer_available"] = False
         n = _heuristic_token_estimate(text)
-        cache[key] = n
+        _cache_put(cache, key, n)
         return n
