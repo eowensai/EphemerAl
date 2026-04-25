@@ -113,3 +113,17 @@ print('x')
     assert "<ul>" in html and "<ol>" in html
     assert "<hr>" in html
     assert "<pre><code>python\nprint(&#x27;x&#x27;)</code></pre>" in html
+
+
+def test_md_to_html_basic_preserves_nested_bullets():
+    md = """- Parent
+  - Child A
+  - Child B
+- Parent 2
+"""
+    html = _md_to_html_basic(md)
+    assert "<ul>" in html
+    assert html.count("<ul>") >= 2
+    assert "<li>Parent</li>" in html
+    assert "<li>Child A</li>" in html
+    assert "<li>Child B</li>" in html

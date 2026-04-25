@@ -122,8 +122,13 @@ def _md_block_to_html(md_block: str) -> str:
 
     out: List[str] = []
     para: List[str] = []
-    in_ul = False
-    in_ol = False
+    list_stack: List[str] = []
+
+    def _list_indent_level(raw_line: str) -> int:
+        """Return list nesting level from leading whitespace (2 spaces per level)."""
+        expanded = raw_line.expandtabs(2)
+        leading_spaces = len(expanded) - len(expanded.lstrip(" "))
+        return leading_spaces // 2
 
     def flush_para() -> None:
         nonlocal para
@@ -132,16 +137,28 @@ def _md_block_to_html(md_block: str) -> str:
             para = []
 
     def close_lists() -> None:
-        nonlocal in_ul, in_ol
-        if in_ul:
-            out.append("</ul>")
-            in_ul = False
-        if in_ol:
-            out.append("</ol>")
-            in_ol = False
+        while list_stack:
+            out.append(f"</{list_stack.pop()}>")
+
+    def align_list_stack(target_level: int, list_tag: str) -> None:
+        while len(list_stack) > target_level + 1:
+            out.append(f"</{list_stack.pop()}>")
+
+        if len(list_stack) == target_level + 1 and list_stack[-1] != list_tag:
+            out.append(f"</{list_stack.pop()}>")
+
+        while len(list_stack) < target_level + 1:
+            out.append(f"<{list_tag}>")
+            list_stack.append(list_tag)
+
+        if list_stack and list_stack[-1] != list_tag:
+            out.append(f"</{list_stack.pop()}>")
+            out.append(f"<{list_tag}>")
+            list_stack.append(list_tag)
 
     for raw in lines:
-        stripped = (raw or "").strip()
+        line = raw or ""
+        stripped = line.strip()
 
         if stripped == "":
             flush_para()
@@ -161,27 +178,17 @@ def _md_block_to_html(md_block: str) -> str:
             out.append(f"<h{level}>" + _inline_md_to_html(m.group(2)) + f"</h{level}>")
             continue
 
-        m = re.match(r"^[-*•]\s+(.*)$", stripped)
+        m = re.match(r"^\s*[-*•]\s+(.*)$", line)
         if m:
             flush_para()
-            if in_ol:
-                out.append("</ol>")
-                in_ol = False
-            if not in_ul:
-                out.append("<ul>")
-                in_ul = True
+            align_list_stack(_list_indent_level(line), "ul")
             out.append("<li>" + _inline_md_to_html(m.group(1)) + "</li>")
             continue
 
-        m = re.match(r"^\d+\.\s+(.*)$", stripped)
+        m = re.match(r"^\s*\d+\.\s+(.*)$", line)
         if m:
             flush_para()
-            if in_ul:
-                out.append("</ul>")
-                in_ul = False
-            if not in_ol:
-                out.append("<ol>")
-                in_ol = True
+            align_list_stack(_list_indent_level(line), "ol")
             out.append("<li>" + _inline_md_to_html(m.group(1)) + "</li>")
             continue
 
