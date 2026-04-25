@@ -165,10 +165,7 @@ def render_copy_button(export_text_plain: str, export_html: str) -> None:
     """Sidebar-only copy button that tries rich HTML copy first, then plain text."""
     safe_plain = html_escape(export_text_plain)
 
-    hover_tip = (
-        "Copy this conversation to your clipboard. "
-        "Chat content is cleared when you start a new conversation or close your browser."
-    )
+    hover_tip = "Copy conversation to clipboard"
 
     iframe_html = f"""
         <style>
@@ -181,10 +178,10 @@ def render_copy_button(export_text_plain: str, export_html: str) -> None:
             width: 100%;
             box-sizing: border-box;
             background: #FFFFFF;
-            color: #18223A;
-            border: 2px solid #4F5BEA;
-            font-weight: 600;
-            font-size: .95rem;
+            color: #1d2a44;
+            border: 1px solid #dce2ee;
+            font-weight: 700;
+            font-size: 1.02rem;
             font-family:
                 ui-sans-serif,
                 system-ui,
@@ -194,37 +191,32 @@ def render_copy_button(export_text_plain: str, export_html: str) -> None:
                 "Segoe UI",
                 Roboto,
                 sans-serif;
-            padding: 0.7rem 1rem;
+            padding: 0;
             margin: 0;
-            transition: all .2s;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-            border-radius: 8px;
+            min-height: 54px;
+            transition: all .15s ease;
+            box-shadow: none;
+            border-radius: 14px;
             cursor: pointer;
             white-space: nowrap;
           }}
           #copy-btn:hover {{
-            background: #4F5BEA;
-            color: #FFFFFF;
-            transform: translateY(-1px);
-            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+            border-color: #b6c3df;
+            background: #f7f9fe;
           }}
           #copy-btn:active {{
-            background: #3E49CB !important;
-            color: #FFFFFF !important;
-            border-color: #3E49CB !important;
-            transform: translateY(0);
+            background: #eef0ff !important;
+            border-color: #99a7ff !important;
           }}
           #copy-btn.copied {{
             background: #4F5BEA !important;
             color: #FFFFFF !important;
             border-color: #4F5BEA !important;
-            transform: translateY(0) !important;
           }}
           #copy-btn.failed {{
             background: #B00020 !important;
             color: white !important;
             border-color: #B00020 !important;
-            transform: translateY(0) !important;
           }}
         </style>
 
@@ -301,7 +293,7 @@ def render_copy_button(export_text_plain: str, export_html: str) -> None:
         </script>
         """
     iframe_src = "data:text/html;base64," + base64.b64encode(iframe_html.encode("utf-8")).decode("ascii")
-    st.iframe(iframe_src, height=70, width="stretch")
+    st.iframe(iframe_src, height=58, width="stretch")
 
 
 # ── Session state ─────────────────────────────────────────────────
@@ -344,7 +336,7 @@ with st.sidebar:
     if not tika_alive():
         st.info("Document reading is temporarily unavailable. You can still chat, but uploads may not be readable.")
 
-    if st.button("✚  New chat", key="sidebar_new", width="stretch", help="Clears chat history and starts fresh"):
+    if st.button("New Conversation", key="sidebar_new", width="stretch"):
         st.session_state.clear()
         st.rerun()
 
