@@ -58,6 +58,13 @@ def test_theme_css_keeps_compact_right_aligned_user_message_contract():
     assert "width: fit-content;" in css
 
 
+def test_theme_css_targets_chat_message_container_for_avatar_ordering():
+    css = (REPO_ROOT / "theme.css").read_text(encoding="utf-8")
+    assert '[class*="st-key-user-"] [data-testid="stChatMessage"],' in css
+    assert '[class*="st-key-user-"] [data-testid="stChatMessage"] > div' not in css
+    assert 'flex-direction: row-reverse;' in css
+
+
 def test_theme_css_has_no_external_font_or_cdn_imports():
     css = (REPO_ROOT / "theme.css").read_text(encoding="utf-8").lower()
     forbidden_patterns = [
