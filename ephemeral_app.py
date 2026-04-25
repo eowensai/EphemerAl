@@ -509,7 +509,6 @@ prompt_in = st.chat_input(
     "Ask me anything...",
     accept_file="multiple",
     max_upload_size=50,
-    height=68,
     key="main_chat",
 )
 
