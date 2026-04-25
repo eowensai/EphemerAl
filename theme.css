@@ -402,8 +402,8 @@ button[title="View fullscreen"] {
 /* Streamlit internal structure: user row wrapper to emulate right aligned bubbles + avatar. */
 [class*="st-key-user-"] [data-testid="stChatMessage"] > div,
 [class*="st-key-user_"] [data-testid="stChatMessage"] > div {
-    flex-direction: row-reverse;
-    justify-content: flex-start;
+    flex-direction: row;
+    justify-content: flex-end;
     align-items: center;
     gap: 0.72rem;
     width: fit-content;
@@ -414,11 +414,13 @@ button[title="View fullscreen"] {
 /* Streamlit internal test ID: content wrapper inside chat message in 1.56. */
 [class*="st-key-user-"] [data-testid="stChatMessageContent"],
 [class*="st-key-user_"] [data-testid="stChatMessageContent"] {
+    order: 1;
     margin-left: auto;
     text-align: left;
     background: linear-gradient(180deg, #f5f7ff 0%, #eef2ff 100%);
-    border-radius: 16px 16px 8px 16px;
+    border-radius: 16px 16px 16px 8px;
     border: 1px solid #d7defe;
+    border-right: 4px solid var(--color-asst-msg-border);
     box-shadow: 0 4px 14px rgba(74, 91, 176, 0.09);
     padding: 0.65rem 0.92rem;
     width: fit-content;
@@ -426,19 +428,47 @@ button[title="View fullscreen"] {
     display: inline-block;
 }
 
+[class*="st-key-user-"] [data-testid="stChatMessageAvatarUser"],
+[class*="st-key-user_"] [data-testid="stChatMessageAvatarUser"] {
+    order: 2;
+}
+
 [class*="st-key-assistant-"] [data-testid="stChatMessage"],
 [class*="st-key-assistant_"] [data-testid="stChatMessage"] {
-    background: var(--color-asst-msg-bg) !important;
-    border: 1px solid #dbe1ef !important;
-    border-left: 4px solid var(--color-asst-msg-border) !important;
-    box-shadow: 0 5px 16px rgba(30, 44, 77, 0.07) !important;
-    border-radius: 18px !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+}
+
+/* Streamlit internal structure: assistant row wrapper with avatar outside the bubble on the left. */
+[class*="st-key-assistant-"] [data-testid="stChatMessage"] > div,
+[class*="st-key-assistant_"] [data-testid="stChatMessage"] > div {
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 0.72rem;
+    width: fit-content;
+    max-width: min(90ch, 100%);
 }
 
 /* Streamlit internal test ID: content wrapper inside chat message in 1.56. */
 [class*="st-key-assistant-"] [data-testid="stChatMessageContent"],
 [class*="st-key-assistant_"] [data-testid="stChatMessageContent"] {
+    order: 2;
+    background: var(--color-asst-msg-bg);
+    border: 1px solid #dbe1ef;
+    border-left: 4px solid var(--color-asst-msg-border);
+    box-shadow: 0 5px 16px rgba(30, 44, 77, 0.07);
+    border-radius: 18px;
     padding: 0.62rem 0.72rem 0.4rem;
+    width: fit-content;
+    max-width: min(84ch, 100%);
+    display: inline-block;
+}
+
+[class*="st-key-assistant-"] [data-testid="stChatMessageAvatarAssistant"],
+[class*="st-key-assistant_"] [data-testid="stChatMessageAvatarAssistant"] {
+    order: 1;
 }
 
 /* Markdown readability inside assistant cards. */
