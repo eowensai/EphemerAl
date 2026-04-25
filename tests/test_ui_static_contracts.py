@@ -103,3 +103,10 @@ def test_sidebar_logo_encoding_is_cached():
     assert "@st.cache_data(show_spinner=False)" in app_text
     assert "def _load_logo_b64(" in app_text
     assert "logo_b64 = _load_logo_b64()" in app_text
+
+
+def test_clipboard_module_is_used():
+    app_text = (REPO_ROOT / "ephemeral_app.py").read_text(encoding="utf-8")
+    assert "from ephemeral.clipboard import render_copy_button, render_turn_copy_button" in app_text
+    assert "def render_copy_button(" not in app_text
+    assert "def render_turn_copy_button(" not in app_text
