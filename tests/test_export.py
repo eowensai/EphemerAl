@@ -3,6 +3,8 @@ from ephemeral.export import (
     _md_to_html_basic,
     build_conversation_html,
     build_conversation_markdown,
+    build_message_html,
+    build_message_markdown,
 )
 
 
@@ -61,6 +63,28 @@ def test_markdown_and_html_build_and_escape():
     assert "&lt;script&gt;alert(1)&lt;/script&gt;" in html
     assert "&lt;div&gt;content&lt;/div&gt;" in html
     assert "<script>" not in html
+
+
+def test_single_message_builders_match_turn_expectations():
+    message = {
+        "role": "assistant",
+        "content": [
+            {"type": "text", "text": "📄 *doc1.pdf*"},
+            {"type": "text", "text": "hello **world**"},
+        ],
+    }
+
+    md = build_message_markdown(message)
+    assert "**Assistant**" in md
+    assert "Attachments:" in md
+    assert "- 📄 doc1.pdf" in md
+    assert "hello **world**" in md
+
+    html = build_message_html(message)
+    assert "<strong>Assistant</strong>" in html
+    assert "<strong>Attachments:</strong>" in html
+    assert "<li>📄 doc1.pdf</li>" in html
+    assert "<p>hello <strong>world</strong></p>" in html
 
 
 def test_md_to_html_basic_formats():
