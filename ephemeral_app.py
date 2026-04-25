@@ -269,6 +269,30 @@ def render_copy_button(export_text_plain: str, export_html: str) -> None:
             return ok;
           }}
 
+          function copyWithExecHtml() {{
+            let copied = false;
+            const onCopy = (event) => {{
+              try {{
+                event.preventDefault();
+                event.clipboardData.setData("text/plain", plain.value);
+                event.clipboardData.setData("text/html", rich.innerHTML);
+                copied = true;
+              }} catch (e) {{
+                copied = false;
+              }}
+            }};
+
+            document.addEventListener("copy", onCopy, {{ once: true }});
+
+            try {{
+              document.execCommand("copy");
+            }} catch (e) {{
+              copied = false;
+            }}
+
+            return copied;
+          }}
+
           function copyPlain() {{
             plain.focus();
             plain.select();
@@ -300,7 +324,8 @@ def render_copy_button(export_text_plain: str, export_html: str) -> None:
 
           btn.addEventListener("click", async () => {{
             const modernOk = await copyWithClipboardApi();
-            const richOk = modernOk ? true : copySelectionFrom(rich);
+            const eventOk = modernOk ? true : copyWithExecHtml();
+            const richOk = eventOk ? true : copySelectionFrom(rich);
             const ok = richOk || copyPlain();
 
             if (ok) {{
