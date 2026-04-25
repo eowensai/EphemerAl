@@ -180,8 +180,8 @@ def render_copy_button(export_text_plain: str, export_html: str) -> None:
             background: #FFFFFF;
             color: #1d2a44;
             border: 1px solid #dce2ee;
-            font-weight: 700;
-            font-size: 1.02rem;
+            font-weight: 400;
+            font-size: 0.875rem;
             font-family:
                 ui-sans-serif,
                 system-ui,
