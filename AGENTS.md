@@ -176,3 +176,31 @@ When reviewing Codex changes, treat the following as high-priority checks:
 - Do not remove think-block/thought-channel filtering from `ephemeral/stream_filter.py` or from the streaming response path in `ephemeral_app.py`; it is required as defense-in-depth against leaked reasoning output.
 - Do not persist prompts, uploaded files, parsed document text, or model output to disk.
 - Do not log chat content, uploaded document content, or model output.
+
+## Repository expectations
+
+- This is a Streamlit 1.56 app.
+- The package layout is flat. The `ephemeral/` package lives at the repository root.
+- Pytest import resolution is configured in `pyproject.toml` with `pythonpath = ["."]`.
+- Do not change `st.set_page_config(initial_sidebar_state=304)`. The integer is intentional Streamlit 1.56 behavior: auto sidebar behavior with a 304px initial sidebar width.
+- Do not replace that value with `"auto"` unless the user explicitly asks for a sidebar UX change.
+- Do not add production dependencies without explicit user approval.
+- Prefer small, focused PRs.
+
+## Required validation after Python changes
+
+Run from the repository root:
+
+1. `python -m pytest -q`
+2. `pytest -q`
+3. `python -m py_compile ephemeral_app.py ephemeral/*.py`
+
+You may also run:
+
+- `bash scripts/validate.sh`
+
+## Browser/UI testing
+
+- Browser smoke tests are useful for Streamlit UI and clipboard iframe behavior.
+- Do not add Playwright, Selenium, Chrome, Chromium, WebKit, or browser binaries unless the user explicitly asks for browser automation in that PR.
+- If browser testing is unavailable in the Codex container, report that clearly as a manual smoke-test item rather than adding dependencies.
