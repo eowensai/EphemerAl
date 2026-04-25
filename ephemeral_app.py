@@ -385,30 +385,31 @@ if st.session_state.show_welcome:
     st.markdown(
         """
         <section class="welcome-shell" aria-label="Welcome">
-          <div class="welcome-sparkle">✧</div>
           <h1 class="welcome-heading">Welcome to <span class="welcome-heading-brand">EphemerAI</span></h1>
           <p class="welcome-subtitle">Your private workspace for focused, ephemeral conversations.</p>
 
-          <div class="welcome-features" role="list">
-            <div class="welcome-feature" role="listitem">
-              <div class="feature-badge feature-badge-blue">📄</div>
-              <div class="feature-copy">
-                <div class="feature-copy-strong">I can read many document types, and sometimes images</div>
-                <div class="feature-copy-muted">depending on the model.</div>
+          <div class="welcome-card">
+            <div class="welcome-features" role="list">
+              <div class="welcome-feature" role="listitem">
+                <div class="feature-badge feature-badge-blue">📄</div>
+                <div class="feature-copy">
+                  <div class="feature-copy-strong">I can read many document types, and sometimes images</div>
+                  <div class="feature-copy-muted">depending on the model.</div>
+                </div>
               </div>
-            </div>
-            <div class="welcome-feature" role="listitem">
-              <div class="feature-badge feature-badge-indigo">🛡</div>
-              <div class="feature-copy">
-                <div class="feature-copy-strong">Conversations are cleared when you start a new chat</div>
-                <div class="feature-copy-muted">or close your browser.</div>
+              <div class="welcome-feature" role="listitem">
+                <div class="feature-badge feature-badge-indigo">🛡</div>
+                <div class="feature-copy">
+                  <div class="feature-copy-strong">Conversations are cleared when you start a new chat</div>
+                  <div class="feature-copy-muted">or close your browser.</div>
+                </div>
               </div>
-            </div>
-            <div class="welcome-feature" role="listitem">
-              <div class="feature-badge feature-badge-green">✓</div>
-              <div class="feature-copy">
-                <div class="feature-copy-strong">I try to be helpful, but I can be wrong.</div>
-                <div class="feature-copy-muted">Please double-check important answers.</div>
+              <div class="welcome-feature" role="listitem">
+                <div class="feature-badge feature-badge-green">✓</div>
+                <div class="feature-copy">
+                  <div class="feature-copy-strong">I try to be helpful, but I can be wrong.</div>
+                  <div class="feature-copy-muted">Please double-check important answers.</div>
+                </div>
               </div>
             </div>
           </div>
