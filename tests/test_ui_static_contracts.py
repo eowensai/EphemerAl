@@ -38,26 +38,6 @@ def test_theme_css_keeps_compact_right_aligned_user_message_contract():
     assert "width: fit-content;" in css
 
 
-def test_theme_css_has_streamlit_156_chat_input_contract_selectors():
-    css = (REPO_ROOT / "theme.css").read_text(encoding="utf-8")
-    assert '[data-testid="stChatInput"]' in css
-    assert '[data-testid="stChatInputTextArea"]' in css
-    assert '[data-testid="stChatInputSubmitButton"]' in css
-
-
-def test_theme_css_supports_sidebar_new_key_variants():
-    css = (REPO_ROOT / "theme.css").read_text(encoding="utf-8")
-    assert '[class*="st-key-sidebar_new"] .stButton > button' in css
-    assert '[class*="st-key-sidebar-new"] .stButton > button' in css
-
-
-def test_theme_css_keeps_compact_right_aligned_user_message_contract():
-    css = (REPO_ROOT / "theme.css").read_text(encoding="utf-8")
-    assert '[class*="st-key-user-"] [data-testid="stChatMessage"]' in css
-    assert "margin-left: auto;" in css
-    assert "width: fit-content;" in css
-
-
 def test_theme_css_targets_chat_message_container_for_avatar_ordering():
     css = (REPO_ROOT / "theme.css").read_text(encoding="utf-8")
     assert '[class*="st-key-user-"] [data-testid="stChatMessage"],' in css
