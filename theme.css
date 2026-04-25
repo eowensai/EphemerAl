@@ -399,9 +399,10 @@ button[title="View fullscreen"] {
     margin: 0 0 0.35rem 0;
 }
 
-/* Streamlit internal structure: user row wrapper to emulate right aligned bubbles + avatar. */
-[class*="st-key-user-"] [data-testid="stChatMessage"] > div,
-[class*="st-key-user_"] [data-testid="stChatMessage"] > div {
+/* Streamlit 1.56 ChatMessage.tsx renders avatar + content as direct children of
+   [data-testid="stChatMessage"] (no intermediate row div), so target the container itself. */
+[class*="st-key-user-"] [data-testid="stChatMessage"],
+[class*="st-key-user_"] [data-testid="stChatMessage"] {
     /* Streamlit 1.56 internals: chat row wraps avatar + message content as siblings.
        Use row-reverse so user avatar renders on the right side of the bubble. */
     flex-direction: row-reverse;
@@ -442,9 +443,9 @@ button[title="View fullscreen"] {
     box-shadow: none !important;
 }
 
-/* Streamlit internal structure: assistant row wrapper with avatar outside the bubble on the left. */
-[class*="st-key-assistant-"] [data-testid="stChatMessage"] > div,
-[class*="st-key-assistant_"] [data-testid="stChatMessage"] > div {
+/* Same container-level targeting for assistant role to avoid brittle child combinators. */
+[class*="st-key-assistant-"] [data-testid="stChatMessage"],
+[class*="st-key-assistant_"] [data-testid="stChatMessage"] {
     flex-direction: row;
     justify-content: flex-start;
     align-items: center;
