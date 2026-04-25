@@ -374,15 +374,6 @@ button[title="View fullscreen"] {
     width: 100%;
     max-width: 100%;
     margin: 0 0 0.35rem 0;
-/* Preserve role wrapper architecture from st-key-{role}- containers. */
-[class*="st-key-user-"] [data-testid="stChatMessage"] {
-    background: transparent !important;
-    border: 0 !important;
-    box-shadow: none !important;
-    width: fit-content;
-    max-width: min(78ch, 86%);
-    margin-left: auto;
-    margin-right: 0;
 }
 
 /* Streamlit internal structure: user row wrapper to emulate right aligned bubbles + avatar. */
@@ -414,9 +405,6 @@ button[title="View fullscreen"] {
 
 [class*="st-key-assistant-"] [data-testid="stChatMessage"],
 [class*="st-key-assistant_"] [data-testid="stChatMessage"] {
-}
-
-[class*="st-key-assistant-"] [data-testid="stChatMessage"] {
     background: var(--color-asst-msg-bg) !important;
     border: 1px solid #dbe1ef !important;
     border-left: 4px solid var(--color-asst-msg-border) !important;
@@ -474,7 +462,6 @@ button[title="View fullscreen"] {
 /* Keep user attachments visually compact and inside the bubble flow. */
 [class*="st-key-user-"] .attachment-card,
 [class*="st-key-user_"] .attachment-card {
-[class*="st-key-user-"] .attachment-card {
     max-width: min(64ch, 100%);
     margin-left: 0;
     margin-right: 0;
@@ -483,7 +470,6 @@ button[title="View fullscreen"] {
 /* Streamlit 1.56 internals: st.image wrapper inside user chat bubbles. */
 [class*="st-key-user-"] [data-testid="stImage"] img,
 [class*="st-key-user_"] [data-testid="stImage"] img {
-[class*="st-key-user-"] [data-testid="stImage"] img {
     max-width: min(320px, 100%);
     border-radius: 10px;
 }
@@ -547,9 +533,6 @@ button[title="View fullscreen"] {
 
 /* Streamlit 1.56 internals: unified chat input root surface. */
 [data-testid="stChatInput"] > div {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
     border: 1px solid var(--color-border) !important;
     border-radius: 18px !important;
     background: #ffffff !important;
