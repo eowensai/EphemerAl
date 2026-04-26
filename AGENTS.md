@@ -148,6 +148,7 @@ When reviewing Codex changes, treat the following as high-priority checks:
 - Verify Python syntax: `python -m py_compile ephemeral_app.py ephemeral/*.py`
 - Verify requirements install: `pip install -r requirements.txt && pip check`
 - Verify test tooling + run tests: `pip install -r requirements-dev.txt && python -m pytest`
+- Verify linting: `ruff check .`
 - Verify Markdown links resolve: all relative links in README.md and the deployment
   guide should point to files that exist in the repo.
 - Full stack test: `docker compose up -d --build` inside WSL2, then access
@@ -194,6 +195,7 @@ Run from the repository root:
 1. `python -m pytest -q`
 2. `pytest -q`
 3. `python -m py_compile ephemeral_app.py ephemeral/*.py`
+4. `ruff check .`
 
 You may also run:
 
