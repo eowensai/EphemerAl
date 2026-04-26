@@ -201,6 +201,9 @@ You may also run:
 
 ## Browser/UI testing
 
+- UI smoke testing requires the Python Playwright package **and** a Chromium browser installed in the environment.
+- Playwright is a dev/test dependency only (in `requirements-dev.txt`), not a production dependency.
+- Generated screenshots under `artifacts/ui-smoke/` are test artifacts and should not be committed.
 - Browser smoke tests are useful for Streamlit UI and clipboard iframe behavior.
 - For UI, Streamlit, `theme.css`, or clipboard changes, run:
   - `python scripts/ui_smoke.py`
