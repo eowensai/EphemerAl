@@ -18,7 +18,6 @@ from ephemeral.config import (
     DEBUG_MODE,
     ENABLE_TOKEN_BUDGETING,
     LLM_BASE_URL,
-    LLM_CONTEXT_TOKENS,
     LLM_MAX_TOKENS,
     LLM_MODEL_NAME,
     LLM_OUTPUT_RESERVE_TOKENS,
@@ -27,7 +26,6 @@ from ephemeral.config import (
     LLM_SHOW_REASONING,
     LLM_TEMPERATURE,
     LLM_TOP_P,
-    TIKA_URL,
 )
 from ephemeral.export import (
     build_conversation_html,
