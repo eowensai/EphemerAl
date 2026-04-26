@@ -202,5 +202,11 @@ You may also run:
 ## Browser/UI testing
 
 - Browser smoke tests are useful for Streamlit UI and clipboard iframe behavior.
+- For UI, Streamlit, `theme.css`, or clipboard changes, run:
+  - `python scripts/ui_smoke.py`
+  - or `bash scripts/validate_ui.sh`
+- If UI smoke succeeds, report screenshot paths:
+  - `artifacts/ui-smoke/home-desktop.png`
+  - `artifacts/ui-smoke/home-mobile.png`
 - Do not add Playwright, Selenium, Chrome, Chromium, WebKit, or browser binaries unless the user explicitly asks for browser automation in that PR.
-- If browser testing is unavailable in the Codex container, report that clearly as a manual smoke-test item rather than adding dependencies.
+- If browser automation/testing is unavailable in the Codex container, report that clearly as a manual smoke-test item instead of silently skipping validation or adding dependencies.
