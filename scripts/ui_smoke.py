@@ -13,8 +13,17 @@ from typing import Optional
 from urllib.error import URLError
 from urllib.request import urlopen
 
-from playwright.sync_api import Error as PlaywrightError
-from playwright.sync_api import sync_playwright
+try:
+    from playwright.sync_api import Error as PlaywrightError
+    from playwright.sync_api import sync_playwright
+except ModuleNotFoundError as exc:
+    print(
+        "Playwright is not installed. Install development dependencies with "
+        "`python -m pip install -r requirements-dev.txt`, then install Chromium with "
+        "`python -m playwright install --with-deps chromium`.",
+        file=sys.stderr,
+    )
+    raise SystemExit(1) from exc
 
 HOST = "127.0.0.1"
 PORT = 8501
