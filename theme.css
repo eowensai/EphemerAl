@@ -41,6 +41,15 @@
     --color-user-avatar-icon: #4a56d8;
     --color-asst-avatar-bg: linear-gradient(160deg, #f2f3ff 0%, #e3e8ff 100%);
     --color-asst-avatar-icon: #4955d6;
+
+    /* Bottom composer + toggle dock geometry */
+    --composer-toggle-row-height: 2.1rem;
+    --composer-toggle-row-bottom: 0.45rem;
+    --composer-toggle-row-gap: 0.3rem;
+    --composer-bottom-offset: calc(
+        var(--composer-toggle-row-bottom) + var(--composer-toggle-row-height) + var(--composer-toggle-row-gap)
+    );
+    --chat-dock-reserve: calc(8.25rem + env(safe-area-inset-bottom));
 }
 
 html,
@@ -100,7 +109,7 @@ section[data-testid="stSidebar"] > div {
 
 .main .block-container {
     max-width: 1180px;
-    padding: 1.6rem 2.2rem 1.5rem 1.6rem;
+    padding: 1.6rem 2.2rem var(--chat-dock-reserve) 1.6rem;
 }
 
 /* Streamlit internal test IDs: keep hover chrome out of custom cards/buttons. */
@@ -630,12 +639,13 @@ button[title="View fullscreen"] {
 [data-testid="stBottom"] > div,
 [data-testid="stBottomBlockContainer"] {
     background: var(--color-bg-main) !important;
+    z-index: 300;
 }
 
 /* Streamlit internal test ID: bottom dock container. Offset chat composer up so
    the Thinking Mode toggle can stay visually attached just below it. */
 [data-testid="stBottom"] {
-    bottom: 2rem !important;
+    bottom: var(--composer-bottom-offset) !important;
 }
 
 /* Streamlit 1.56 internals: unified chat input root surface. */
@@ -717,17 +727,17 @@ button[data-testid="stChatInputSubmitButton"]:disabled {
    toggle row. Keep this fixed to the viewport bottom so it tracks chat input dock. */
 [class*="st-key-composer_toggle_row"] {
     position: fixed;
-    left: calc(var(--sidebar-width) + 1.6rem);
-    right: 2.2rem;
-    bottom: 0.4rem;
-    z-index: 200;
+    left: max(calc(var(--sidebar-width) + 1.6rem), calc(50vw - 590px + 1.6rem));
+    right: max(2.2rem, calc(50vw - 590px + 2.2rem));
+    bottom: var(--composer-toggle-row-bottom);
+    z-index: 301;
     /* Keep row interactive so the toggle's help icon can receive hover/focus events. */
     pointer-events: auto;
 }
 
 [class*="st-key-composer_toggle_row"] [data-testid="stToggle"] {
     width: fit-content;
-    margin-left: auto;
+    margin-left: 0;
     border: 1px solid var(--color-border);
     background: color-mix(in srgb, var(--color-bg-main) 88%, white 12%);
     border-radius: 999px;
@@ -738,7 +748,7 @@ button[data-testid="stChatInputSubmitButton"]:disabled {
 
 @media (max-width: 900px) {
     .main .block-container {
-        padding: 1.2rem 1rem 1.2rem 1rem;
+        padding: 1.2rem 1rem calc(7.85rem + env(safe-area-inset-bottom)) 1rem;
     }
 
     .welcome-shell {
@@ -750,12 +760,12 @@ button[data-testid="stChatInputSubmitButton"]:disabled {
     }
 
     [data-testid="stBottom"] {
-        bottom: 1.85rem !important;
+        bottom: var(--composer-bottom-offset) !important;
     }
 
     [class*="st-key-composer_toggle_row"] {
         left: 0.95rem;
         right: 0.95rem;
-        bottom: 0.35rem;
+        bottom: var(--composer-toggle-row-bottom);
     }
 }
