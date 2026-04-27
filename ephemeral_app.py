@@ -283,16 +283,20 @@ prompt_in = st.chat_input(
     key="main_chat",
 )
 
-with st.container(key="composer_toggle_row"):
-    thinking_mode = st.toggle(
-        "Thinking Mode",
-        value=False,
-        help=(
-            "Improves quality on complex coding and reasoning tasks, "
-            "but responses are typically much slower (often around 4×)."
-        ),
-        key="thinking_mode_enabled",
-    )
+# Streamlit internal API note (1.56): st._bottom draws into the same native
+# bottom dock used by st.chat_input. Keeping the toggle in this dock avoids
+# viewport-fixed overlays that can interfere with chat streaming layout.
+with st._bottom:
+    with st.container(key="composer_toggle_row"):
+        thinking_mode = st.toggle(
+            "Thinking Mode",
+            value=False,
+            help=(
+                "Improves quality on complex coding and reasoning tasks, "
+                "but responses are typically much slower (often around 4×)."
+            ),
+            key="thinking_mode_enabled",
+        )
 
 # Hide the welcome shell in the same run as the first submitted prompt so
 # initial-turn layout and composer spacing remain stable.
