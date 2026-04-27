@@ -69,9 +69,7 @@ def test_welcome_state_copy_contracts():
     assert "Attach files, not just prompts" in app_text
     assert "Local and session-only" in app_text
     assert "Verify important answers" in app_text
-    assert (
-        "PDFs, Office files, spreadsheets, text, and more. Images work when the model supports them." in app_text
-    )
+    assert "Images, PDFs, Office files, spreadsheets, text, and more." in app_text
     assert "No account or saved chat history in this app. New Chat clears messages and uploads." in app_text
     assert (
         "This local model has no live web access and may be wrong, especially on current facts." in app_text
