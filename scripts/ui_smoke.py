@@ -8,6 +8,7 @@ import socket
 import subprocess
 import sys
 import time
+import traceback
 from pathlib import Path
 from typing import Optional
 from urllib.error import URLError
@@ -140,9 +141,14 @@ def _capture_ui_screenshots() -> None:
             mobile.close()
             browser.close()
     except PlaywrightError as exc:
+        error_name = type(exc).__name__
+        error_detail = str(exc).strip() or "<no details provided>"
+        traceback_detail = "".join(traceback.format_exception_only(type(exc), exc)).strip()
         raise SmokeTestError(
-            "Playwright failed to launch Chromium or interact with the page. "
-            "Ensure Playwright + Chromium are installed in this environment."
+            "Playwright browser interaction failed.\n"
+            f"Error type: {error_name}\n"
+            f"Error detail: {error_detail}\n"
+            f"Playwright exception: {traceback_detail}"
         ) from exc
 
 

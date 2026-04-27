@@ -268,7 +268,7 @@ if st.session_state.show_welcome:
                 <div class="feature-badge feature-badge-blue">+</div>
                 <div class="feature-copy">
                   <div class="feature-copy-strong">Attach files, not just prompts</div>
-                  <div class="feature-copy-muted">PDFs, Office files, spreadsheets, text, and more. Images work when the model supports them.</div>
+                  <div class="feature-copy-muted">Images, PDFs, Office files, spreadsheets, text, and more.</div>
                 </div>
               </div>
               <div class="welcome-feature" role="listitem">
