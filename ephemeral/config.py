@@ -84,6 +84,7 @@ LLM_TEMPERATURE = _float_env("LLM_TEMPERATURE", 0.7)
 LLM_TOP_P = _float_env("LLM_TOP_P", 0.8)
 LLM_PRESENCE_PENALTY = _float_env("LLM_PRESENCE_PENALTY", 1.5)
 LLM_REASONING_EFFORT = os.getenv("LLM_REASONING_EFFORT", "none").strip() or "none"
+LLM_THINKING_EFFORT = os.getenv("LLM_THINKING_EFFORT", "high").strip() or "high"
 LLM_SHOW_REASONING = _bool_env("LLM_SHOW_REASONING", False)
 LLM_MAX_TOKENS = _int_env_optional("LLM_MAX_TOKENS")
 IMG_TOKEN_COST_DEFAULT = _int_env("IMG_TOKEN_COST_DEFAULT", 2048)
@@ -95,3 +96,25 @@ def _ollama_base_url() -> str:
     If /v1 isn't present, returns the URL without trailing slash.
     """
     return LLM_BASE_URL.rstrip("/").split("/v1")[0]
+
+
+def reasoning_effort_for_turn(thinking_mode_enabled: bool) -> str:
+    """
+    Return reasoning effort for the current turn.
+
+    Thinking mode uses a separate operator-tunable effort value so deployments can
+    adjust quality/latency tradeoffs without source edits.
+    """
+    return LLM_THINKING_EFFORT if thinking_mode_enabled else LLM_REASONING_EFFORT
+
+
+def max_tokens_for_turn(thinking_mode_enabled: bool) -> Optional[int]:
+    """
+    Return max_tokens to send for the current turn.
+
+    In thinking mode we omit max_tokens to avoid budget starvation where hidden
+    reasoning consumes most of a small completion cap and truncates visible output.
+    """
+    if thinking_mode_enabled:
+        return None
+    return LLM_MAX_TOKENS
