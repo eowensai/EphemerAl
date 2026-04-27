@@ -18,14 +18,14 @@ from ephemeral.config import (
     DEBUG_MODE,
     ENABLE_TOKEN_BUDGETING,
     LLM_BASE_URL,
-    LLM_MAX_TOKENS,
     LLM_MODEL_NAME,
     LLM_OUTPUT_RESERVE_TOKENS,
     LLM_PRESENCE_PENALTY,
-    LLM_REASONING_EFFORT,
     LLM_SHOW_REASONING,
     LLM_TEMPERATURE,
     LLM_TOP_P,
+    max_tokens_for_turn,
+    reasoning_effort_for_turn,
 )
 from ephemeral.export import (
     build_conversation_html,
@@ -126,8 +126,8 @@ def timestamp_local() -> str:
 tmpl_path = pathlib.Path(__file__).parent / "system_prompt_template.md"
 if tmpl_path.exists():
     # Default system template is model-agnostic and omits <|think|>.
-    # Request defaults also set reasoning_effort to "none"; keep the think-block
-    # filter as defense-in-depth even when reasoning visibility is toggled.
+    # Request defaults keep reasoning disabled unless Thinking Mode is enabled.
+    # Keep think-block filtering as defense-in-depth even when reasoning visibility is toggled.
     SYSTEM_TMPL = string.Template(tmpl_path.read_text(encoding="utf-8"))
 else:
     SYSTEM_TMPL = string.Template(
@@ -221,6 +221,9 @@ with st.sidebar:
 
     if DEBUG_MODE:
         with st.expander("System status", expanded=False):
+            dbg_thinking_mode = bool(st.session_state.get("thinking_mode_enabled", False))
+            dbg_effective_reasoning_effort = reasoning_effort_for_turn(dbg_thinking_mode)
+            dbg_effective_max_tokens = max_tokens_for_turn(dbg_thinking_mode)
             dbg_model_ctx = get_model_ctx()
             dbg_effective_ctx = dbg_model_ctx if dbg_model_ctx else 32768
             dbg_usable_ctx = int(dbg_effective_ctx * 0.95)
@@ -237,11 +240,12 @@ with st.sidebar:
             st.caption(
                 "Request settings: "
                 f"temperature={LLM_TEMPERATURE}, top_p={LLM_TOP_P}, "
-                f"presence_penalty={LLM_PRESENCE_PENALTY}, reasoning_effort={LLM_REASONING_EFFORT!r}"
+                f"presence_penalty={LLM_PRESENCE_PENALTY}, "
+                f"reasoning_effort={dbg_effective_reasoning_effort!r}"
             )
             st.caption(
                 "LLM_MAX_TOKENS: "
-                + (str(LLM_MAX_TOKENS) if LLM_MAX_TOKENS is not None else "not set (max_tokens omitted)")
+                + (str(dbg_effective_max_tokens) if dbg_effective_max_tokens is not None else "not set (max_tokens omitted)")
             )
 
             tok_state = st.session_state.get("tokenizer_available")
@@ -383,6 +387,16 @@ if HAS_DEVICE_DETECTION and device and device.is_mobile:
 
 
 # ── Chat input ───────────────────────────────────────────────────
+thinking_mode = st.toggle(
+    "Thinking Mode",
+    value=False,
+    help=(
+        "Improves quality on complex coding and reasoning tasks, "
+        "but responses are typically much slower (often around 4×)."
+    ),
+    key="thinking_mode_enabled",
+)
+
 prompt_in = st.chat_input(
     "Ask a question or attach files...",
     accept_file="multiple",
@@ -685,10 +699,11 @@ if prompt_in is not None:
                     "temperature": LLM_TEMPERATURE,
                     "top_p": LLM_TOP_P,
                     "presence_penalty": LLM_PRESENCE_PENALTY,
-                    "extra_body": {"reasoning_effort": LLM_REASONING_EFFORT},
+                    "extra_body": {"reasoning_effort": reasoning_effort_for_turn(thinking_mode)},
                 }
-                if LLM_MAX_TOKENS is not None:
-                    request_kwargs["max_tokens"] = LLM_MAX_TOKENS
+                turn_max_tokens = max_tokens_for_turn(thinking_mode)
+                if turn_max_tokens is not None:
+                    request_kwargs["max_tokens"] = turn_max_tokens
 
                 # Try include_usage if supported, fall back otherwise.
                 try:

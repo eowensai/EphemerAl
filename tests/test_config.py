@@ -1,4 +1,5 @@
 from ephemeral import config
+import pytest
 
 
 def test_float_env_valid_invalid_blank_missing(monkeypatch):
@@ -75,3 +76,30 @@ def test_ollama_base_url_variants(monkeypatch):
 
     monkeypatch.setattr(config, "LLM_BASE_URL", "http://ollama:11434/")
     assert config._ollama_base_url() == "http://ollama:11434"
+
+
+@pytest.mark.parametrize(
+    ("thinking_mode_enabled", "expected_effort"),
+    [
+        (False, "none"),
+        (True, "high"),
+    ],
+)
+def test_reasoning_effort_for_turn(monkeypatch, thinking_mode_enabled, expected_effort):
+    monkeypatch.setattr(config, "LLM_REASONING_EFFORT", "none")
+    monkeypatch.setattr(config, "LLM_THINKING_EFFORT", "high")
+    assert config.reasoning_effort_for_turn(thinking_mode_enabled) == expected_effort
+
+
+@pytest.mark.parametrize(
+    ("thinking_mode_enabled", "configured_max_tokens", "expected_max_tokens"),
+    [
+        (False, 2048, 2048),
+        (False, None, None),
+        (True, 2048, None),
+        (True, None, None),
+    ],
+)
+def test_max_tokens_for_turn(monkeypatch, thinking_mode_enabled, configured_max_tokens, expected_max_tokens):
+    monkeypatch.setattr(config, "LLM_MAX_TOKENS", configured_max_tokens)
+    assert config.max_tokens_for_turn(thinking_mode_enabled) == expected_max_tokens
