@@ -718,7 +718,8 @@ button[data-testid="stChatInputSubmitButton"]:disabled {
     right: 2.2rem;
     bottom: 0.55rem;
     z-index: 200;
-    pointer-events: none;
+    /* Keep row interactive so the toggle's help icon can receive hover/focus events. */
+    pointer-events: auto;
 }
 
 [class*="st-key-composer_toggle_row"] [data-testid="stToggle"] {
