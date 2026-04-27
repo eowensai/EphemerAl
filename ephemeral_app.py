@@ -394,15 +394,16 @@ prompt_in = st.chat_input(
     key="main_chat",
 )
 
-thinking_mode = st.toggle(
-    "Thinking Mode",
-    value=False,
-    help=(
-        "Improves quality on complex coding and reasoning tasks, "
-        "but responses are typically much slower (often around 4×)."
-    ),
-    key="thinking_mode_enabled",
-)
+with st.container(key="composer_toggle_row"):
+    thinking_mode = st.toggle(
+        "Thinking Mode",
+        value=False,
+        help=(
+            "Improves quality on complex coding and reasoning tasks, "
+            "but responses are typically much slower (often around 4×)."
+        ),
+        key="thinking_mode_enabled",
+    )
 
 if prompt_in is not None:
     if st.session_state.show_welcome:
