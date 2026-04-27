@@ -387,6 +387,13 @@ if HAS_DEVICE_DETECTION and device and device.is_mobile:
 
 
 # ── Chat input ───────────────────────────────────────────────────
+prompt_in = st.chat_input(
+    "Ask a question or attach files...",
+    accept_file="multiple",
+    max_upload_size=50,
+    key="main_chat",
+)
+
 thinking_mode = st.toggle(
     "Thinking Mode",
     value=False,
@@ -395,13 +402,6 @@ thinking_mode = st.toggle(
         "but responses are typically much slower (often around 4×)."
     ),
     key="thinking_mode_enabled",
-)
-
-prompt_in = st.chat_input(
-    "Ask a question or attach files...",
-    accept_file="multiple",
-    max_upload_size=50,
-    key="main_chat",
 )
 
 if prompt_in is not None:
