@@ -634,7 +634,7 @@ button[title="View fullscreen"] {
 /* Streamlit internal test ID: bottom dock container. Offset chat composer up so
    the Thinking Mode toggle can stay visually attached just below it. */
 [data-testid="stBottom"] {
-    bottom: 2.45rem !important;
+    bottom: 2rem !important;
 }
 
 /* Streamlit 1.56 internals: unified chat input root surface. */
@@ -644,6 +644,8 @@ button[title="View fullscreen"] {
     background: #ffffff !important;
     box-shadow: 0 5px 16px rgba(41, 56, 91, 0.1);
     padding: 0.3rem 0.42rem !important;
+    width: 100%;
+    max-width: 100%;
 }
 
 [data-testid="stChatInput"] > div:focus-within {
@@ -716,7 +718,7 @@ button[data-testid="stChatInputSubmitButton"]:disabled {
     position: fixed;
     left: calc(var(--sidebar-width) + 1.6rem);
     right: 2.2rem;
-    bottom: 0.55rem;
+    bottom: 0.4rem;
     z-index: 200;
     /* Keep row interactive so the toggle's help icon can receive hover/focus events. */
     pointer-events: auto;
@@ -747,12 +749,12 @@ button[data-testid="stChatInputSubmitButton"]:disabled {
     }
 
     [data-testid="stBottom"] {
-        bottom: 2.25rem !important;
+        bottom: 1.85rem !important;
     }
 
     [class*="st-key-composer_toggle_row"] {
         left: 0.95rem;
         right: 0.95rem;
-        bottom: 0.45rem;
+        bottom: 0.35rem;
     }
 }
