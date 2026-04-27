@@ -409,8 +409,8 @@ button[title="View fullscreen"] {
     justify-content: flex-end;
     align-items: center;
     gap: 0.72rem;
-    width: fit-content;
-    max-width: min(78ch, 86%);
+    width: 100%;
+    max-width: 100%;
     margin-left: auto;
 }
 
@@ -426,8 +426,9 @@ button[title="View fullscreen"] {
     border-right: 4px solid var(--color-asst-msg-border);
     box-shadow: 0 4px 14px rgba(74, 91, 176, 0.09);
     padding: 0.65rem 0.92rem;
-    width: fit-content;
-    max-width: min(72ch, 100%);
+    width: max-content;
+    min-width: 4.25rem;
+    max-width: min(72ch, 86%);
     display: inline-block;
 }
 

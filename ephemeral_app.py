@@ -155,7 +155,11 @@ def styled_chat_message(role: str, message_id: str = None):
         "avatar": ":material/account_circle:" if normalized_role == "user" else ":material/assistant:",
     }
     if "width" in inspect.signature(st.chat_message).parameters:
-        chat_kwargs["width"] = "content" if normalized_role == "user" else "stretch"
+        # Keep the chat row as stretch-width for both roles.
+        # User bubble sizing/alignment is handled by CSS. Using "content" for the
+        # user row can trigger transient min-content collapse during first-turn
+        # reruns while the assistant spinner is mounted.
+        chat_kwargs["width"] = "stretch"
 
     with st.container(key=key):
         if normalized_role == "user":
