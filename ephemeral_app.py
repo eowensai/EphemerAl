@@ -177,6 +177,19 @@ st.session_state.setdefault("show_welcome", True)
 st.session_state.setdefault("last_token_count", 0)
 st.session_state.setdefault("tokenizer_available", None)
 st.session_state.setdefault("_vision_supported", None)
+st.session_state.setdefault("thinking_mode_enabled", False)
+
+
+def reset_chat_session() -> None:
+    """Reset conversation-scoped state while preserving app/runtime settings."""
+    st.session_state["messages"] = []
+    st.session_state["show_welcome"] = True
+    st.session_state["last_token_count"] = 0
+    st.session_state["tokenizer_available"] = None
+    st.session_state["_vision_supported"] = None
+    # Non-thinking remains the default for each new chat.
+    st.session_state["thinking_mode_enabled"] = False
+    st.session_state.pop("main_chat", None)
 
 # ── Sidebar ───────────────────────────────────────────────────────
 with st.sidebar:
@@ -211,7 +224,7 @@ with st.sidebar:
         st.info("Document reading is temporarily unavailable. You can still chat, but uploads may not be readable.")
 
     if st.button("New Chat", key="sidebar_new", width="stretch"):
-        st.session_state.clear()
+        reset_chat_session()
         st.rerun()
 
     if st.session_state.messages:
@@ -257,6 +270,31 @@ with st.sidebar:
                 st.caption("Token counting: safe estimate mode")
             else:
                 st.caption("Token counting: not checked yet")
+
+# ── Chat input ───────────────────────────────────────────────────
+prompt_in = st.chat_input(
+    "Ask a question or attach files...",
+    accept_file="multiple",
+    max_upload_size=50,
+    key="main_chat",
+)
+
+with st.container(key="composer_toggle_row"):
+    thinking_mode = st.toggle(
+        "Thinking Mode",
+        value=False,
+        help=(
+            "Improves quality on complex coding and reasoning tasks, "
+            "but responses are typically much slower (often around 4×)."
+        ),
+        key="thinking_mode_enabled",
+    )
+
+# Hide the welcome shell in the same run as the first submitted prompt so
+# initial-turn layout and composer spacing remain stable.
+if prompt_in is not None and st.session_state.show_welcome:
+    st.session_state.show_welcome = False
+
 
 # ── Welcome banner ────────────────────────────────────────────────
 if st.session_state.show_welcome:
@@ -382,33 +420,11 @@ for m in st.session_state.messages:
 # ── Mobile convenience button ─────────────────────────────────────
 if HAS_DEVICE_DETECTION and device and device.is_mobile:
     if st.button("🔄 New Chat", key="mobile_new", width="stretch"):
-        st.session_state.clear()
+        reset_chat_session()
         st.rerun()
 
 
-# ── Chat input ───────────────────────────────────────────────────
-prompt_in = st.chat_input(
-    "Ask a question or attach files...",
-    accept_file="multiple",
-    max_upload_size=50,
-    key="main_chat",
-)
-
-with st.container(key="composer_toggle_row"):
-    thinking_mode = st.toggle(
-        "Thinking Mode",
-        value=False,
-        help=(
-            "Improves quality on complex coding and reasoning tasks, "
-            "but responses are typically much slower (often around 4×)."
-        ),
-        key="thinking_mode_enabled",
-    )
-
 if prompt_in is not None:
-    if st.session_state.show_welcome:
-        st.session_state.show_welcome = False
-
     user_text = prompt_in.text if hasattr(prompt_in, "text") else prompt_in
     user_text = (user_text or "").strip()
     files = prompt_in.files if hasattr(prompt_in, "files") else []
