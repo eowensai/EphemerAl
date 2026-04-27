@@ -631,6 +631,12 @@ button[title="View fullscreen"] {
     background: var(--color-bg-main) !important;
 }
 
+/* Streamlit internal test ID: bottom dock container. Offset chat composer up so
+   the Thinking Mode toggle can stay visually attached just below it. */
+[data-testid="stBottom"] {
+    bottom: 2.45rem !important;
+}
+
 /* Streamlit 1.56 internals: unified chat input root surface. */
 [data-testid="stChatInput"] > div {
     border: 1px solid var(--color-border) !important;
@@ -704,6 +710,28 @@ button[data-testid="stChatInputSubmitButton"]:disabled {
     box-shadow: none;
 }
 
+/* Streamlit internal class fragment in 1.56: key-based wrapper for composer-adjacent
+   toggle row. Keep this fixed to the viewport bottom so it tracks chat input dock. */
+[class*="st-key-composer_toggle_row"] {
+    position: fixed;
+    left: calc(var(--sidebar-width) + 1.6rem);
+    right: 2.2rem;
+    bottom: 0.55rem;
+    z-index: 200;
+    pointer-events: none;
+}
+
+[class*="st-key-composer_toggle_row"] [data-testid="stToggle"] {
+    width: fit-content;
+    margin-left: auto;
+    border: 1px solid var(--color-border);
+    background: color-mix(in srgb, var(--color-bg-main) 88%, white 12%);
+    border-radius: 999px;
+    padding: 0.2rem 0.55rem;
+    box-shadow: 0 2px 10px rgba(24, 35, 65, 0.08);
+    pointer-events: auto;
+}
+
 @media (max-width: 900px) {
     .main .block-container {
         padding: 1.2rem 1rem 1.2rem 1rem;
@@ -715,5 +743,15 @@ button[data-testid="stChatInputSubmitButton"]:disabled {
 
     .sidebar-brand-title {
         font-size: 1.7rem;
+    }
+
+    [data-testid="stBottom"] {
+        bottom: 2.25rem !important;
+    }
+
+    [class*="st-key-composer_toggle_row"] {
+        left: 0.95rem;
+        right: 0.95rem;
+        bottom: 0.45rem;
     }
 }
