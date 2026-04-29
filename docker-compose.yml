@@ -7,7 +7,7 @@
 #   • ephemeral-app — Streamlit front-end website
 #
 # CUSTOMIZE comments below flag the lines that most people tweak:
-#   • LLM model name (12b vs 27b)
+#   • LLM model name tag (for example qwen3.6:35b-a3b or ephemeral-default)
 #   • Service / container names if you prefer different labels
 ###############################################################################
 
@@ -16,7 +16,10 @@ services:
   # Large-language-model back-end (Ollama)
   # --------------------------------------------------------------------------
   ollama:
-    image: ollama/ollama:0.13.5
+    # Pinned for compatibility with Qwen3.6-35B-A3B / ephemeral-default. Last validated: April 2026.
+    # Check https://github.com/ollama/ollama/releases before upgrading.
+    # NOTE: ollama/ollama#14716 (vision+thinking) is fixed; workaround retained as defense-in-depth.
+    image: ollama/ollama:0.21.0
     container_name: ollama
     restart: unless-stopped
     networks: [llm-net]
@@ -28,15 +31,21 @@ services:
     environment:
       # NVIDIA_VISIBLE_DEVICES=all lets the container see every GPU the host has.
       - NVIDIA_VISIBLE_DEVICES=all
-      - OLLAMA_HOST=0.0.0.0
-      - OLLAMA_ORIGINS=*
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_ORIGINS=${OLLAMA_ORIGINS:-}
+      - OLLAMA_NO_CLOUD=1
       - OLLAMA_MAX_LOADED_MODELS=1
+      - OLLAMA_NUM_PARALLEL=1
+      - OLLAMA_MAX_QUEUE=${OLLAMA_MAX_QUEUE:-16}
+      # Helpful CUDA GEMM path for supported GPU workloads.
       - OLLAMA_FORCE_CUBLAS_LT=1
       - OLLAMA_KEEP_ALIVE=-1
       - OLLAMA_FLASH_ATTENTION=1
+      - OLLAMA_KV_CACHE_TYPE=q8_0          # Q8 KV cache precision (KV memory only, not model-weight quantization); requires FLASH_ATTENTION=1 above.
 
-    # Expose Ollama's API port to the host
-    ports: ["11434:11434"]
+    # Intentionally internal-only on llm-net for privacy; temporarily switch to
+    # ports: ["11434:11434"] for local host debugging with curl if needed.
+    expose: ["11434"]
 
     # GPU reservation for Docker Compose v3+
     deploy:
@@ -56,13 +65,15 @@ services:
   # Apache Tika — document parsing
   # --------------------------------------------------------------------------
   tika-server:
-    image: apache/tika:3.2.3.0-full
+    image: apache/tika:3.3.0.0-full
     container_name: tika-server
     restart: unless-stopped
     networks: [llm-net]
     environment:
       - JAVA_TOOL_OPTIONS=-Xmx2g -Xms512m
-    ports: ["9998:9998"]
+    # Intentionally internal-only on llm-net for privacy; temporarily switch to
+    # ports: ["9998:9998"] for local host debugging with curl if needed.
+    expose: ["9998"]
 
     # Keep /tmp in RAM so uploaded docs never touch disk inside the container
     tmpfs:
@@ -85,7 +96,18 @@ services:
 
     environment:
       - LLM_BASE_URL=http://ollama:11434/v1
-      - LLM_MODEL_NAME=gemma3-prod         # CUSTOMIZE: Matches the generic name created in deployment guide
+      - LLM_MODEL_NAME=ephemeral-default   # Default alias for Qwen3.6-35B-A3B in this stack.
+      - LLM_CONTEXT_TOKENS=262144          # App-side budgeting hint for document/context packing.
+      # Actual Ollama context window is set by PARAMETER num_ctx in the ephemeral-default Modelfile.
+      - LLM_OUTPUT_RESERVE_TOKENS=${LLM_OUTPUT_RESERVE_TOKENS:-32768}
+      - LLM_REQUEST_TIMEOUT_S=${LLM_REQUEST_TIMEOUT_S:-1800}
+      - LLM_MAX_RETRIES=${LLM_MAX_RETRIES:-0}
+      - LLM_REASONING_EFFORT=none
+      - LLM_SHOW_REASONING=false
+      - LLM_TEMPERATURE=0.7
+      - LLM_TOP_P=0.8
+      - LLM_PRESENCE_PENALTY=1.5
+      - LLM_MAX_TOKENS=                    # Blank means EphemerAl does not impose an output cap.
       - TIKA_URL=http://tika-server:9998
       - TIKA_CLIENT_ONLY=true
       - STREAMLIT_SERVER_HEADLESS=true
