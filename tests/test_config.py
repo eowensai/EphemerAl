@@ -1,3 +1,5 @@
+import importlib
+
 from ephemeral import config
 import pytest
 
@@ -103,3 +105,41 @@ def test_reasoning_effort_for_turn(monkeypatch, thinking_mode_enabled, expected_
 def test_max_tokens_for_turn(monkeypatch, thinking_mode_enabled, configured_max_tokens, expected_max_tokens):
     monkeypatch.setattr(config, "LLM_MAX_TOKENS", configured_max_tokens)
     assert config.max_tokens_for_turn(thinking_mode_enabled) == expected_max_tokens
+
+
+def test_branding_and_prompt_defaults(monkeypatch):
+    for key in [
+        "APP_DISPLAY_NAME",
+        "APP_SUBTITLE",
+        "APP_WELCOME_SUBTITLE",
+        "APP_LOGO_PATH",
+        "APP_EXPORT_TITLE",
+        "SYSTEM_PROMPT_PATH",
+        "MAX_UPLOAD_MB",
+        "DEFAULT_UPLOAD_PROMPT",
+    ]:
+        monkeypatch.delenv(key, raising=False)
+
+    cfg = importlib.reload(config)
+
+    assert cfg.APP_DISPLAY_NAME == "EphemerAI"
+    assert cfg.APP_SUBTITLE == "Private AI Assistant"
+    assert cfg.APP_WELCOME_SUBTITLE == "Your private workspace for focused, ephemeral conversations."
+    assert cfg.APP_LOGO_PATH == "static/ephemeral_logo.png"
+    assert cfg.APP_EXPORT_TITLE == "EphemerAI Conversation"
+    assert cfg.SYSTEM_PROMPT_PATH == "system_prompt_template.md"
+    assert cfg.MAX_UPLOAD_MB == 50
+    assert cfg.DEFAULT_UPLOAD_PROMPT == "Please analyze the uploaded files."
+
+
+def test_max_upload_mb_invalid_falls_back(monkeypatch):
+    monkeypatch.setenv("MAX_UPLOAD_MB", "0")
+    cfg = importlib.reload(config)
+    assert cfg.MAX_UPLOAD_MB == 50
+
+    monkeypatch.setenv("MAX_UPLOAD_MB", "75")
+    cfg = importlib.reload(config)
+    assert cfg.MAX_UPLOAD_MB == 75
+
+    monkeypatch.delenv("MAX_UPLOAD_MB", raising=False)
+    importlib.reload(config)

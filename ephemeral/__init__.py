@@ -1,1 +1,1 @@
-"""EphemerAl import-safe utility modules."""
+"""Import-safe utility modules for the local assistant app."""
