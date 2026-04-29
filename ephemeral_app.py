@@ -8,7 +8,7 @@ import inspect
 from contextlib import contextmanager
 from datetime import datetime, tzinfo
 from html import escape as html_escape
-from typing import Union, List
+from typing import Union, List, NamedTuple
 
 import streamlit as st
 import pytz
@@ -146,13 +146,41 @@ else:
     )
 
 
+class LogoData(NamedTuple):
+    mime_type: str
+    b64: str
+
+
+def _logo_mime_type(path: pathlib.Path) -> str:
+    """Infer a supported logo MIME type from file extension."""
+    ext = path.suffix.lower()
+    mime_types = {
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".webp": "image/webp",
+        ".svg": "image/svg+xml",
+    }
+    return mime_types.get(ext, "")
+
+
 @st.cache_data(show_spinner=False)
-def _load_logo_b64(path: str = APP_LOGO_PATH) -> str:
-    """Read and base64-encode the logo once, cached across reruns."""
+def _load_logo_data(path: str = APP_LOGO_PATH) -> LogoData:
+    """Read and base64-encode a supported logo once, cached across reruns."""
+    if not path:
+        return LogoData("", "")
+
     logo_path = pathlib.Path(path)
-    if logo_path.exists():
-        return base64.b64encode(logo_path.read_bytes()).decode("ascii")
-    return ""
+    if not logo_path.exists():
+        return LogoData("", "")
+
+    mime_type = _logo_mime_type(logo_path)
+    if not mime_type:
+        if DEBUG_MODE:
+            logging.getLogger(__name__).debug("Unsupported logo extension for %s", logo_path)
+        return LogoData("", "")
+
+    return LogoData(mime_type, base64.b64encode(logo_path.read_bytes()).decode("ascii"))
 
 
 # ── Chat message wrapper for CSS styling ──────────────────────────
@@ -207,12 +235,12 @@ def reset_chat_session() -> None:
 
 # ── Sidebar ───────────────────────────────────────────────────────
 with st.sidebar:
-    logo_b64 = _load_logo_b64(APP_LOGO_PATH)
-    if logo_b64:
+    logo = _load_logo_data(APP_LOGO_PATH)
+    if logo.b64:
         st.markdown(
             f"""
             <div class="sidebar-brand">
-                <img src="data:image/png;base64,{logo_b64}" alt="{APP_DISPLAY_NAME} logo" class="sidebar-brand-logo">
+                <img src="data:{logo.mime_type};base64,{logo.b64}" alt="{APP_DISPLAY_NAME} logo" class="sidebar-brand-logo">
                 <div class="sidebar-brand-title">{APP_DISPLAY_NAME}</div>
                 <div class="sidebar-brand-subtitle">{APP_SUBTITLE}</div>
             </div>
