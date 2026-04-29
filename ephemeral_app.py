@@ -13,7 +13,11 @@ from typing import Union, List
 import streamlit as st
 import pytz
 from ephemeral.config import (
+    APP_DISPLAY_NAME,
+    APP_LOGO_PATH,
+    APP_SUBTITLE,
     APP_VERSION,
+    APP_WELCOME_SUBTITLE,
     CONTEXT_PREFIX,
     DEBUG_MODE,
     ENABLE_TOKEN_BUDGETING,
@@ -24,6 +28,9 @@ from ephemeral.config import (
     LLM_SHOW_REASONING,
     LLM_TEMPERATURE,
     LLM_TOP_P,
+    MAX_UPLOAD_MB,
+    DEFAULT_UPLOAD_PROMPT,
+    SYSTEM_PROMPT_PATH,
     max_tokens_for_turn,
     reasoning_effort_for_turn,
 )
@@ -54,13 +61,13 @@ from ephemeral.llm_client import (
 
 # ── Page config ───────────────────────────────────────────────────
 st.set_page_config(
-    page_title="EphemerAI",
+    page_title=APP_DISPLAY_NAME,
     layout="wide",
     initial_sidebar_state=304,
     menu_items={
         "Get help": None,
         "Report a Bug": None,
-        "About": "EphemerAI is a privacy-focused document chat assistant.",
+        "About": f"{APP_DISPLAY_NAME} is a privacy-focused document chat assistant.",
     },
 )
 
@@ -83,8 +90,7 @@ except ImportError:
     device = None  # type: ignore
 
 # ── Backend configuration ─────────────────────────────────────────
-DEFAULT_UPLOAD_PROMPT = os.getenv("DEFAULT_UPLOAD_PROMPT", "Please analyze the uploaded files.")
-MAX_UPLOAD_BYTES = 50 * 1024 * 1024
+MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
 
 
 def get_local_timezone() -> tzinfo:
@@ -123,13 +129,17 @@ def timestamp_local() -> str:
     return now.strftime(fmt)
 
 
-tmpl_path = pathlib.Path(__file__).parent / "system_prompt_template.md"
+tmpl_path = pathlib.Path(SYSTEM_PROMPT_PATH)
+if not tmpl_path.is_absolute():
+    tmpl_path = pathlib.Path(__file__).resolve().parent / tmpl_path
 if tmpl_path.exists():
     # Default system template is model-agnostic and omits <|think|>.
     # Request defaults keep reasoning disabled unless Thinking Mode is enabled.
     # Keep think-block filtering as defense-in-depth even when reasoning visibility is toggled.
     SYSTEM_TMPL = string.Template(tmpl_path.read_text(encoding="utf-8"))
 else:
+    if DEBUG_MODE:
+        st.warning(f"System prompt template not found at {tmpl_path}. Using built-in fallback prompt.")
     SYSTEM_TMPL = string.Template(
         "You are a helpful AI assistant. The current local time is ${current_time_local}. "
         "Answer concisely and accurately based on the context provided."
@@ -137,7 +147,7 @@ else:
 
 
 @st.cache_data(show_spinner=False)
-def _load_logo_b64(path: str = "static/ephemeral_logo.png") -> str:
+def _load_logo_b64(path: str = APP_LOGO_PATH) -> str:
     """Read and base64-encode the logo once, cached across reruns."""
     logo_path = pathlib.Path(path)
     if logo_path.exists():
@@ -197,25 +207,25 @@ def reset_chat_session() -> None:
 
 # ── Sidebar ───────────────────────────────────────────────────────
 with st.sidebar:
-    logo_b64 = _load_logo_b64()
+    logo_b64 = _load_logo_b64(APP_LOGO_PATH)
     if logo_b64:
         st.markdown(
             f"""
             <div class="sidebar-brand">
-                <img src="data:image/png;base64,{logo_b64}" alt="EphemerAI logo" class="sidebar-brand-logo">
-                <div class="sidebar-brand-title">EphemerAI</div>
-                <div class="sidebar-brand-subtitle">Private AI Assistant</div>
+                <img src="data:image/png;base64,{logo_b64}" alt="{APP_DISPLAY_NAME} logo" class="sidebar-brand-logo">
+                <div class="sidebar-brand-title">{APP_DISPLAY_NAME}</div>
+                <div class="sidebar-brand-subtitle">{APP_SUBTITLE}</div>
             </div>
             """,
             unsafe_allow_html=True,
         )
     else:
         st.markdown(
-            """
+            f"""
             <div class="sidebar-brand">
                 <div class="sidebar-brand-fallback">E</div>
-                <div class="sidebar-brand-title">EphemerAI</div>
-                <div class="sidebar-brand-subtitle">Private AI Assistant</div>
+                <div class="sidebar-brand-title">{APP_DISPLAY_NAME}</div>
+                <div class="sidebar-brand-subtitle">{APP_SUBTITLE}</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -279,7 +289,7 @@ with st.sidebar:
 prompt_in = st.chat_input(
     "Ask a question or attach files...",
     accept_file="multiple",
-    max_upload_size=50,
+    max_upload_size=MAX_UPLOAD_MB,
     key="main_chat",
 )
 
@@ -307,10 +317,10 @@ if prompt_in is not None and st.session_state.show_welcome:
 # ── Welcome banner ────────────────────────────────────────────────
 if st.session_state.show_welcome:
     st.markdown(
-        """
+        f"""
         <section class="welcome-shell" aria-label="Welcome">
-          <h1 class="welcome-heading">Welcome to <span class="welcome-heading-brand">EphemerAI</span></h1>
-          <p class="welcome-subtitle">Your private workspace for focused, ephemeral conversations.</p>
+          <h1 class="welcome-heading">Welcome to <span class="welcome-heading-brand">{APP_DISPLAY_NAME}</span></h1>
+          <p class="welcome-subtitle">{APP_WELCOME_SUBTITLE}</p>
 
           <div class="welcome-card">
             <div class="welcome-features" role="list">
@@ -493,7 +503,7 @@ if prompt_in is not None:
         if file_size > MAX_UPLOAD_BYTES:
             st.error(
                 f"{f.name} is too large ({file_size / (1024 * 1024):.1f} MB). "
-                "The maximum file size is 50 MB."
+                f"The maximum file size is {MAX_UPLOAD_MB} MB."
             )
             continue
 

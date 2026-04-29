@@ -2,7 +2,7 @@ import re
 from html import escape as html_escape
 from typing import List, Tuple, Union
 
-from ephemeral.config import CONTEXT_PREFIX
+from ephemeral.config import APP_EXPORT_TITLE, CONTEXT_PREFIX
 
 
 def build_message_text(messages: List[dict]) -> str:
@@ -96,7 +96,7 @@ def _extract_export_info(content: Union[str, list]) -> Tuple[List[str], List[str
 
 def build_conversation_markdown(messages: List[dict]) -> str:
     """Build a Markdown transcript used as plain-text clipboard fallback."""
-    lines: List[str] = ["# EphemerAl Conversation", ""]
+    lines: List[str] = [f"# {APP_EXPORT_TITLE}", ""]
 
     for msg in messages:
         lines.extend(_build_message_markdown_lines(msg))
@@ -230,7 +230,7 @@ def _md_to_html_basic(md: str) -> str:
 
 def build_conversation_html(messages: List[dict]) -> str:
     """Rich transcript as HTML for clipboard copy."""
-    chunks: List[str] = ["<div>", "<p><strong>EphemerAl Conversation</strong></p>"]
+    chunks: List[str] = ["<div>", f"<p><strong>{html_escape(APP_EXPORT_TITLE)}</strong></p>"]
 
     for msg in messages:
         chunks.append(build_message_html(msg))

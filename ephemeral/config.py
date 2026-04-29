@@ -21,12 +21,6 @@ DEBUG_MODE = os.getenv("EPHEMERAL_DEBUG", "0").strip().lower() in {"1", "true", 
 # Feature toggle (operator-only)
 ENABLE_TOKEN_BUDGETING = os.getenv("ENABLE_TOKEN_BUDGETING", "1").strip().lower() not in {"0", "false", "no"}
 
-LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://ollama:11434/v1")
-LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "ephemeral-default")
-TIKA_URL = os.getenv("TIKA_URL", "http://tika-server:9998")
-LLM_SUPPORTS_VISION = os.getenv("LLM_SUPPORTS_VISION")
-
-
 def _float_env(name: str, default: float) -> float:
     """Parse a float env var with safe fallback on missing/blank/invalid values."""
     raw = os.getenv(name)
@@ -74,6 +68,23 @@ def _bool_env(name: str, default: bool = False) -> bool:
         return False
     return default
 
+
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://ollama:11434/v1")
+LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "ephemeral-default")
+TIKA_URL = os.getenv("TIKA_URL", "http://tika-server:9998")
+LLM_SUPPORTS_VISION = os.getenv("LLM_SUPPORTS_VISION")
+
+APP_DISPLAY_NAME = os.getenv("APP_DISPLAY_NAME", "EphemerAI")
+APP_SUBTITLE = os.getenv("APP_SUBTITLE", "Private AI Assistant")
+APP_WELCOME_SUBTITLE = os.getenv(
+    "APP_WELCOME_SUBTITLE",
+    "Your private workspace for focused, ephemeral conversations.",
+)
+APP_LOGO_PATH = os.getenv("APP_LOGO_PATH", "static/ephemeral_logo.png")
+APP_EXPORT_TITLE = os.getenv("APP_EXPORT_TITLE", f"{APP_DISPLAY_NAME} Conversation")
+SYSTEM_PROMPT_PATH = os.getenv("SYSTEM_PROMPT_PATH", "system_prompt_template.md")
+MAX_UPLOAD_MB = _int_env("MAX_UPLOAD_MB", 50)
+DEFAULT_UPLOAD_PROMPT = os.getenv("DEFAULT_UPLOAD_PROMPT", "Please analyze the uploaded files.")
 
 TIKA_TIMEOUT_S = _int_env("TIKA_TIMEOUT_S", 15)
 LLM_CONTEXT_TOKENS = _int_env_optional("LLM_CONTEXT_TOKENS")

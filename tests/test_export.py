@@ -1,3 +1,5 @@
+import importlib
+
 from ephemeral.export import (
     _extract_export_info,
     _md_to_html_basic,
@@ -53,7 +55,7 @@ def test_markdown_and_html_build_and_escape():
     ]
 
     md = build_conversation_markdown(messages)
-    assert "# EphemerAl Conversation" in md
+    assert md.startswith("# EphemerAI Conversation\n")
     assert "**User**" in md
     assert "Attachments:" in md
     assert "- 📄 doc1.pdf" in md
@@ -128,3 +130,21 @@ def test_md_to_html_basic_preserves_nested_bullets():
     assert "<li>Parent\n<ul>" in html
     assert "<li>Child A\n</li>" in html
     assert "<li>Child B\n</li>" in html
+
+
+def test_export_title_env_override(monkeypatch):
+    monkeypatch.setenv("APP_EXPORT_TITLE", "Custom Export Title")
+    import ephemeral.config as config_mod
+    import ephemeral.export as export_mod
+
+    importlib.reload(config_mod)
+    export_mod = importlib.reload(export_mod)
+
+    md = export_mod.build_conversation_markdown([])
+    html = export_mod.build_conversation_html([])
+    assert md.startswith("# Custom Export Title\n")
+    assert "<strong>Custom Export Title</strong>" in html
+
+    monkeypatch.delenv("APP_EXPORT_TITLE", raising=False)
+    importlib.reload(config_mod)
+    importlib.reload(export_mod)
