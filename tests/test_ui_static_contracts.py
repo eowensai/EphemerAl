@@ -96,11 +96,12 @@ def test_ghost_doc_cleanup_uses_attachment_metadata_not_marker_text():
     assert 'startswith("\U0001f4c4 *")' not in app_text
 
 
-def test_sidebar_logo_encoding_is_cached():
+def test_sidebar_logo_loading_is_cached_with_mime_aware_data_uri():
     app_text = (REPO_ROOT / "ephemeral_app.py").read_text(encoding="utf-8")
     assert "@st.cache_data(show_spinner=False)" in app_text
-    assert "def _load_logo_b64(" in app_text
-    assert "logo_b64 = _load_logo_b64(APP_LOGO_PATH)" in app_text
+    assert "def _load_logo_data(" in app_text
+    assert "logo = _load_logo_data(APP_LOGO_PATH)" in app_text
+    assert 'data:{logo.mime_type};base64,{logo.b64}' in app_text
 
 
 def test_clipboard_module_is_used():
