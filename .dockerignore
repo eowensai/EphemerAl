@@ -50,7 +50,6 @@ AGENTS.md
 README.md
 LICENSE.md
 System Deployment Guide.md
-Ephemeral Screenshot.jpg
 docker-compose.yml
 docker-compose.api.yml
 tests/
