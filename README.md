@@ -1,167 +1,107 @@
-# EphemerAl (EphemerAI UI): A Simple Self-Hosted Chat Interface for Local AI with Ollama that Accepts Documents and Images
+# EphemerAl
 
-EphemerAl is a lightweight, open-source web interface (user-facing brand: **EphemerAI**) for interacting with local LLMs on your hardware via Ollama. I designed it for my day job to help keep our team's sensitive info off cloud services, and to provide a modern AI experience to staff without the per-user cost required to achieve equivalent capabilities online. The repository now targets Qwen3.6-35B-A3B through a stable local alias (`ephemeral-default`) that you create from `qwen3.6:35b-a3b`, and can still be retargeted to other models by changing one environment variable (`LLM_MODEL_NAME`).
+EphemerAl is a privacy-focused, self-hosted document chat app that runs local models through Ollama.
 
-While it wasn't built for broad distribution, I'm sharing this generalized version in case it helps others looking for a local-only, account-free, multimodal LLM interface. . . whether to provide an operational tool, a staff learning environment, or bragging rights when friends visit on your home network.
+![Default EphemerAl interface screenshot](docs/screenshot-default-branding.jpg)
 
-[View the source code on GitHub](https://github.com/eowensai/EphemerAl)
+> Screenshot shows the default product branding; deployers can replace it via APP_DISPLAY_NAME and APP_LOGO_PATH.
 
-![A screenshot of EphemerAl, a self-hosted AI assistant for local document Q&A and image analysis using Ollama](Ephemeral%20Screenshot.jpg)
+## What this app does
 
----
+- Runs chat against a local Ollama model with token-streamed responses.
+- Supports document uploads (for example PDF, DOCX, TXT) and parses them with Apache Tika.
+- Keeps session state in memory for the active Streamlit session.
+- Applies streaming-output filtering as defense-in-depth for thought-channel leakage.
 
-## Core Features
+## Privacy and security summary
 
-- **Local AI chat:** Real-time chat against a local Ollama model.
-- **Document ingestion:** Upload PDFs, Office docs, text files, and more (via Apache Tika).
-- **Upload guardrail:** Each uploaded file is capped at 50 MB to prevent accidental oversized uploads.
-- **Image + text chat:** If your selected model supports vision, image uploads are included in the request automatically.
-- **Streaming responses:** Assistant output streams token-by-token.
-- **Ephemeral by default:** Conversation state is in-memory for the session; no app-level database.
-- **Token/context safeguards:** The app estimates prompt size and drops overflowing attachments before request failure where possible.
+- Local-first architecture: app, model backend, and parser run in your environment.
+- No app database by default; chat state is session-scoped in memory.
+- Docker defaults keep Ollama internal to the Compose network unless explicitly exposed.
+- **Ollama cloud features are disabled by default** with `OLLAMA_NO_CLOUD=1`.
+- This stack is intended for trusted environments; if you expose it beyond a trusted network, add authentication and TLS via a reverse proxy.
 
-## Default Model and Retargeting
+## Quick start
 
-### Default target
+Set expectations first:
 
-- **Model:** Qwen3.6-35B-A3B
-- **Ollama backing tag:** `qwen3.6:35b-a3b`
-- **App model name:** `ephemeral-default`
+- The public default profile (`qwen3:8b`, 32K context) is **text-only**.
+- Document uploads work with the default profile.
+- Image analysis requires a **vision-capable model** and (if auto-detection is insufficient) setting `LLM_SUPPORTS_VISION` appropriately.
 
-Using a stable local alias is intentional: it lets you pin runtime defaults (like context and generation parameters) in one place while the app consistently calls `ephemeral-default`.
+Then:
 
-### Runtime assumptions in this repo
+1. **Pick a profile** from [`docs/model-profiles.md`](docs/model-profiles.md).
+2. **Run setup wizard or bootstrap**:
+   - Wizard: `python scripts/setup_wizard.py`
+   - Bootstrap: `bash scripts/bootstrap.sh`
+3. **Create model alias** (recommended path):
+   - `bash scripts/create_ollama_model.sh`
+4. **Run doctor**:
+   - `python scripts/doctor.py`
+5. **Open the app**:
+   - `http://localhost:8501`
 
-- **256K target context:** set through alias Modelfile `num_ctx 262144`.
-- **q8 KV cache target:** configured via Ollama environment variable in the deployment path.
-- **Non-thinking by default:** requests use `reasoning_effort="none"`.
-- **No default EphemerAl output cap:** the app does not set `max_tokens` unless you explicitly configure `LLM_MAX_TOKENS`.
-- **Document budgeting reserve:** `LLM_OUTPUT_RESERVE_TOKENS` keeps response headroom while loading documents into context; it is not an output cap.
-- **OpenAI SDK client controls:** defaults are `LLM_REQUEST_TIMEOUT_S=1800` and `LLM_MAX_RETRIES=0` for local long-running inference without hidden retries.
+## System requirements
 
-### Retarget to a different model
+The public default profile in this repository is **`qwen3:8b` with 32K context**. Use profile docs for exact environment values and tuning.
 
-Set `LLM_MODEL_NAME` to any available Ollama model tag or local alias:
+- **Low tier (entry):** modern CPU with limited or no discrete GPU.
+  - Expect functional text chat and document workflows with higher latency.
+- **Mid tier (recommended general use):** discrete GPU system suitable for local 8B-class inference.
+  - Expect smoother text chat with the default `qwen3:8b` / 32K profile.
+- **High tier (workstation):** high-VRAM multi-GPU or equivalent class hardware.
+  - The current **Qwen35/256K** setup is a **high-VRAM workstation profile**, not the universal default.
 
-- Docker Compose: edit `docker-compose.yml`
-- Native/service deployment: set environment variable for the app service
-
-The app performs model capability/context detection at runtime via Ollama (`/api/show`) so behavior remains adaptive across models.
-
-## Privacy Notes
-
-EphemerAl is designed to minimize data retention:
-
-- **No database:** Conversations live in the Streamlit server process memory (`st.session_state`) for your browser session and are not persisted to disk by this app.
-- **Session-scoped caching:** Document parsing results are cached per-session for performance, but cleared when you start a new conversation or close your browser.
-- **Container isolation:** Tika and the Streamlit app use tmpfs for `/tmp`, so temporary files stay in RAM.
-- **Optional log suppression:** For hardened deployments, container logging can be disabled entirely (see docker-compose.yml comments).
-
-Note that browser caching behavior depends on your browser settings and cache-control headers. For maximum privacy on shared machines, use private/incognito browsing or clear browser data after use.
-
-If you enable a shared Ollama API backend, requests made directly to Ollama bypass the EphemerAl UI/session layer; privacy and logging behavior for those requests depends on the external client and Ollama deployment settings, not EphemerAl session behavior.
-
-## Network Security Note
-
-EphemerAl is designed for trusted local networks (home, office LAN) and does not implement authentication or transport encryption. The Streamlit container disables CORS and XSRF protection to allow straightforward LAN access. Do not expose this application to the public internet without adding a reverse proxy with authentication and TLS.
-
-## Technical Stack
-
-- Python 3.11 + Streamlit 1.56.0
-- Ollama API (OpenAI-compatible endpoint for chat)
-- Apache Tika server
-- Docker Compose (for the included deployment path)
-- Pinned Ollama container image in compose: `ollama/ollama:0.21.0`
-- Pinned Apache Tika container image in compose: `apache/tika:3.3.0.0-full`
-
-## Hardware Planning (honest baseline)
-
-Qwen3.6-35B-A3B is a large model and should be planned like one.
-
-- **Target baseline:** 32 GB total VRAM for this deployment (including multi-GPU setups such as 2x 16 GB cards).
-- **Operator validation required:** verify actual context realization and GPU residency with `ollama ps` after deployment.
-- **CPU-only fallback:** technically possible in some setups but usually too slow for interactive use.
-
-If this model is too heavy for your machine, retarget `LLM_MODEL_NAME` to a smaller local model.
-
-## System Requirements
-
-To run this interface effectively, the following specifications are recommended.
-
-- **Operating System:** Windows 11 Pro or Enterprise, fully updated. WSL will be installed as part of setup (if not already present).
-- **Graphics Processing Unit:** One or more discrete NVIDIA GPU(s), preferably from the 30-series or later. Plan for 32 GB total VRAM for Qwen3.6-35B-A3B (including multi-GPU combinations such as 2x 16 GB).
-- **Nvidia Driver:** The most recent WHQL-certified NVIDIA GPU driver. Optional components may be omitted.
-- **Additional Note:** If available, connect display to integrated graphics to allocate more VRAM to the NVIDIA GPU(s).
+For image support on any tier, choose a **vision-capable model** and verify capability detection/settings.
 
 ## Configuration
 
-Deployment configuration is documented in [`docs/configuration.md`](docs/configuration.md).
+See [`docs/configuration.md`](docs/configuration.md).
 
-For a guided first-time setup flow, see [`docs/setup-wizard.md`](docs/setup-wizard.md) and run `python scripts/setup_wizard.py`. Use `.env` (copied from `.env.example`) as the primary configuration surface for branding, model, networking, and runtime settings.
+Use `.env` (copied from `.env.example`) as the main configuration surface for deployment customization. Normal deployment customization should be done through config values, not source edits.
 
-Temporary docs link (to be reorganized later): [`docs/doctor.md`](docs/doctor.md) for the `python scripts/doctor.py` health-check command.
+## Model profiles
 
-For one-command first-time setup, use the bootstrap scripts: [`docs/bootstrap.md`](docs/bootstrap.md).
+See [`docs/model-profiles.md`](docs/model-profiles.md) for profile selection and tuning guidance.
 
-## Deployment
+## Customizing branding and system prompt
 
-Use the step-by-step guide:
+Common environment variables:
 
-- [System Deployment Guide](System%20Deployment%20Guide.md)
+- `APP_DISPLAY_NAME`: user-facing product name shown in UI.
+- `APP_LOGO_PATH`: logo path used by the app.
+- `APP_EXPORT_TITLE`: title used in exported transcripts.
+- `SYSTEM_PROMPT_PATH`: optional path to a custom system prompt file.
 
-### Migration note for pre-Qwen installs
+## Health check and troubleshooting
 
-If your current stack still points at any older model tag, recreate or update your local `ephemeral-default` alias to point to `qwen3.6:35b-a3b` using the deployment guide, then confirm `docker-compose.yml` uses `LLM_MODEL_NAME=ephemeral-default`.
+Use the doctor documentation and command:
 
-## Shared Ollama API Backend (optional)
+- [`docs/doctor.md`](docs/doctor.md)
+- `python scripts/doctor.py`
 
-- Raw Ollama remains internal by default in this stack.
-- Ollama cloud features are disabled by default (`OLLAMA_NO_CLOUD=1`) to keep this deployment local-only/privacy-aligned.
-- If you intentionally want shared API access, use the `docker-compose.api.yml` override to expose port `11434`.
-- External OpenAI-compatible clients should use:
-  - `model: "ephemeral-default"`
-  - `reasoning_effort: "none"`
-  - `temperature: 0.7`
-  - `top_p: 0.8`
-  - `presence_penalty: 1.5`
-- Important: raw Ollama exposure in this stack does not add app-level authentication by itself.
+## Optional shared Ollama API
 
-## Accessing EphemerAl
+- Default Compose deployment keeps raw Ollama internal.
+- If you intentionally expose Ollama for shared API use, use compose overrides and network controls.
+- **Security warning:** exposing raw Ollama does not add app-layer authentication automatically.
 
-- Local: `http://localhost:8501`
-- Network: `http://<host-ip>:8501`
+## Development and testing
 
-## UI Validation Checklist (Streamlit 1.56)
+From repository root:
 
-After deployment (or after UI updates), run this quick manual checklist in a browser:
+- `python -m pytest -q`
+- `pytest -q`
+- `python -m py_compile ephemeral_app.py ephemeral/*.py`
+- `ruff check .`
 
-1. Open the app and confirm the empty welcome screen renders before any chat messages.
-2. Send a text-only prompt and confirm normal response streaming.
-3. Upload a supported document (for example, PDF or DOCX) and confirm document chat still works.
-4. Upload an image and confirm behavior is model-aware:
-   - If the selected model supports vision, the image is accepted and included.
-   - If the selected model does not support vision, the UI shows a clear warning and continues text chat.
-5. Click **New chat** and confirm prior messages/attachments are cleared from the current session.
-6. After at least one exchanged message, click **Copy conversation** and confirm clipboard copy works.
-7. Temporarily stop Ollama or Tika and confirm the app UI still renders with backend-unavailable guidance.
-8. Narrow the browser window (or test on mobile) and confirm basic sidebar/chat usability.
+Optional checks:
 
-## Stopping the Application
+- `bash scripts/validate.sh`
+- `python scripts/ui_smoke.py`
+- `bash scripts/validate_ui.sh`
 
-Execute the following in an Administrator PowerShell window:
+## License
 
-```
-wsl --shutdown
-```
-
-To restart, either run `wsl` or reboot the system if you have the startup script installed.
-
-## Support
-
-This project is provided as a resource for the community as-is. I hope it solves a problem or provides value outside my environment.
-
-If you run into issues, consider submitting error details, including screenshots and system files, to an AI assistant for guidance. This isn't meant to be snark, it's amazing how well the big reasoning models can troubleshoot.
-
-**License:**
-
-MIT - (At least the parts of this stack that are mine to license)
+This repository’s code is licensed under the [MIT License](LICENSE.md). Third-party components, container images, and model weights are licensed separately by their respective owners.
