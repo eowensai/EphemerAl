@@ -8,7 +8,7 @@ Use these scripts for a safe, one-command first run. They validate prerequisites
 2. Checks Git and Python availability.
 3. Optionally runs `scripts/setup_wizard.py` when `.env` is missing.
 4. Otherwise copies `.env.example` to `.env` and prompts you to review values.
-5. Runs `docker compose up -d --build`.
+5. Runs `docker compose up -d --build` (CPU-safe default).
 6. Runs `scripts/create_ollama_model.sh`.
 7. Runs `python scripts/doctor.py`.
 
@@ -16,6 +16,9 @@ Notes:
 - The scripts do **not** install Docker, GPU drivers, NVIDIA toolkit, or OS packages.
 - Raw Ollama API remains internal by default.
 - `OLLAMA_NO_CLOUD=1` remains the default privacy setting.
+- Codex web/cloud execution environments may not include the Docker CLI.
+- For Compose-related changes, run Docker Compose validation locally or in GitHub Actions before merging.
+- `python scripts/validate_compose_static.py` is the Docker-free fallback validator.
 
 ## Linux / macOS / WSL
 
@@ -68,3 +71,10 @@ Non-interactive mode:
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap.ps1 -Yes
 ```
+
+
+## Compose mode by hardware
+
+- CPU / low-end: `docker compose up -d --build`
+- GPU / high-VRAM: `docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build`
+- High-VRAM profile values are provided in `examples/profiles/high-vram-workstation.env` (including `qwen3.6:35b-a3b`, `LLM_CONTEXT_TOKENS=262144`, `OLLAMA_NUM_CTX=262144`, and `OLLAMA_KV_CACHE_TYPE=q8_0`).

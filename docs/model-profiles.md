@@ -15,6 +15,22 @@ This repository includes ready-to-copy `.env` model profiles for common hardware
 - `examples/profiles/high-vram-workstation.env`
   - Reproduces current high-resource behavior with `qwen3.6:35b-a3b` and large context.
 
+## Compose mode selection
+
+- **CPU / low-end path (default):**
+
+```bash
+docker compose -f docker-compose.yml up -d --build
+```
+
+- **GPU path (explicit override):**
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
+```
+
+- **High-VRAM path:** use `examples/profiles/high-vram-workstation.env` plus the GPU override above to preserve the 35B/256K/Q8 settings.
+
 ## Quick start
 
 From repository root:
@@ -26,6 +42,8 @@ bash scripts/create_ollama_model.sh
 ```
 
 Swap `midrange-gpu.env` for another profile if needed.
+
+For low-end installs, combine `low-end-laptop.env` with base Compose only (no GPU override).
 
 ## Alias behavior: `LLM_MODEL_NAME` vs `OLLAMA_MODEL_SOURCE`
 

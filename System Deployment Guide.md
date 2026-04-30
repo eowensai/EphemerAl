@@ -13,6 +13,8 @@ For Linux/macOS Docker Compose users: you can skip WSL-specific steps and follow
 
 For profile selection and hardware targeting, see [`docs/model-profiles.md`](docs/model-profiles.md). High-VRAM users should review `examples/profiles/high-vram-workstation.env`.
 
+High-VRAM values are preserved in `examples/profiles/high-vram-workstation.env`: `OLLAMA_MODEL_SOURCE=qwen3.6:35b-a3b`, `LLM_CONTEXT_TOKENS=262144`, `OLLAMA_NUM_CTX=262144`, `OLLAMA_KV_CACHE_TYPE=q8_0`.
+
 ## Related docs (recommended before manual steps)
 
 - Bootstrap: [`docs/bootstrap.md`](docs/bootstrap.md)
@@ -99,10 +101,14 @@ python scripts/setup_wizard.py
 bash scripts/bootstrap.sh
 ```
 
-2. Start stack:
+2. Start stack for your hardware:
 
 ```bash
+# CPU / low-end
 docker compose up -d --build
+
+# GPU / high-VRAM
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
 ```
 
 3. Create/update Ollama alias (primary path):
