@@ -95,7 +95,9 @@ To run this interface effectively, the following specifications are recommended.
 
 ## Configuration
 
-Deployment configuration is documented in [`docs/configuration.md`](docs/configuration.md). Use `.env` (copied from `.env.example`) as the primary configuration surface for branding, model, networking, and runtime settings.
+Deployment configuration is documented in [`docs/configuration.md`](docs/configuration.md).
+
+For a guided first-time setup flow, see [`docs/setup-wizard.md`](docs/setup-wizard.md) and run `python scripts/setup_wizard.py`. Use `.env` (copied from `.env.example`) as the primary configuration surface for branding, model, networking, and runtime settings.
 
 Temporary docs link (to be reorganized later): [`docs/doctor.md`](docs/doctor.md) for the `python scripts/doctor.py` health-check command.
 
