@@ -101,6 +101,8 @@ For a guided first-time setup flow, see [`docs/setup-wizard.md`](docs/setup-wiza
 
 Temporary docs link (to be reorganized later): [`docs/doctor.md`](docs/doctor.md) for the `python scripts/doctor.py` health-check command.
 
+For one-command first-time setup, use the bootstrap scripts: [`docs/bootstrap.md`](docs/bootstrap.md).
+
 ## Deployment
 
 Use the step-by-step guide:
