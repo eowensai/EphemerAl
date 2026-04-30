@@ -2,7 +2,7 @@
 # docker-compose.yml — EphemerAl demo stack
 #
 # Three-service layout:
-#   • ollama        — serves the LLM (GPU / CUDA)
+#   • ollama        — serves the LLM (CPU by default; optional GPU override)
 #   • tika-server   — parses over 100 document types
 #   • ephemeral-app — Streamlit front-end website
 #
@@ -29,16 +29,14 @@ services:
       - ollama-models:/root/.ollama
 
     environment:
-      # NVIDIA_VISIBLE_DEVICES=all lets the container see every GPU the host has.
-      - NVIDIA_VISIBLE_DEVICES=all
       - OLLAMA_HOST=0.0.0.0:11434
       - OLLAMA_ORIGINS=${OLLAMA_ORIGINS:-}
       - OLLAMA_NO_CLOUD=${OLLAMA_NO_CLOUD:-1}
       - OLLAMA_MAX_LOADED_MODELS=${OLLAMA_MAX_LOADED_MODELS:-1}
       - OLLAMA_NUM_PARALLEL=${OLLAMA_NUM_PARALLEL:-1}
       - OLLAMA_MAX_QUEUE=${OLLAMA_MAX_QUEUE:-16}
-      # Helpful CUDA GEMM path for supported GPU workloads.
-      - OLLAMA_FORCE_CUBLAS_LT=${OLLAMA_FORCE_CUBLAS_LT:-1}
+      # CUDA-specific tuning (for GPU overrides) can be set via profile/.env.
+      - OLLAMA_FORCE_CUBLAS_LT=${OLLAMA_FORCE_CUBLAS_LT:-}
       - OLLAMA_KEEP_ALIVE=${OLLAMA_KEEP_ALIVE:--1}
       - OLLAMA_FLASH_ATTENTION=${OLLAMA_FLASH_ATTENTION:-1}
       - OLLAMA_KV_CACHE_TYPE=${OLLAMA_KV_CACHE_TYPE:-f16}   # Conservative public default for broad compatibility; high-VRAM profiles can set q8_0.
@@ -46,16 +44,6 @@ services:
     # Intentionally internal-only on llm-net for privacy; temporarily switch to
     # ports: ["11434:11434"] for local host debugging with curl if needed.
     expose: ["11434"]
-
-    # GPU reservation for Docker Compose v3+
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              # "count: all" automatically uses all available GPUs detected by Docker.
-              count: all
-              capabilities: [gpu]
 
     # Disable Docker logs for this container (privacy)
     logging:

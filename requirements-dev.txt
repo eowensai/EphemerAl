@@ -3,3 +3,4 @@ pytest-cov>=5.0
 playwright
 ruff>=0.11
 pytest-timeout
+PyYAML>=6.0

@@ -1,0 +1,12 @@
+services:
+  ollama:
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-all}
+      - OLLAMA_FORCE_CUBLAS_LT=${OLLAMA_FORCE_CUBLAS_LT:-1}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

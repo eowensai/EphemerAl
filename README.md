@@ -32,14 +32,17 @@ Set expectations first:
 Then:
 
 1. **Pick a profile** from [`docs/model-profiles.md`](docs/model-profiles.md).
-2. **Run setup wizard or bootstrap**:
+2. **Choose Compose mode**:
+   - CPU/low-end (default): `docker compose up -d --build`
+   - GPU/high-VRAM: `docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build`
+3. **Run setup wizard or bootstrap**:
    - Wizard: `python scripts/setup_wizard.py`
    - Bootstrap: `bash scripts/bootstrap.sh`
-3. **Create model alias** (recommended path):
+4. **Create model alias** (recommended path):
    - `bash scripts/create_ollama_model.sh`
-4. **Run doctor**:
+5. **Run doctor**:
    - `python scripts/doctor.py`
-5. **Open the app**:
+6. **Open the app**:
    - `http://localhost:8501`
 
 ## System requirements
@@ -80,6 +83,8 @@ Use the doctor documentation and command:
 
 - [`docs/doctor.md`](docs/doctor.md)
 - `python scripts/doctor.py`
+
+GPU support is preserved through the explicit `docker-compose.gpu.yml` override path; base `docker-compose.yml` remains CPU-safe for low-end installs.
 
 ## Optional shared Ollama API
 
