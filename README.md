@@ -93,6 +93,10 @@ To run this interface effectively, the following specifications are recommended.
 - **Nvidia Driver:** The most recent WHQL-certified NVIDIA GPU driver. Optional components may be omitted.
 - **Additional Note:** If available, connect display to integrated graphics to allocate more VRAM to the NVIDIA GPU(s).
 
+## Configuration
+
+Deployment configuration is documented in [`docs/configuration.md`](docs/configuration.md). Use `.env` (copied from `.env.example`) as the primary configuration surface for branding, model, networking, and runtime settings.
+
 ## Deployment
 
 Use the step-by-step guide:
