@@ -13,11 +13,61 @@ elif [[ $# -gt 0 ]]; then
   exit 1
 fi
 
+read_dotenv_value() {
+  local raw="$1"
+  local value="${raw#"${raw%%[![:space:]]*}"}"
+  value="${value%"${value##*[![:space:]]}"}"
+  if [[ "${value}" =~ ^\"(.*)\"$ ]]; then
+    printf '%s' "${BASH_REMATCH[1]}"
+    return 0
+  fi
+  if [[ "${value}" =~ ^\'(.*)\'$ ]]; then
+    printf '%s' "${BASH_REMATCH[1]}"
+    return 0
+  fi
+  printf '%s' "${value}"
+}
+
+load_selected_dotenv() {
+  local dotenv_path="$1"
+  local -A allowed=(
+    [OLLAMA_CONTAINER]=1
+    [OLLAMA_MODEL_SOURCE]=1
+    [LLM_MODEL_NAME]=1
+    [OLLAMA_NUM_CTX]=1
+    [OLLAMA_NUM_PREDICT]=1
+    [OLLAMA_TEMPERATURE]=1
+    [LLM_TEMPERATURE]=1
+    [OLLAMA_TOP_P]=1
+    [LLM_TOP_P]=1
+    [OLLAMA_TOP_K]=1
+    [OLLAMA_MIN_P]=1
+    [OLLAMA_REPEAT_PENALTY]=1
+    [OLLAMA_KV_CACHE_TYPE]=1
+  )
+
+  while IFS= read -r line || [[ -n "${line}" ]]; do
+    local trimmed="${line#"${line%%[![:space:]]*}"}"
+    if [[ -z "${trimmed}" || "${trimmed:0:1}" == "#" ]]; then
+      continue
+    fi
+    if [[ ! "${trimmed}" =~ ^([A-Za-z_][A-Za-z0-9_]*)=(.*)$ ]]; then
+      continue
+    fi
+    local key="${BASH_REMATCH[1]}"
+    local raw_value="${BASH_REMATCH[2]}"
+    if [[ -z "${allowed[${key}]:-}" ]]; then
+      continue
+    fi
+    local parsed
+    parsed="$(read_dotenv_value "${raw_value}")"
+    printf -v "${key}" '%s' "${parsed}"
+    export "${key}"
+  done < "${dotenv_path}"
+}
+
 if [[ -f "${REPO_ROOT}/.env" ]]; then
-    set -a
-  # shellcheck disable=SC1091
-  source "${REPO_ROOT}/.env"
-  set +a
+  load_selected_dotenv "${REPO_ROOT}/.env"
 fi
 
 OLLAMA_CONTAINER="${OLLAMA_CONTAINER:-ollama}"
