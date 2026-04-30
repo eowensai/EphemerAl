@@ -1,7 +1,7 @@
 # Setup Wizard (`scripts/setup_wizard.py`)
 
 The setup wizard provides a lightweight, line-oriented terminal flow for first-time setup.
-It is intended for users who can run commands but do not want to edit YAML or Modelfiles.
+It is intended for users who can run commands and prefer profile-driven configuration rather than direct source changes.
 
 ## What it does
 
