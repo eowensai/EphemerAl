@@ -196,6 +196,17 @@ docker run --rm --gpus all nvidia/cuda:12.6.3-base-ubuntu24.04 nvidia-smi
 You should see a table showing your GPU name, driver version, and VRAM. If this fails, your NVIDIA driver may need updating, or the toolkit install did not complete. Go back to Step 2c and confirm each command ran without errors.
 
 
+## Quick Start (Recommended)
+
+Before following the full manual workflow below, try the one-command bootstrap first:
+
+```bash
+cd ~/ephemeral-llm
+bash scripts/bootstrap.sh
+```
+
+If bootstrap cannot complete in your environment, continue with the manual steps in this guide.
+
 ## Step 3: Deploy EphemerAl and Create the Qwen Alias
 
 This step starts the stack, pulls the Qwen model, and creates the local alias EphemerAl expects.
