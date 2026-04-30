@@ -128,7 +128,7 @@ http://localhost:8501
 Use this only if the helper script cannot satisfy your custom runtime needs.
 
 - Enter Ollama container.
-- Create/edit a Modelfile.
+- Create a deployment profile file (for example under `examples/profiles/`) and keep model settings there rather than direct source edits.
 - Run `ollama create <alias> -f <modelfile>`.
 - Keep `LLM_MODEL_NAME` aligned with your alias in `.env`.
 
