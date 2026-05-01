@@ -43,6 +43,8 @@ python scripts/setup_wizard.py --help
 
 - The wizard does not make live network calls by itself.
 - Service-start/model-download actions happen only if you approve the optional commands.
+- `bash scripts/create_ollama_model.sh --dry-run` can be used before Docker to preview values; real model alias creation needs a running Ollama container.
 - The midrange profile default uses `qwen3:8b`, which is text-only (not a vision model).
 - Raw Ollama API exposure is a manual, opt-in deployment override using `docker-compose.api.yml`.
   Keep `OLLAMA_API_BIND=127.0.0.1` as the safer default unless you intentionally need broader access.
+- In Codex/cloud sandboxes, Docker Compose validation may be unavailable; use `python scripts/validate_compose_static.py` there and run `docker compose config` locally or in CI.

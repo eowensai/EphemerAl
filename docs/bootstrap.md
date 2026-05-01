@@ -19,7 +19,21 @@ Notes:
 - Codex web/cloud execution environments may not include the Docker CLI.
 - For Compose-related changes, run Docker Compose validation locally or in GitHub Actions before merging.
 - `python scripts/validate_compose_static.py` is the Docker-free fallback validator.
+- `docker compose config` remains the real runtime Compose validation and should run locally or in CI.
 - When PowerShell is unavailable in CI/Codex, validate `scripts/bootstrap.ps1` with static contract tests (no `pwsh` runtime required).
+
+## Relationship to manual setup
+
+If you skip bootstrap, follow the ordered manual path from `README.md`:
+
+1. Prepare `.env` (copy `.env.example`, copy a profile from `examples/profiles/`, or run `python scripts/setup_wizard.py`).
+2. Review `.env`.
+3. Run `docker compose up -d --build` (or GPU override variant).
+4. Run `bash scripts/create_ollama_model.sh`.
+5. Run `python scripts/doctor.py`.
+6. Open Streamlit.
+
+`bash scripts/create_ollama_model.sh --dry-run` is safe before Docker; non-dry-run alias creation requires a running Ollama container.
 
 ## Linux / macOS / WSL
 
