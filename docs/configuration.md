@@ -32,6 +32,8 @@ Exposing raw Ollama on the network is optional and should be deliberate: direct 
 
 ## Environment variables (.env.example)
 
+`MAX_UPLOAD_MB` is the single user-facing upload limit: it is enforced by the app upload guardrails and passed to the Dockerized Streamlit server runtime upload cap. Very large files can still fail due to browser limits, Apache Tika parsing/memory constraints, or model context/token budgeting limits.
+
 | Option | Default | Required? | Valid values/range | What it does | When to change it |
 |---|---|---|---|---|---|
 | `APP_DISPLAY_NAME` | `EphemerAI` | No | Non-empty string | Main app brand name in UI. | Change for your organization/product branding. |
@@ -40,7 +42,7 @@ Exposing raw Ollama on the network is optional and should be deliberate: direct 
 | `APP_LOGO_PATH` | `static/ephemeral_logo.png` | No | Path to local asset | Path to logo asset served by app. | Change when using custom logo. |
 | `APP_EXPORT_TITLE` | `EphemerAI Conversation Export` | No | String | Title used in exported conversations. | Rebrand exports or compliance labeling. |
 | `SYSTEM_PROMPT_PATH` | `system_prompt_template.md` | No | Path to readable prompt template file | System prompt template file loaded by app. | Use a custom prompt policy/template. |
-| `MAX_UPLOAD_MB` | `50` | No | Positive integer MB (practical range depends on host resources) | Max per-file upload size guardrail. | Raise/lower upload limit for capacity/risk policy. |
+| `MAX_UPLOAD_MB` | `50` | No | Positive integer MB (practical range depends on host resources) | Max per-file upload size guardrail in the app and Dockerized Streamlit server runtime. | Raise/lower upload limit for capacity/risk policy. |
 | `DEFAULT_UPLOAD_PROMPT` | `Summarize the key points from the uploaded document.` | No | String | Default prompt inserted for document analysis flows. | Change default task framing for users. |
 | `EPHEMERAL_DEBUG` | `false` | No | `true`/`false` | Enables debug behavior/log verbosity intended for troubleshooting. | Temporary debugging only. |
 | `EPHEMERAL_TIMEZONE` | _(empty)_ | No | IANA timezone (for example `America/New_York`) or empty | Optional timezone override for app behavior that needs timezone context. | Set for deterministic time display/ops behavior. |

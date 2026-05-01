@@ -13,26 +13,16 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # --- Application code --------------------------------------------
 COPY . .
-# --- Streamlit config --------------------------------------------
-RUN mkdir -p .streamlit && \
-    printf '%s\n' \
-        '[server]' \
-        'headless = true' \
-        'enableCORS = false' \
-        'enableXsrfProtection = false' \
-        'maxUploadSize = 50' \
-        'port = 8501' \
-        'address = "0.0.0.0"' \
-        '' \
-        '[browser]' \
-        'serverAddress     = "0.0.0.0"' \
-        'serverPort        = 8501' \
-        'gatherUsageStats  = false' \
-        '' > .streamlit/config.server.toml && \
-    cat .streamlit/config.server.toml .streamlit/config.toml > .streamlit/config.toml.merged && \
-    mv .streamlit/config.toml.merged .streamlit/config.toml && \
-    rm .streamlit/config.server.toml
 
 EXPOSE 8501
 
-CMD ["streamlit", "run", "ephemeral_app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+CMD streamlit run ephemeral_app.py \
+    --server.port=8501 \
+    --server.address=0.0.0.0 \
+    --server.headless=true \
+    --server.enableCORS=false \
+    --server.enableXsrfProtection=false \
+    --server.maxUploadSize="${MAX_UPLOAD_MB:-50}" \
+    --browser.serverAddress=0.0.0.0 \
+    --browser.serverPort=8501 \
+    --browser.gatherUsageStats=false

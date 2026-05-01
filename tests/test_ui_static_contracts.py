@@ -135,3 +135,11 @@ def test_text_only_mode_omits_image_parts_from_api_payload():
     assert 'elif ptype == "image_url":' in app_text
     assert "if vision_supported:" in app_text
     assert '{"type": "image_url", "image_url": {"url": f"data:{mime};base64,{img_b64}"}}' in app_text
+
+
+def test_dockerfile_upload_size_uses_runtime_env_and_no_hardcoded_50():
+    dockerfile_text = (REPO_ROOT / "Dockerfile").read_text(encoding="utf-8")
+    assert 'maxUploadSize = 50' not in dockerfile_text
+    assert '--server.maxUploadSize="${MAX_UPLOAD_MB:-50}"' in dockerfile_text
+    assert 'CMD ["streamlit", "run"' not in dockerfile_text
+
