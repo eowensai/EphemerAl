@@ -62,7 +62,7 @@ For image support on any tier, choose a **vision-capable model** and verify capa
 
 See [`docs/configuration.md`](docs/configuration.md).
 
-Use `.env` (copied from `.env.example`) as the main configuration surface for deployment customization. Normal deployment customization should be done through config values, not source edits.
+Use `.env` (copied from `.env.example`) as the main configuration surface for deployment customization. Normal deployment customization should be done through config values, not source edits. `.env` is parsed as standard dotenv-style `KEY=VALUE` text (including values with spaces); it does not need to be shell-source-safe.
 
 ## Model profiles
 
