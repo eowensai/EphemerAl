@@ -61,8 +61,7 @@ load_selected_dotenv() {
     fi
     local parsed
     parsed="$(read_dotenv_value "${raw_value}")"
-    printf -v "${key}" '%s' "${parsed}"
-    export "${key}"
+    export "${key}=${parsed}"
   done < "${dotenv_path}"
 }
 
