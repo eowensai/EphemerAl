@@ -123,13 +123,13 @@ def test_branding_and_prompt_defaults(monkeypatch):
     cfg = importlib.reload(config)
 
     assert cfg.APP_DISPLAY_NAME == "EphemerAI"
-    assert cfg.APP_SUBTITLE == "Private AI Assistant"
-    assert cfg.APP_WELCOME_SUBTITLE == "Your private workspace for focused, ephemeral conversations."
+    assert cfg.APP_SUBTITLE == "Privacy-first document chat"
+    assert cfg.APP_WELCOME_SUBTITLE == "Upload files and chat locally with your documents."
     assert cfg.APP_LOGO_PATH == "static/ephemeral_logo.png"
-    assert cfg.APP_EXPORT_TITLE == "EphemerAI Conversation"
+    assert cfg.APP_EXPORT_TITLE == "EphemerAI Conversation Export"
     assert cfg.SYSTEM_PROMPT_PATH == "system_prompt_template.md"
     assert cfg.MAX_UPLOAD_MB == 50
-    assert cfg.DEFAULT_UPLOAD_PROMPT == "Please analyze the uploaded files."
+    assert cfg.DEFAULT_UPLOAD_PROMPT == "Summarize the key points from the uploaded document."
 
 
 def test_max_upload_mb_invalid_falls_back(monkeypatch):

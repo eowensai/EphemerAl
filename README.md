@@ -2,9 +2,6 @@
 
 EphemerAl is a privacy-focused, self-hosted document chat app that runs local models through Ollama.
 
-![Default EphemerAl interface screenshot](docs/screenshot-default-branding.jpg)
-
-> Screenshot shows the default product branding; deployers can replace it via APP_DISPLAY_NAME and APP_LOGO_PATH.
 
 ## What this app does
 
