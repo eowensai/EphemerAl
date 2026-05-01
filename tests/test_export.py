@@ -55,7 +55,7 @@ def test_markdown_and_html_build_and_escape():
     ]
 
     md = build_conversation_markdown(messages)
-    assert md.startswith("# EphemerAI Conversation\n")
+    assert md.startswith("# EphemerAI Conversation Export\n")
     assert "**User**" in md
     assert "Attachments:" in md
     assert "- 📄 doc1.pdf" in md

@@ -114,6 +114,15 @@ def allowlisted(path: Path, line: str) -> bool:
     return False
 
 
+
+
+def check_default_logo_exists() -> list[str]:
+    expected_logo = ROOT / "static/ephemeral_logo.png"
+    if expected_logo.is_file():
+        return []
+    return [f"Missing documented default logo asset: {expected_logo.relative_to(ROOT).as_posix()}"]
+
+
 def main() -> int:
     findings: list[tuple[str, int, str, str, bool]] = []
     for path in iter_files(ROOT):
@@ -130,9 +139,14 @@ def main() -> int:
                         snippet = snippet.replace(token, redact_secret(token))
                     findings.append((rel, lineno, snippet, rule.category, rule.high_confidence))
 
-    if not findings:
+    missing_logo_errors = check_default_logo_exists()
+
+    if not findings and not missing_logo_errors:
         print("No findings.")
         return 0
+
+    for error in missing_logo_errors:
+        print(f"[Asset checks] {error}")
 
     findings.sort()
     grouped: dict[str, list[tuple[str, int, str, bool]]] = {}
@@ -146,7 +160,7 @@ def main() -> int:
             high_count += 1 if high else 0
             print(f"- {rel}:{lineno}: {snippet}")
 
-    return 2 if high_count else 1
+    return 2 if high_count else (1 if findings or missing_logo_errors else 0)
 
 
 if __name__ == "__main__":

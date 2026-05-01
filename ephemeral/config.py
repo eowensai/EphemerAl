@@ -84,18 +84,18 @@ TIKA_URL = os.getenv("TIKA_URL", "http://tika-server:9998")
 LLM_SUPPORTS_VISION = _optional_env("LLM_SUPPORTS_VISION")
 
 APP_DISPLAY_NAME = os.getenv("APP_DISPLAY_NAME", "EphemerAI")
-APP_SUBTITLE = os.getenv("APP_SUBTITLE", "Private AI Assistant")
+APP_SUBTITLE = os.getenv("APP_SUBTITLE", "Privacy-first document chat")
 APP_WELCOME_SUBTITLE = os.getenv(
     "APP_WELCOME_SUBTITLE",
-    "Your private workspace for focused, ephemeral conversations.",
+    "Upload files and chat locally with your documents.",
 )
 APP_LOGO_PATH = os.getenv("APP_LOGO_PATH", "static/ephemeral_logo.png")
-APP_EXPORT_TITLE = os.getenv("APP_EXPORT_TITLE", f"{APP_DISPLAY_NAME} Conversation")
+APP_EXPORT_TITLE = os.getenv("APP_EXPORT_TITLE", "EphemerAI Conversation Export")
 SYSTEM_PROMPT_PATH = os.getenv("SYSTEM_PROMPT_PATH", "system_prompt_template.md")
 MAX_UPLOAD_MB = _int_env("MAX_UPLOAD_MB", 50)
-DEFAULT_UPLOAD_PROMPT = os.getenv("DEFAULT_UPLOAD_PROMPT", "Please analyze the uploaded files.")
+DEFAULT_UPLOAD_PROMPT = os.getenv("DEFAULT_UPLOAD_PROMPT", "Summarize the key points from the uploaded document.")
 
-TIKA_TIMEOUT_S = _int_env("TIKA_TIMEOUT_S", 15)
+TIKA_TIMEOUT_S = _int_env("TIKA_TIMEOUT_S", 120)
 LLM_CONTEXT_TOKENS = _int_env_optional("LLM_CONTEXT_TOKENS")
 LLM_OUTPUT_RESERVE_TOKENS = _int_env("LLM_OUTPUT_RESERVE_TOKENS", 32768)
 LLM_REQUEST_TIMEOUT_S = _float_env("LLM_REQUEST_TIMEOUT_S", 1800.0)
@@ -104,10 +104,10 @@ LLM_TEMPERATURE = _float_env("LLM_TEMPERATURE", 0.7)
 LLM_TOP_P = _float_env("LLM_TOP_P", 0.8)
 LLM_PRESENCE_PENALTY = _float_env("LLM_PRESENCE_PENALTY", 1.5)
 LLM_REASONING_EFFORT = os.getenv("LLM_REASONING_EFFORT", "none").strip() or "none"
-LLM_THINKING_EFFORT = os.getenv("LLM_THINKING_EFFORT", "high").strip() or "high"
+LLM_THINKING_EFFORT = os.getenv("LLM_THINKING_EFFORT", "high").strip() or "high"  # blank/unset resolves to "high" for Thinking Mode turns.
 LLM_SHOW_REASONING = _bool_env("LLM_SHOW_REASONING", False)
 LLM_MAX_TOKENS = _int_env_optional("LLM_MAX_TOKENS")
-IMG_TOKEN_COST_DEFAULT = _int_env("IMG_TOKEN_COST_DEFAULT", 2048)
+IMG_TOKEN_COST_DEFAULT = _int_env("IMG_TOKEN_COST_DEFAULT", 1024)
 
 
 def _ollama_base_url() -> str:

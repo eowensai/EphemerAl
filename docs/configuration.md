@@ -37,7 +37,7 @@ Exposing raw Ollama on the network is optional and should be deliberate: direct 
 | `APP_DISPLAY_NAME` | `EphemerAI` | No | Non-empty string | Main app brand name in UI. | Change for your organization/product branding. |
 | `APP_SUBTITLE` | `Privacy-first document chat` | No | String | Short subtitle shown in app chrome. | Update for your use case messaging. |
 | `APP_WELCOME_SUBTITLE` | `Upload files and chat locally with your documents.` | No | String | Welcome/empty-state helper text. | Adjust onboarding tone/instructions. |
-| `APP_LOGO_PATH` | `static/logo.svg` | No | Path to local asset | Path to logo asset served by app. | Change when using custom logo. |
+| `APP_LOGO_PATH` | `static/ephemeral_logo.png` | No | Path to local asset | Path to logo asset served by app. | Change when using custom logo. |
 | `APP_EXPORT_TITLE` | `EphemerAI Conversation Export` | No | String | Title used in exported conversations. | Rebrand exports or compliance labeling. |
 | `SYSTEM_PROMPT_PATH` | `system_prompt_template.md` | No | Path to readable prompt template file | System prompt template file loaded by app. | Use a custom prompt policy/template. |
 | `MAX_UPLOAD_MB` | `50` | No | Positive integer MB (practical range depends on host resources) | Max per-file upload size guardrail. | Raise/lower upload limit for capacity/risk policy. |
@@ -54,7 +54,7 @@ Exposing raw Ollama on the network is optional and should be deliberate: direct 
 | `LLM_TOP_P` | `0.8` | No | Float `0.0–1.0` | Nucleus sampling control. | Tune output diversity/stability. |
 | `LLM_PRESENCE_PENALTY` | `1.5` | No | Float (commonly `-2.0–2.0`, provider-dependent) | Penalizes repeated topical presence. | Reduce repetition or encourage topic shifts. |
 | `LLM_REASONING_EFFORT` | `none` | No | Provider/model-supported values (for Ollama/OpenAI-compatible often `none`/`low`/`medium`/`high`) | Requests reasoning effort tier where supported. | Enable/tune explicit reasoning modes. |
-| `LLM_THINKING_EFFORT` | _(empty)_ | No | Provider/model-supported string or empty | Alternate/extra effort hint for models exposing “thinking” controls. | Only when using models that honor this knob. |
+| `LLM_THINKING_EFFORT` | _(empty)_ | No | Provider/model-supported string or empty | Alternate/extra effort hint for models exposing “thinking” controls; blank resolves to the app default `high` when Thinking Mode is enabled. | Only when using models that honor this knob. |
 | `LLM_SHOW_REASONING` | `false` | No | `true`/`false` | Controls whether reasoning/thought output is surfaced when available. | Debugging or specialized UX needs. |
 | `LLM_MAX_TOKENS` | _(empty)_ | No | Empty or positive integer | Optional output token cap for model responses. | Enforce bounded response length/cost. |
 | `LLM_SUPPORTS_VISION` | _(empty)_ | No | Empty/whitespace = auto-detect; truthy: `1,true,yes,y,on`; falsy: `0,false,no,n,off` | Optional capability hint for image support. | Force/override detection edge cases while keeping blank as auto-detect. |
