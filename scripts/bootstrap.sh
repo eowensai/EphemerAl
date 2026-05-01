@@ -58,6 +58,10 @@ confirm() {
 check_cmd() {
   local bin="$1" label="$2"
   if ! command -v "$bin" >/dev/null 2>&1; then
+    if [[ "$DRY_RUN" == true ]]; then
+      warn "$label is unavailable (dry-run continues)."
+      return 1
+    fi
     fail "$label is not installed or not on PATH."
   fi
 }
@@ -69,14 +73,26 @@ say "  3) Run docker compose up -d --build"
 say "  4) Run scripts/create_ollama_model.sh"
 say "  5) Run python scripts/doctor.py"
 
-check_cmd docker "Docker"
-if ! docker info >/dev/null 2>&1; then
-  fail "Docker is installed but not running. Start Docker and try again."
+DOCKER_READY=false
+if check_cmd docker "Docker"; then
+  if [[ "$DRY_RUN" == true ]]; then
+    if docker info >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+      DOCKER_READY=true
+      say "[dry-run] Docker CLI and Compose are available."
+    else
+      warn "Docker/Compose check would fail in a real run (dry-run continues)."
+    fi
+  else
+    if ! docker info >/dev/null 2>&1; then
+      fail "Docker is installed but not running. Start Docker and try again."
+    fi
+    if ! docker compose version >/dev/null 2>&1; then
+      fail "Docker Compose (docker compose) is unavailable. Install/enable Compose v2."
+    fi
+    DOCKER_READY=true
+  fi
 fi
-if ! docker compose version >/dev/null 2>&1; then
-  fail "Docker Compose (docker compose) is unavailable. Install/enable Compose v2."
-fi
-check_cmd git "Git"
+check_cmd git "Git" >/dev/null 2>&1 || true
 
 PYTHON_BIN=""
 if command -v python3 >/dev/null 2>&1; then
@@ -96,7 +112,13 @@ if [[ "${OSTYPE:-}" == linux* ]] || grep -qi microsoft /proc/version 2>/dev/null
 fi
 
 if [[ ! -f .env ]]; then
-  if [[ -n "$PYTHON_BIN" ]] && confirm ".env is missing. Run guided setup wizard now?"; then
+  if [[ "$DRY_RUN" == true ]]; then
+    say "[dry-run] Would prepare .env from defaults (.env.example or profile)."
+  elif [[ "$ASSUME_YES" == true ]]; then
+    [[ -f .env.example ]] || fail ".env.example was not found, cannot create .env."
+    cp .env.example .env
+    say "Created .env from .env.example using safe defaults. Please review and adjust .env for your environment."
+  elif [[ -n "$PYTHON_BIN" ]] && confirm ".env is missing. Run guided setup wizard now?"; then
     run_cmd "$PYTHON_BIN" scripts/setup_wizard.py
   else
     [[ -f .env.example ]] || fail ".env.example was not found, cannot create .env."
@@ -105,8 +127,15 @@ if [[ ! -f .env ]]; then
   fi
 fi
 
-run_cmd docker compose up -d --build
-run_cmd bash scripts/create_ollama_model.sh
+if [[ "$DOCKER_READY" == true ]]; then
+  run_cmd docker compose up -d --build
+  run_cmd bash scripts/create_ollama_model.sh
+elif [[ "$DRY_RUN" == true ]]; then
+  say "[dry-run] Would run docker compose up -d --build."
+  say "[dry-run] Would run scripts/create_ollama_model.sh."
+else
+  fail "Docker is required for non-dry-run bootstrap."
+fi
 
 if [[ -z "$PYTHON_BIN" ]]; then
   warn "Skipping doctor check because Python is unavailable."
