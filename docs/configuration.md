@@ -57,7 +57,7 @@ Exposing raw Ollama on the network is optional and should be deliberate: direct 
 | `LLM_THINKING_EFFORT` | _(empty)_ | No | Provider/model-supported string or empty | Alternate/extra effort hint for models exposing “thinking” controls. | Only when using models that honor this knob. |
 | `LLM_SHOW_REASONING` | `false` | No | `true`/`false` | Controls whether reasoning/thought output is surfaced when available. | Debugging or specialized UX needs. |
 | `LLM_MAX_TOKENS` | _(empty)_ | No | Empty or positive integer | Optional output token cap for model responses. | Enforce bounded response length/cost. |
-| `LLM_SUPPORTS_VISION` | _(empty)_ | No | Empty/auto, or boolean-like override depending on deployment conventions | Optional capability hint for image support. | Force/override detection edge cases. |
+| `LLM_SUPPORTS_VISION` | _(empty)_ | No | Empty/whitespace = auto-detect; truthy: `1,true,yes,y,on`; falsy: `0,false,no,n,off` | Optional capability hint for image support. | Force/override detection edge cases while keeping blank as auto-detect. |
 | `IMG_TOKEN_COST_DEFAULT` | `1024` | No | Positive integer estimated tokens/image | Budgeting estimate per image attachment. | Calibrate budgeting for your model behavior. |
 | `ENABLE_TOKEN_BUDGETING` | `true` | No | `true`/`false` | Enables app-side context budgeting safeguards. | Disable only for controlled experiments. |
 | `TIKA_URL` | `http://tika-server:9998` | Yes (unless app default matches environment) | URL to Apache Tika server | Document parsing backend endpoint. | Point to external Tika or different network path. |

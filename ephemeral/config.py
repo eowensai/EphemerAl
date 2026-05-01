@@ -69,10 +69,19 @@ def _bool_env(name: str, default: bool = False) -> bool:
     return default
 
 
+def _optional_env(name: str) -> Optional[str]:
+    """Return stripped env value, or None for unset/blank/whitespace-only."""
+    raw = os.getenv(name)
+    if raw is None:
+        return None
+    value = raw.strip()
+    return value or None
+
+
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://ollama:11434/v1")
 LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "ephemeral-default")
 TIKA_URL = os.getenv("TIKA_URL", "http://tika-server:9998")
-LLM_SUPPORTS_VISION = os.getenv("LLM_SUPPORTS_VISION")
+LLM_SUPPORTS_VISION = _optional_env("LLM_SUPPORTS_VISION")
 
 APP_DISPLAY_NAME = os.getenv("APP_DISPLAY_NAME", "EphemerAI")
 APP_SUBTITLE = os.getenv("APP_SUBTITLE", "Private AI Assistant")
