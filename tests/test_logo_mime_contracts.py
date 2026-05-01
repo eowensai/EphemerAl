@@ -15,6 +15,6 @@ def test_logo_mime_type_map_supports_expected_extensions():
 
 def test_logo_rendering_uses_display_name_alt_text_and_fallback_branding():
     app_text = (REPO_ROOT / "ephemeral_app.py").read_text(encoding="utf-8")
-    assert 'alt="{APP_DISPLAY_NAME} logo"' in app_text
-    assert '<div class="sidebar-brand-title">{APP_DISPLAY_NAME}</div>' in app_text
-    assert '<div class="sidebar-brand-subtitle">{APP_SUBTITLE}</div>' in app_text
+    assert 'alt="{APP_DISPLAY_NAME_HTML} logo"' in app_text
+    assert '<div class="sidebar-brand-title">{APP_DISPLAY_NAME_HTML}</div>' in app_text
+    assert '<div class="sidebar-brand-subtitle">{APP_SUBTITLE_HTML}</div>' in app_text
