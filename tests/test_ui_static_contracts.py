@@ -127,3 +127,11 @@ def test_vision_support_check_uses_current_files_and_history_guard():
     assert '_message_has_image(m.get("content"))' in app_text
     assert "has_image_files or has_image_history" in app_text
     assert "cached_vision" not in app_text
+
+
+def test_text_only_mode_omits_image_parts_from_api_payload():
+    app_text = (REPO_ROOT / "ephemeral_app.py").read_text(encoding="utf-8")
+    assert 'elif ptype == "image":' in app_text
+    assert 'elif ptype == "image_url":' in app_text
+    assert "if vision_supported:" in app_text
+    assert '{"type": "image_url", "image_url": {"url": f"data:{mime};base64,{img_b64}"}}' in app_text

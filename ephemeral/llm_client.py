@@ -86,7 +86,11 @@ def model_supports_images() -> bool:
       3) Ollama model_info heuristics as a fallback.
     """
     if LLM_SUPPORTS_VISION is not None:
-        return LLM_SUPPORTS_VISION.strip().lower() in {"1", "true", "yes", "y", "on"}
+        override = LLM_SUPPORTS_VISION.strip().lower()
+        if override in {"1", "true", "yes", "y", "on"}:
+            return True
+        if override in {"0", "false", "no", "n", "off"}:
+            return False
 
     payload = _ollama_show()
     if not payload:

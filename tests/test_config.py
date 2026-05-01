@@ -143,3 +143,13 @@ def test_max_upload_mb_invalid_falls_back(monkeypatch):
 
     monkeypatch.delenv("MAX_UPLOAD_MB", raising=False)
     importlib.reload(config)
+
+
+def test_llm_supports_vision_blank_normalizes_to_none(monkeypatch):
+    monkeypatch.setenv("LLM_SUPPORTS_VISION", "")
+    cfg = importlib.reload(config)
+    assert cfg.LLM_SUPPORTS_VISION is None
+
+    monkeypatch.setenv("LLM_SUPPORTS_VISION", "   ")
+    cfg = importlib.reload(config)
+    assert cfg.LLM_SUPPORTS_VISION is None
