@@ -4,9 +4,11 @@ from scripts.doctor import (
     FAIL,
     PASS,
     WARN,
+    _classify_ollama_ports,
+    _is_no_cloud_default_safe,
     detect_context_mismatch,
     format_status,
-    is_dangerous_bind,
+    main,
     parse_bool,
     parse_env_file,
     redact_value,
@@ -51,7 +53,42 @@ def test_parse_bool() -> None:
     assert parse_bool(None) is None
 
 
-def test_dangerous_bind_detection() -> None:
-    assert is_dangerous_bind("0.0.0.0", "") is True
-    assert is_dangerous_bind(None, "ports:\n  - '11434:11434'\n") is True
-    assert is_dangerous_bind("127.0.0.1", "ports:\n  - '8501:8501'\n") is False
+def test_port_exposure_classification_safe_base() -> None:
+    broad, loopback = _classify_ollama_ports({"expose": ["11434"]})
+    assert broad is False
+    assert loopback is False
+
+
+def test_port_exposure_ignores_comments_and_non_ollama_ports() -> None:
+    broad, loopback = _classify_ollama_ports({"ports": ["8501:8501"]})
+    assert broad is False
+    assert loopback is False
+
+
+def test_port_exposure_loopback_opt_in() -> None:
+    broad, loopback = _classify_ollama_ports({"ports": ["127.0.0.1:11434:11434"]})
+    assert broad is False
+    assert loopback is True
+
+
+def test_port_exposure_broad_bindings() -> None:
+    broad, loopback = _classify_ollama_ports({"ports": ["11434:11434", "0.0.0.0:11434:11434"]})
+    assert broad is True
+    assert loopback is False
+
+
+def test_no_cloud_default_safe_patterns() -> None:
+    assert _is_no_cloud_default_safe({"environment": ["OLLAMA_NO_CLOUD=${OLLAMA_NO_CLOUD:-1}"]}) is True
+    assert _is_no_cloud_default_safe({"environment": {"OLLAMA_NO_CLOUD": "1"}}) is True
+    assert _is_no_cloud_default_safe({"environment": {"OLLAMA_NO_CLOUD": "0"}}) is False
+
+
+def test_main_uses_ephemeral_app_remediation_and_handles_no_docker(monkeypatch, capsys) -> None:
+    monkeypatch.setattr("scripts.doctor.shutil.which", lambda _: None)
+    rc = main()
+    captured = capsys.readouterr().out
+    assert rc == 0
+    assert "docker compose up -d ephemeral-app" in captured
+    assert "docker compose up -d app" not in captured
+    assert "Docker-dependent checks will be skipped" in captured
+    assert "NVIDIA GPU" in captured
