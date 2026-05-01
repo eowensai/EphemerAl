@@ -40,6 +40,8 @@ Default Compose keeps raw Ollama internal-only. External/raw access is opt-in vi
 
 `MAX_UPLOAD_MB` is the single user-facing upload limit: it is enforced by the app upload guardrails and passed to the Dockerized Streamlit server runtime upload cap. Very large files can still fail due to browser limits, Apache Tika parsing/memory constraints, or model context/token budgeting limits.
 
+Document parsing in the app is always performed through the external Apache Tika service URL (`TIKA_URL`, default `http://tika-server:9998` in Compose). `TIKA_CLIENT_ONLY` is an upstream/internal `tika-python` environment variable retained for predictable client-only behavior and is not an app-specific feature toggle.
+
 | Option | Default | Required? | Valid values/range | What it does | When to change it |
 |---|---|---|---|---|---|
 | `APP_DISPLAY_NAME` | `EphemerAI` | No | Non-empty string | Main app brand name in UI. | Change for your organization/product branding. |
@@ -70,6 +72,7 @@ Default Compose keeps raw Ollama internal-only. External/raw access is opt-in vi
 | `ENABLE_TOKEN_BUDGETING` | `true` | No | `true`/`false` | Enables app-side context budgeting safeguards. | Disable only for controlled experiments. |
 | `TIKA_URL` | `http://tika-server:9998` | Yes (unless app default matches environment) | URL to Apache Tika server | Document parsing backend endpoint. | Point to external Tika or different network path. |
 | `TIKA_TIMEOUT_S` | `120` | No | Positive integer seconds | Timeout for document parsing requests. | Increase for large/complex documents. |
+| `TIKA_CLIENT_ONLY` | `true` (Compose default) | No | `true`/`false` (forwarded to upstream `tika-python`) | Internal `tika-python` client mode flag; in this stack it keeps parsing in REST-client mode against `TIKA_URL` rather than trying to manage a local Tika JVM in the app container. | Most users should leave this as-is; change only if you are intentionally changing upstream `tika-python` behavior. |
 | `OLLAMA_API_BIND` | `127.0.0.1` | No | Bind address/IP | Bind used when intentionally exposing raw Ollama via compose override. | Change only when deliberately sharing raw API. |
 | `OLLAMA_ORIGINS` | _(empty)_ | No | Comma-separated origins or empty | Allowed origins for Ollama API/CORS behavior. | Required for browser-based external clients. |
 | `OLLAMA_NO_CLOUD` | `1` | No | `0` or `1` | Disables Ollama cloud features when `1`. | Change only if intentionally enabling cloud features. |
