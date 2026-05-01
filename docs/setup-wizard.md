@@ -19,9 +19,8 @@ It is intended for users who can run commands and prefer profile-driven configur
   - `LLM_MODEL_NAME`
   - `OLLAMA_MODEL_SOURCE`
   - `LLM_CONTEXT_TOKENS` / `OLLAMA_NUM_CTX`
-  - raw Ollama API exposure toggle (default: no)
   - `OLLAMA_NO_CLOUD` privacy toggle (default: yes / `1`)
-- Validates obvious mistakes (numeric port/context, required model fields).
+- Validates obvious mistakes (valid port range `1–65535`, positive integer context size, required model fields).
 - Protects existing `.env` files with overwrite confirmation and timestamped backup.
 - Optionally runs common follow-up commands with explicit per-command confirmation:
   - `docker compose up -d --build`
@@ -45,3 +44,5 @@ python scripts/setup_wizard.py --help
 - The wizard does not make live network calls by itself.
 - Service-start/model-download actions happen only if you approve the optional commands.
 - The midrange profile default uses `qwen3:8b`, which is text-only (not a vision model).
+- Raw Ollama API exposure is a manual, opt-in deployment override using `docker-compose.api.yml`.
+  Keep `OLLAMA_API_BIND=127.0.0.1` as the safer default unless you intentionally need broader access.

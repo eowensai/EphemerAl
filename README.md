@@ -89,7 +89,8 @@ GPU support is preserved through the explicit `docker-compose.gpu.yml` override 
 ## Optional shared Ollama API
 
 - Default Compose deployment keeps raw Ollama internal.
-- If you intentionally expose Ollama for shared API use, use compose overrides and network controls.
+- Raw API exposure is a manual opt-in via `docker-compose.api.yml`.
+- Keep `OLLAMA_API_BIND=127.0.0.1` as the safer default when using that override, and widen only intentionally.
 - **Security warning:** exposing raw Ollama does not add app-layer authentication automatically.
 
 ## Development and testing
