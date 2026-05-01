@@ -11,8 +11,9 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
+import yaml
 
 PASS = "PASS"
 WARN = "WARN"
@@ -79,6 +80,52 @@ def format_status(status: str) -> str:
     return f"{icon} {status}"
 
 
+def _parse_compose(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    return data if isinstance(data, dict) else {}
+
+
+def _service_env_value(service: dict[str, Any], key: str) -> str | None:
+    env = service.get("environment")
+    if isinstance(env, list):
+        for item in env:
+            if isinstance(item, str) and item.startswith(f"{key}="):
+                return item.split("=", 1)[1]
+    elif isinstance(env, dict):
+        value = env.get(key)
+        return None if value is None else str(value)
+    return None
+
+
+def _is_no_cloud_default_safe(service: dict[str, Any]) -> bool:
+    val = _service_env_value(service, "OLLAMA_NO_CLOUD")
+    if not val:
+        return False
+    compact = val.replace(" ", "")
+    return compact in {"1", "${OLLAMA_NO_CLOUD:-1}", "${OLLAMA_NO_CLOUD-1}"}
+
+
+def _classify_ollama_ports(service: dict[str, Any]) -> tuple[bool, bool]:
+    ports = service.get("ports")
+    if not isinstance(ports, list):
+        return False, False
+    broad = False
+    loopback = False
+    for port in ports:
+        raw = str(port).strip().replace('"', "").replace("'", "")
+        if "11434:11434" not in raw:
+            continue
+        if raw.startswith("127.0.0.1:"):
+            loopback = True
+        elif raw.startswith("0.0.0.0:") or raw.startswith("[::]:"):
+            broad = True
+        elif raw == "11434:11434":
+            broad = True
+    return broad, loopback
+
+
 def detect_context_mismatch(llm_context_tokens: Optional[str], ollama_num_ctx: Optional[str]) -> Optional[str]:
     try:
         app_ctx = int(llm_context_tokens) if llm_context_tokens else None
@@ -92,13 +139,6 @@ def detect_context_mismatch(llm_context_tokens: Optional[str], ollama_num_ctx: O
         "LLM_CONTEXT_TOKENS controls app-side budgeting, while OLLAMA_NUM_CTX (or Modelfile num_ctx) "
         "controls model runtime context length."
     )
-
-
-def is_dangerous_bind(ollama_api_bind: Optional[str], compose_text: str) -> bool:
-    bind = (ollama_api_bind or "").strip()
-    if bind.startswith("0.0.0.0"):
-        return True
-    return bool(re.search(r"(^|\s|['\"])11434:11434($|\s|['\"])", compose_text, re.MULTILINE))
 
 
 def run_cmd(cmd: List[str]) -> Tuple[int, str, str]:
@@ -129,8 +169,10 @@ def parse_int(value: Optional[str]) -> Optional[int]:
 def main() -> int:
     root = Path.cwd()
     env_values = parse_env_file(root / ".env")
-    compose_text = (root / "docker-compose.yml").read_text(encoding="utf-8") if (root / "docker-compose.yml").exists() else ""
     env = {**env_values, **os.environ}
+    compose = _parse_compose(root / "docker-compose.yml")
+    services = compose.get("services", {}) if isinstance(compose.get("services"), dict) else {}
+    ollama_service = services.get("ollama", {}) if isinstance(services.get("ollama"), dict) else {}
 
     checks: List[CheckResult] = []
 
@@ -155,11 +197,11 @@ def main() -> int:
     ))
 
     docker_available = shutil.which("docker") is not None
-    checks.append(CheckResult(PASS if docker_available else FAIL, "Docker availability", "docker command found." if docker_available else "docker command not found.", "Install Docker Engine/Desktop and ensure it is running."))
+    checks.append(CheckResult(PASS if docker_available else WARN, "Docker availability", "docker command found." if docker_available else "docker command not found (Docker-dependent checks will be skipped).", "Install Docker Engine/Desktop and ensure it is running for live container checks."))
 
     rc, out, _ = run_cmd(["docker", "compose", "version"]) if docker_available else (127, "", "")
     compose_available = docker_available and rc == 0
-    checks.append(CheckResult(PASS if compose_available else WARN, "Docker Compose availability", out.splitlines()[0] if out else "docker compose unavailable.", "Install/enable Docker Compose v2 plugin."))
+    checks.append(CheckResult(PASS if compose_available else WARN, "Docker Compose availability", out.splitlines()[0] if out else "docker compose unavailable (Docker-dependent checks will be skipped).", "Install/enable Docker Compose v2 plugin for live checks."))
 
     if compose_available:
         rc, out, err = run_cmd(["docker", "compose", "ps"])
@@ -170,7 +212,7 @@ def main() -> int:
     bind_addr = env.get("APP_BIND_ADDRESS", "127.0.0.1")
     port = app_port or 8501
     reachable = is_reachable("127.0.0.1" if bind_addr in {"0.0.0.0", "::"} else bind_addr, port)
-    checks.append(CheckResult(PASS if reachable else WARN, "App container reachability", f"Checked {bind_addr}:{port}.", "Start app service (`docker compose up -d app`) and verify APP_BIND_ADDRESS/APP_PORT."))
+    checks.append(CheckResult(PASS if reachable else WARN, "App container reachability", f"Checked {bind_addr}:{port}.", "Start app service (`docker compose up -d ephemeral-app`) and verify APP_BIND_ADDRESS/APP_PORT."))
 
     if compose_available:
         rc, out, _ = run_cmd(["docker", "compose", "ps", "--services", "--status", "running"])
@@ -200,26 +242,33 @@ def main() -> int:
 
     if ollama_running:
         rc, out, err = run_cmd(["docker", "exec", "ollama", "nvidia-smi"])
-        checks.append(CheckResult(PASS if rc == 0 else WARN, out.splitlines()[0] if out else "GPU visibility", "NVIDIA tools unavailable inside ollama container." if rc != 0 else "GPU visible.", "If using GPU, install NVIDIA Container Toolkit and ensure the container has GPU access."))
+        detail = "nvidia-smi detected inside ollama container." if rc == 0 else (err or out or "NVIDIA tools unavailable inside ollama container.")
+        checks.append(CheckResult(PASS if rc == 0 else WARN, "NVIDIA GPU", detail, "If using GPU, install NVIDIA Container Toolkit and ensure the container has GPU access."))
     else:
-        checks.append(CheckResult(WARN, "GPU visibility", "Skipped because ollama container is not running.", "Start ollama and run again, or ignore on CPU-only setups."))
+        checks.append(CheckResult(WARN, "NVIDIA GPU", "Skipped because ollama container is not running.", "Start ollama and run again, or ignore on CPU-only setups."))
 
-    dangerous = is_dangerous_bind(env.get("OLLAMA_API_BIND"), compose_text)
-    checks.append(CheckResult(WARN if dangerous else PASS, "Raw Ollama API exposure", "Potential broad exposure of port 11434 detected." if dangerous else "No broad Ollama API exposure detected.", "Avoid exposing raw Ollama publicly; keep it internal or front it with authenticated proxy."))
+    broad_exposure, loopback_exposure = _classify_ollama_ports(ollama_service)
+    exposure_status = WARN if (broad_exposure or loopback_exposure) else PASS
+    exposure_detail = "No raw Ollama API port publishing detected."
+    if broad_exposure:
+        exposure_detail = "Potential broad exposure of raw Ollama API port 11434 detected."
+    elif loopback_exposure:
+        exposure_detail = "Raw Ollama API is published on loopback (127.0.0.1) as an intentional local opt-in."
+    checks.append(CheckResult(exposure_status, "Raw Ollama API exposure", exposure_detail, "Avoid broad 11434 publishing; keep raw Ollama internal, or use authenticated/restricted exposure for local debugging only."))
 
     no_cloud = parse_bool(env.get("OLLAMA_NO_CLOUD"))
     if no_cloud is False:
         status = WARN
         detail = "OLLAMA_NO_CLOUD is explicitly disabled."
-    elif no_cloud is None and "OLLAMA_NO_CLOUD" not in env and "OLLAMA_NO_CLOUD=1" in compose_text:
-        status = PASS
-        detail = "OLLAMA_NO_CLOUD unset, compose default appears to enforce OLLAMA_NO_CLOUD=1."
-    elif no_cloud is None:
-        status = WARN
-        detail = "OLLAMA_NO_CLOUD not set and compose default could not be confirmed."
-    else:
+    elif no_cloud is True:
         status = PASS
         detail = "OLLAMA_NO_CLOUD enabled."
+    elif _is_no_cloud_default_safe(ollama_service):
+        status = PASS
+        detail = "OLLAMA_NO_CLOUD unset, compose default enforces a safe default of 1."
+    else:
+        status = WARN
+        detail = "OLLAMA_NO_CLOUD not set and compose default could not be confirmed."
     checks.append(CheckResult(status, "Ollama cloud privacy", detail, "Set OLLAMA_NO_CLOUD=1 unless you explicitly want cloud features."))
 
     print("EphemerAl Doctor — Installation & Runtime Health")
