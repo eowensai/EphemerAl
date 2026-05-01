@@ -71,6 +71,11 @@ st.set_page_config(
     },
 )
 
+# Escape env/config-provided branding strings before injecting into custom HTML.
+APP_DISPLAY_NAME_HTML = html_escape(APP_DISPLAY_NAME)
+APP_SUBTITLE_HTML = html_escape(APP_SUBTITLE)
+APP_WELCOME_SUBTITLE_HTML = html_escape(APP_WELCOME_SUBTITLE)
+
 def load_css(path: str = "theme.css") -> None:
     """Load optional CSS overrides to customize Streamlit's default look."""
     css_path = pathlib.Path(path)
@@ -240,9 +245,9 @@ with st.sidebar:
         st.markdown(
             f"""
             <div class="sidebar-brand">
-                <img src="data:{logo.mime_type};base64,{logo.b64}" alt="{APP_DISPLAY_NAME} logo" class="sidebar-brand-logo">
-                <div class="sidebar-brand-title">{APP_DISPLAY_NAME}</div>
-                <div class="sidebar-brand-subtitle">{APP_SUBTITLE}</div>
+                <img src="data:{logo.mime_type};base64,{logo.b64}" alt="{APP_DISPLAY_NAME_HTML} logo" class="sidebar-brand-logo">
+                <div class="sidebar-brand-title">{APP_DISPLAY_NAME_HTML}</div>
+                <div class="sidebar-brand-subtitle">{APP_SUBTITLE_HTML}</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -252,8 +257,8 @@ with st.sidebar:
             f"""
             <div class="sidebar-brand">
                 <div class="sidebar-brand-fallback">E</div>
-                <div class="sidebar-brand-title">{APP_DISPLAY_NAME}</div>
-                <div class="sidebar-brand-subtitle">{APP_SUBTITLE}</div>
+                <div class="sidebar-brand-title">{APP_DISPLAY_NAME_HTML}</div>
+                <div class="sidebar-brand-subtitle">{APP_SUBTITLE_HTML}</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -322,9 +327,10 @@ prompt_in = st.chat_input(
 )
 
 # Streamlit internal API note (1.56): st._bottom draws into the same native
-# bottom dock used by st.chat_input. Keeping the toggle in this dock avoids
-# viewport-fixed overlays that can interfere with chat streaming layout.
-with st._bottom:
+# bottom dock used by st.chat_input. Keep a public-API fallback to avoid
+# hard failure if this private API changes or is unavailable.
+composer_root = getattr(st, "_bottom", None) or st.container()
+with composer_root:
     with st.container(key="composer_toggle_row"):
         thinking_mode = st.toggle(
             "Thinking Mode",
@@ -347,8 +353,8 @@ if st.session_state.show_welcome:
     st.markdown(
         f"""
         <section class="welcome-shell" aria-label="Welcome">
-          <h1 class="welcome-heading">Welcome to <span class="welcome-heading-brand">{APP_DISPLAY_NAME}</span></h1>
-          <p class="welcome-subtitle">{APP_WELCOME_SUBTITLE}</p>
+          <h1 class="welcome-heading">Welcome to <span class="welcome-heading-brand">{APP_DISPLAY_NAME_HTML}</span></h1>
+          <p class="welcome-subtitle">{APP_WELCOME_SUBTITLE_HTML}</p>
 
           <div class="welcome-card">
             <div class="welcome-features" role="list">
@@ -356,7 +362,7 @@ if st.session_state.show_welcome:
                 <div class="feature-badge feature-badge-blue">+</div>
                 <div class="feature-copy">
                   <div class="feature-copy-strong">Attach files, not just prompts</div>
-                  <div class="feature-copy-muted">Images, PDFs, Office files, spreadsheets, text, and more.</div>
+                  <div class="feature-copy-muted">Upload images, PDFs, Office files, spreadsheets, text, and more. Image analysis requires a vision-capable model; the default qwen3:8b profile is text-only.</div>
                 </div>
               </div>
               <div class="welcome-feature" role="listitem">

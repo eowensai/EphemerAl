@@ -69,7 +69,7 @@ def test_welcome_state_copy_contracts():
     assert "Attach files, not just prompts" in app_text
     assert "Local and session-only" in app_text
     assert "Verify important answers" in app_text
-    assert "Images, PDFs, Office files, spreadsheets, text, and more." in app_text
+    assert "Image analysis requires a vision-capable model; the default qwen3:8b profile is text-only." in app_text
     assert "No account or saved chat history in this app. New Chat clears messages and uploads." in app_text
     assert (
         "This local model has no live web access and may be wrong, especially on current facts." in app_text
@@ -81,6 +81,19 @@ def test_new_chat_labels_and_placeholder_contracts():
     assert "Ask a question or attach files..." in app_text
     assert "New Chat" in app_text
     assert "🔄 New Chat" in app_text
+
+
+def test_branding_strings_are_escaped_before_unsafe_html_rendering():
+    app_text = (REPO_ROOT / "ephemeral_app.py").read_text(encoding="utf-8")
+    assert "APP_DISPLAY_NAME_HTML = html_escape(APP_DISPLAY_NAME)" in app_text
+    assert "APP_SUBTITLE_HTML = html_escape(APP_SUBTITLE)" in app_text
+    assert "APP_WELCOME_SUBTITLE_HTML = html_escape(APP_WELCOME_SUBTITLE)" in app_text
+    assert 'unsafe_allow_html=True' in app_text
+
+
+def test_private_bottom_api_has_public_fallback():
+    app_text = (REPO_ROOT / "ephemeral_app.py").read_text(encoding="utf-8")
+    assert 'composer_root = getattr(st, "_bottom", None) or st.container()' in app_text
 
 
 def test_docker_service_name_defaults_are_preserved():
@@ -142,4 +155,3 @@ def test_dockerfile_upload_size_uses_runtime_env_and_no_hardcoded_50():
     assert 'maxUploadSize = 50' not in dockerfile_text
     assert '--server.maxUploadSize="${MAX_UPLOAD_MB:-50}"' in dockerfile_text
     assert 'CMD ["streamlit", "run"' not in dockerfile_text
-
