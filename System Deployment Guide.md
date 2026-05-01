@@ -93,15 +93,19 @@ Select and copy a profile `.env` template (see `examples/profiles/` and [`docs/m
 
 ## 5) Setup workflow (recommended order)
 
-1. Run setup wizard or bootstrap:
+1. Prepare `.env` (choose one):
 
 ```bash
-python scripts/setup_wizard.py
+cp .env.example .env
 # or
-bash scripts/bootstrap.sh
+cp examples/profiles/midrange-gpu.env .env
+# or
+python scripts/setup_wizard.py
 ```
 
-2. Start stack for your hardware:
+2. Review `.env` for model tag/alias, bind addresses, and context settings.
+
+3. Start stack for your hardware:
 
 ```bash
 # CPU / low-end
@@ -111,34 +115,33 @@ docker compose up -d --build
 docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
 ```
 
-3. Create/update Ollama alias (primary path):
+4. Create/update Ollama alias (primary path):
 
 ```bash
 bash scripts/create_ollama_model.sh
 ```
 
-4. Run doctor:
+5. Run doctor:
 
 ```bash
 python scripts/doctor.py
 ```
 
-5. Open app:
+6. Open app:
 
 ```text
 http://localhost:8501
 ```
 
-## 6) Advanced fallback: manual Modelfile editing
+Notes:
 
-Use this only if the helper script cannot satisfy your custom runtime needs.
+- `bash scripts/create_ollama_model.sh --dry-run` can run before Docker to preview generated settings.
+- Real alias creation (`bash scripts/create_ollama_model.sh`) requires the Ollama container to be running.
+- In Codex/cloud sandboxes, Docker Compose validation may be unavailable; use `python scripts/validate_compose_static.py` and run `docker compose config` locally or in CI.
 
-- Enter Ollama container.
-- Create a deployment profile file (for example under `examples/profiles/`) and keep model settings there rather than direct source edits.
-- Run `ollama create <alias> -f <modelfile>`.
-- Keep `LLM_MODEL_NAME` aligned with your alias in `.env`.
+## 6) Optional advanced alias customization
 
-Profile-driven configuration is preferred over manual per-deployment source changes.
+If you need custom runtime parameters beyond profile defaults, prefer editing `.env`/profile values first and then re-running `bash scripts/create_ollama_model.sh`.
 
 ## 7) Optional shared Ollama API exposure
 

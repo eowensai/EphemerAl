@@ -26,6 +26,12 @@ These four options work together but are not interchangeable:
 
 Exposing raw Ollama on the network is optional and should be deliberate: direct clients bypass EphemerAI UI/session privacy boundaries.
 
+Default Compose keeps raw Ollama internal-only. External/raw access is opt-in via `docker-compose.api.yml`, with `OLLAMA_API_BIND=127.0.0.1` as the safer default bind.
+
+## App bind warning
+
+`APP_BIND_ADDRESS=0.0.0.0` allows the Streamlit app to listen on all interfaces and can make it reachable from other machines on the same network. Use `APP_BIND_ADDRESS=127.0.0.1` for host-local access only.
+
 ## `OLLAMA_NO_CLOUD` guidance
 
 `OLLAMA_NO_CLOUD` defaults to `1` and disables Ollama cloud features so deployment behavior remains local-only/privacy-aligned. Do not change this unless you intentionally want Ollama cloud features and understand the privacy implications.

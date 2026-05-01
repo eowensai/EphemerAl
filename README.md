@@ -26,21 +26,38 @@ Set expectations first:
 - Document uploads work with the default profile.
 - Image analysis requires a **vision-capable model** and (if auto-detection is insufficient) setting `LLM_SUPPORTS_VISION` appropriately.
 
-Then:
+### A) Recommended bootstrap path (shortest)
 
-1. **Pick a profile** from [`docs/model-profiles.md`](docs/model-profiles.md).
-2. **Choose Compose mode**:
+```bash
+bash scripts/bootstrap.sh
+```
+
+Bootstrap handles `.env` setup, starts the Compose stack, creates the local Ollama alias, and runs doctor checks.
+
+### B) Manual path (explicit order)
+
+1. **Prepare `.env` (choose one):**
+   - `cp .env.example .env`, or
+   - `cp examples/profiles/midrange-gpu.env .env` (or another profile from `examples/profiles/`), or
+   - `python scripts/setup_wizard.py`
+2. **Review `.env` values** (model tag/alias, ports, bind addresses, context).
+3. **Start services:**
    - CPU/low-end (default): `docker compose up -d --build`
    - GPU/high-VRAM: `docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build`
-3. **Run setup wizard or bootstrap**:
-   - Wizard: `python scripts/setup_wizard.py`
-   - Bootstrap: `bash scripts/bootstrap.sh`
-4. **Create model alias** (recommended path):
+4. **Create the Ollama alias:**
    - `bash scripts/create_ollama_model.sh`
-5. **Run doctor**:
+5. **Run doctor:**
    - `python scripts/doctor.py`
-6. **Open the app**:
+6. **Open the app:**
    - `http://localhost:8501`
+
+Notes:
+
+- `bash scripts/create_ollama_model.sh --dry-run` can run before Docker to preview resolved values.
+- Real alias creation requires the Ollama container to be running.
+- In Codex/cloud sandboxes, Docker Compose validation may be unavailable.
+- Use `python scripts/validate_compose_static.py` as Docker-free fallback validation.
+- Run real `docker compose config` validation locally or in CI.
 
 ## System requirements
 
@@ -89,6 +106,11 @@ GPU support is preserved through the explicit `docker-compose.gpu.yml` override 
 - Raw API exposure is a manual opt-in via `docker-compose.api.yml`.
 - Keep `OLLAMA_API_BIND=127.0.0.1` as the safer default when using that override, and widen only intentionally.
 - **Security warning:** exposing raw Ollama does not add app-layer authentication automatically.
+
+## App bind address warning
+
+- `APP_BIND_ADDRESS=0.0.0.0` can make the Streamlit UI reachable from other machines on your network.
+- Use `APP_BIND_ADDRESS=127.0.0.1` for local-only browser access on the same host.
 
 ## Development and testing
 

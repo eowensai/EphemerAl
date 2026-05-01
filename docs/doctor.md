@@ -37,6 +37,11 @@ Run doctor:
 - After upgrading Docker, Ollama, or GPU/container runtime components.
 - During troubleshooting when users report app/backend connectivity issues.
 
+For first-time manual setup order, run doctor after:
+1) preparing/reviewing `.env`, 2) `docker compose up -d --build`, and 3) `bash scripts/create_ollama_model.sh`.
+
+In Docker-limited Codex/cloud sandboxes, use `python scripts/validate_compose_static.py` as a fallback check; run `docker compose config` locally or in CI for real Compose validation.
+
 ## Status meanings: PASS, WARN, FAIL
 
 - **PASS**: Check looks healthy for expected default deployment behavior.
@@ -116,4 +121,3 @@ EphemerAl Doctor — Installation & Runtime Health
   What we found: OLLAMA_NO_CLOUD is explicitly disabled.
   How to fix: Set OLLAMA_NO_CLOUD=1 unless you explicitly want cloud features.
 ```
-

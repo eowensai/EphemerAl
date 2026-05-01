@@ -38,8 +38,11 @@ From repository root:
 ```bash
 cp examples/profiles/midrange-gpu.env .env
 bash scripts/create_ollama_model.sh --dry-run
+docker compose up -d --build
 bash scripts/create_ollama_model.sh
 ```
+
+`--dry-run` works before Docker and previews resolved settings only. Real alias creation requires the Ollama container to be running.
 
 Swap `midrange-gpu.env` for another profile if needed.
 

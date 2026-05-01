@@ -4,6 +4,9 @@ import subprocess
 from pathlib import Path
 
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
 def _write(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
@@ -19,7 +22,7 @@ def _make_fixture_repo(tmp_path: Path) -> Path:
     scripts_dir = repo / "scripts"
     scripts_dir.mkdir(parents=True)
 
-    source_bootstrap = Path("/workspace/EphemerAl/scripts/bootstrap.sh").read_text(encoding="utf-8")
+    source_bootstrap = (REPO_ROOT / "scripts" / "bootstrap.sh").read_text(encoding="utf-8")
     _write(scripts_dir / "bootstrap.sh", source_bootstrap)
     _make_exec(scripts_dir / "bootstrap.sh")
 
@@ -80,3 +83,8 @@ def test_bootstrap_yes_creates_env_without_wizard(tmp_path: Path) -> None:
     assert "OLLAMA_NO_CLOUD=1" in created_env
     assert "Created .env from .env.example" in result.stdout
     assert "setup_wizard.py" not in result.stdout
+
+
+def test_bootstrap_test_has_no_codex_workspace_path_dependency() -> None:
+    text = (REPO_ROOT / "tests" / "test_bootstrap_script.py").read_text(encoding="utf-8")
+    assert ("/workspace" + "/EphemerAl") not in text
