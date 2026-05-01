@@ -103,9 +103,21 @@ def prompt_yes_no(label: str, default: bool) -> bool:
 
 
 def validate_positive_int(value: str, field: str) -> str:
-    if not value.isdigit():
+    stripped = value.strip()
+    if not stripped:
+        raise ValueError(f"{field} must be a positive integer.")
+    if not stripped.isdigit():
         raise ValueError(f"{field} must be numeric.")
-    return value
+    if int(stripped) <= 0:
+        raise ValueError(f"{field} must be greater than zero.")
+    return stripped
+
+
+def validate_port(value: str, field: str = "App port") -> str:
+    validated = validate_positive_int(value, field)
+    if int(validated) > 65535:
+        raise ValueError(f"{field} must be between 1 and 65535.")
+    return validated
 
 
 def backup_existing_env(env_path: Path) -> Path:
@@ -166,16 +178,11 @@ def main() -> int:
         print("Starting from empty values for custom/manual profile.")
 
     env_values["APP_DISPLAY_NAME"] = prompt_text("App display name", env_values.get("APP_DISPLAY_NAME", "EphemerAI"), required=True)
-    env_values["APP_PORT"] = validate_positive_int(prompt_text("App port", env_values.get("APP_PORT", "8501"), required=True), "App port")
+    env_values["APP_PORT"] = validate_port(prompt_text("App port", env_values.get("APP_PORT", "8501"), required=True), "App port")
     env_values["LLM_MODEL_NAME"] = prompt_text("Model alias name", env_values.get("LLM_MODEL_NAME", "ephemeral-default"), required=True)
     env_values["OLLAMA_MODEL_SOURCE"] = prompt_text("Model source tag", env_values.get("OLLAMA_MODEL_SOURCE", "qwen3:8b"), required=True)
     env_values["LLM_CONTEXT_TOKENS"] = validate_positive_int(prompt_text("Context size", env_values.get("LLM_CONTEXT_TOKENS", "32768"), required=True), "Context size")
     env_values["OLLAMA_NUM_CTX"] = env_values["LLM_CONTEXT_TOKENS"]
-
-    expose_raw = prompt_yes_no("Expose raw Ollama API externally?", default=False)
-    if expose_raw:
-        print("WARNING: Exposing raw Ollama API can allow unauthenticated access if network controls are weak.")
-    env_values["EXPOSE_RAW_OLLAMA_API"] = "1" if expose_raw else "0"
 
     no_cloud = prompt_yes_no("Keep Ollama cloud features disabled (OLLAMA_NO_CLOUD=1)?", default=True)
     if not no_cloud:
