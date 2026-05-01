@@ -6,8 +6,8 @@ Use these scripts for a safe, one-command first run. They validate prerequisites
 
 1. Checks Docker + Docker Compose.
 2. Checks Git and Python availability.
-3. Optionally runs `scripts/setup_wizard.py` when `.env` is missing.
-4. Otherwise copies `.env.example` to `.env` and prompts you to review values.
+3. In interactive mode, optionally runs `scripts/setup_wizard.py` when `.env` is missing.
+4. In non-interactive mode (`--yes` / `-Yes`), creates `.env` from `.env.example` safe defaults when missing.
 5. Runs `docker compose up -d --build` (CPU-safe default).
 6. Runs `scripts/create_ollama_model.sh`.
 7. Runs `python scripts/doctor.py`.
@@ -19,6 +19,7 @@ Notes:
 - Codex web/cloud execution environments may not include the Docker CLI.
 - For Compose-related changes, run Docker Compose validation locally or in GitHub Actions before merging.
 - `python scripts/validate_compose_static.py` is the Docker-free fallback validator.
+- When PowerShell is unavailable in CI/Codex, validate `scripts/bootstrap.ps1` with static contract tests (no `pwsh` runtime required).
 
 ## Linux / macOS / WSL
 
@@ -28,7 +29,7 @@ From repository root:
 bash scripts/bootstrap.sh
 ```
 
-Preview actions without changing anything:
+Preview actions without changing anything (side-effect-free; does not create `.env`, start containers, or create Ollama models):
 
 ```bash
 bash scripts/bootstrap.sh --dry-run
@@ -40,7 +41,7 @@ Show options:
 bash scripts/bootstrap.sh --help
 ```
 
-Non-interactive mode:
+Non-interactive mode (skips setup wizard prompts; creates `.env` from safe defaults if missing):
 
 ```bash
 bash scripts/bootstrap.sh --yes
@@ -54,7 +55,7 @@ From repository root in PowerShell:
 powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap.ps1
 ```
 
-Preview actions without changing anything:
+Preview actions without changing anything (side-effect-free; does not create `.env`, start containers, or create Ollama models):
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap.ps1 -DryRun
@@ -66,7 +67,7 @@ Show options:
 powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap.ps1 -Help
 ```
 
-Non-interactive mode:
+Non-interactive mode (skips setup wizard prompts; creates `.env` from safe defaults if missing):
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap.ps1 -Yes
