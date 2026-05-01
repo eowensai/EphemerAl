@@ -111,6 +111,7 @@ services:
       - ENABLE_TOKEN_BUDGETING=${ENABLE_TOKEN_BUDGETING:-true}
       - TIKA_URL=${TIKA_URL:-http://tika-server:9998}
       - TIKA_TIMEOUT_S=${TIKA_TIMEOUT_S:-120}
+      # Upstream tika-python flag: keep client-only HTTP mode (no local Tika server management in app container).
       - TIKA_CLIENT_ONLY=true
       - STREAMLIT_SERVER_HEADLESS=true
       - STREAMLIT_SERVER_ADDRESS=0.0.0.0

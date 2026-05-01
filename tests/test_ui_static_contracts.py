@@ -155,3 +155,20 @@ def test_dockerfile_upload_size_uses_runtime_env_and_no_hardcoded_50():
     assert 'maxUploadSize = 50' not in dockerfile_text
     assert '--server.maxUploadSize="${MAX_UPLOAD_MB:-50}"' in dockerfile_text
     assert 'CMD ["streamlit", "run"' not in dockerfile_text
+
+
+def test_tika_configuration_docs_and_compose_contracts():
+    compose_text = (REPO_ROOT / "docker-compose.yml").read_text(encoding="utf-8")
+    docs_text = (REPO_ROOT / "docs/configuration.md").read_text(encoding="utf-8")
+    tika_client_text = (REPO_ROOT / "ephemeral/tika_client.py").read_text(encoding="utf-8")
+
+    assert "TIKA_URL=${TIKA_URL:-http://tika-server:9998}" in compose_text
+    assert "TIKA_CLIENT_ONLY=true" in compose_text
+    assert "upstream tika-python" in compose_text.lower()
+
+    assert "`TIKA_URL`" in docs_text
+    assert "`TIKA_CLIENT_ONLY`" in docs_text
+    assert "Most users should leave this as-is" in docs_text
+
+    assert "from tika import parser" in tika_client_text
+    assert "serverEndpoint=TIKA_URL" in tika_client_text
