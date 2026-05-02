@@ -92,3 +92,15 @@ def test_main_uses_ephemeral_app_remediation_and_handles_no_docker(monkeypatch, 
     assert "docker compose up -d app" not in captured
     assert "Docker-dependent checks will be skipped" in captured
     assert "NVIDIA GPU" in captured
+
+
+def test_port_exposure_loopback_ipv6_opt_in() -> None:
+    broad, loopback = _classify_ollama_ports({"ports": ["[::1]:11434:11434"]})
+    assert broad is False
+    assert loopback is True
+
+
+def test_port_exposure_broad_ipv6_bindings() -> None:
+    broad, loopback = _classify_ollama_ports({"ports": ["[::]:11434:11434"]})
+    assert broad is True
+    assert loopback is False

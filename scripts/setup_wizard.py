@@ -26,7 +26,9 @@ def detect_platform() -> Dict[str, str | bool]:
     shell = os.environ.get("SHELL", "")
     term_program = os.environ.get("TERM_PROGRAM", "")
     in_wsl = "microsoft" in release or "wsl" in release or bool(os.environ.get("WSL_DISTRO_NAME"))
-    in_powershell = "pwsh" in os.environ.get("0", "").lower() or "powershell" in shell.lower()
+    ps_module_path = os.environ.get("PSModulePath", "")
+    shell_l = shell.lower()
+    in_powershell = bool(ps_module_path) or "pwsh" in shell_l or "powershell" in shell_l
 
     return {
         "system": system,
@@ -76,11 +78,8 @@ def parse_env_template(path: Path) -> Dict[str, str]:
 
 
 def choose_default_profile(has_nvidia: bool, platform_info: Dict[str, str | bool]) -> str:
-    if not has_nvidia:
-        return "low-end-laptop"
-    if platform_info.get("in_wsl") and has_nvidia:
-        return "midrange-gpu"
-    return "midrange-gpu"
+    _ = platform_info
+    return "midrange-gpu" if has_nvidia else "low-end-laptop"
 
 
 def prompt_text(label: str, default: str, required: bool = False) -> str:
@@ -121,7 +120,7 @@ def validate_port(value: str, field: str = "App port") -> str:
 
 
 def backup_existing_env(env_path: Path) -> Path:
-    stamp = dt.datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d-%H%M%S")
     backup_path = env_path.with_suffix(env_path.suffix + f".{stamp}.bak")
     shutil.copy2(env_path, backup_path)
     return backup_path

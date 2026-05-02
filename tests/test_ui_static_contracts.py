@@ -69,7 +69,7 @@ def test_welcome_state_copy_contracts():
     assert "Attach files, not just prompts" in app_text
     assert "Local and session-only" in app_text
     assert "Verify important answers" in app_text
-    assert "Image analysis requires a vision-capable model; the default qwen3:8b profile is text-only." in app_text
+    assert "Public default text profiles are text-only; image analysis requires a vision-capable model." in app_text
     assert "No account or saved chat history in this app. New Chat clears messages and uploads." in app_text
     assert (
         "This local model has no live web access and may be wrong, especially on current facts." in app_text

@@ -362,7 +362,7 @@ if st.session_state.show_welcome:
                 <div class="feature-badge feature-badge-blue">+</div>
                 <div class="feature-copy">
                   <div class="feature-copy-strong">Attach files, not just prompts</div>
-                  <div class="feature-copy-muted">Upload images, PDFs, Office files, spreadsheets, text, and more. Image analysis requires a vision-capable model; the default qwen3:8b profile is text-only.</div>
+                  <div class="feature-copy-muted">Upload images, PDFs, Office files, spreadsheets, text, and more. Public default text profiles are text-only; image analysis requires a vision-capable model.</div>
                 </div>
               </div>
               <div class="welcome-feature" role="listitem">

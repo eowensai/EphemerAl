@@ -48,6 +48,7 @@ Thumbs.db
 # Non-runtime docs and local media artifacts
 AGENTS.md
 README.md
+docs/
 LICENSE.md
 System Deployment Guide.md
 docker-compose.yml

@@ -117,7 +117,7 @@ def _classify_ollama_ports(service: dict[str, Any]) -> tuple[bool, bool]:
         raw = str(port).strip().replace('"', "").replace("'", "")
         if "11434:11434" not in raw:
             continue
-        if raw.startswith("127.0.0.1:"):
+        if raw.startswith("127.0.0.1:") or raw.startswith("[::1]:"):
             loopback = True
         elif raw.startswith("0.0.0.0:") or raw.startswith("[::]:"):
             broad = True
@@ -248,12 +248,12 @@ def main() -> int:
         checks.append(CheckResult(WARN, "NVIDIA GPU", "Skipped because ollama container is not running.", "Start ollama and run again, or ignore on CPU-only setups."))
 
     broad_exposure, loopback_exposure = _classify_ollama_ports(ollama_service)
-    exposure_status = WARN if (broad_exposure or loopback_exposure) else PASS
+    exposure_status = WARN if broad_exposure else PASS
     exposure_detail = "No raw Ollama API port publishing detected."
     if broad_exposure:
         exposure_detail = "Potential broad exposure of raw Ollama API port 11434 detected."
     elif loopback_exposure:
-        exposure_detail = "Raw Ollama API is published on loopback (127.0.0.1) as an intentional local opt-in."
+        exposure_detail = "Raw Ollama API is published on loopback (127.0.0.1/[::1]) as an intentional local opt-in."
     checks.append(CheckResult(exposure_status, "Raw Ollama API exposure", exposure_detail, "Avoid broad 11434 publishing; keep raw Ollama internal, or use authenticated/restricted exposure for local debugging only."))
 
     no_cloud = parse_bool(env.get("OLLAMA_NO_CLOUD"))
