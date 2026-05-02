@@ -37,10 +37,10 @@ Bootstrap handles `.env` setup, starts the Compose stack, creates the local Olla
 ### B) Manual path (explicit order)
 
 1. **Prepare `.env` (choose one):**
-   - `cp .env.example .env`, or
+   - `cp .env.example .env` for the full editable configuration surface, or
    - `cp examples/profiles/midrange-gpu.env .env` (or another profile from `examples/profiles/`), or
-   - `python scripts/setup_wizard.py`
-2. **Review `.env` values** (model tag/alias, ports, bind addresses, context).
+   - `python scripts/setup_wizard.py` for a smaller safe `.env` containing key choices.
+2. **Review `.env` values** (model tag/alias, ports, bind addresses, context). Missing keys continue to use documented Compose/app defaults.
 3. **Start services:**
    - CPU/low-end (default): `docker compose up -d --build`
    - GPU/high-VRAM: `docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build`

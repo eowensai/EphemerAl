@@ -2,6 +2,8 @@
 
 EphemerAI deployments are configured primarily through environment variables in a `.env` file. Start by copying `.env.example` to `.env`, then edit values for your environment.
 
+If you use `python scripts/setup_wizard.py`, it writes a smaller safe `.env` with key choices rather than the full surface. Missing keys still fall back to documented Compose/app defaults. Use `.env.example` directly when you want the most complete editable surface.
+
 - **Main configuration surface:** `.env`
 - **Why:** keeps branding, model choices, networking, and runtime tuning deployment-specific without hard-coding source changes.
 - **Default behavior:** `.env.example` is privacy-aligned for local/container deployment and should work for most users with minimal edits.
@@ -84,12 +86,13 @@ Document parsing in the app is always performed through the external Apache Tika
 | `OLLAMA_KV_CACHE_TYPE` | `f16` | No | Ollama-supported cache types (for example `f16`, `q8_0`; support varies by build/hardware) | KV cache precision/compression setting. | Tune memory usage vs quality/perf. |
 | `OLLAMA_FORCE_CUBLAS_LT` | `1` | No | `0` or `1` | Forces cuBLASLt path on supported NVIDIA setups. | Disable only if encountering backend issues. |
 | `OLLAMA_MODEL_SOURCE` | `qwen3:8b` | Yes for profile/bootstrap workflows | Valid Ollama model tag | Upstream model tag pulled/used to build local alias. | Retarget deployment model family/size. |
+| `OLLAMA_CONTAINER` | `ollama` (script default) | No (script-only) | Existing Docker container name | Internal helper for `scripts/create_ollama_model.sh` to target the Ollama container. | Set only if you customize Ollama container naming in compose. |
 | `OLLAMA_NUM_CTX` | `32768` | No | Positive integer tokens (bounded by model/runtime/hardware limits) | Runtime context window for Ollama model profile/alias. | Increase/decrease based on VRAM and use case. |
 | `OLLAMA_NUM_PREDICT` | `-1` | No | Integer (`-1` for unlimited/default behavior, otherwise positive cap) | Default generation length behavior at Ollama runtime layer. | Cap outputs globally at runtime layer. |
 | `OLLAMA_TEMPERATURE` | `0.7` | No | Float usually `0.0–2.0` | Ollama-side default temperature for alias/runtime profile. | Align runtime defaults with desired style. |
 | `OLLAMA_TOP_P` | `0.8` | No | Float `0.0–1.0` | Ollama-side nucleus sampling default. | Tune diversity at runtime profile layer. |
 | `OLLAMA_TOP_K` | `40` | No | Positive integer | Ollama-side top-k sampling default. | Adjust token selection sharpness. |
-| `OLLAMA_MIN_P` | `0.0` | No | Float `0.0–1.0` | Ollama-side minimum-probability sampling threshold. | Prune unlikely tokens for stability/speed. |
+| `OLLAMA_MIN_P` | `0` | No | Float `0.0–1.0` | Ollama-side minimum-probability sampling threshold. | Prune unlikely tokens for stability/speed. |
 | `OLLAMA_REPEAT_PENALTY` | `1.1` | No | Positive float (commonly around `0.8–2.0`) | Ollama-side repetition penalty. | Reduce loops/repetition artifacts. |
 | `TIKA_JAVA_TOOL_OPTIONS` | `-Xmx2g -Xms512m` | No | Java options string | JVM memory/runtime flags for Tika container. | Increase heap or tune GC for heavy docs. |
 | `APP_BIND_ADDRESS` | `0.0.0.0` | No | Valid bind host/IP | Streamlit server bind address. | Lock to localhost or expose on LAN. |

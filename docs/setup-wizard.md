@@ -1,6 +1,13 @@
 # Setup Wizard (`scripts/setup_wizard.py`)
 
 The setup wizard provides a lightweight, line-oriented terminal flow for first-time setup.
+
+## Output scope vs `.env.example`
+
+- `cp .env.example .env` gives the **full editable configuration surface**.
+- `python scripts/setup_wizard.py` writes a **smaller safe `.env`** with key deployment choices.
+- Any keys not written by the wizard still fall back to documented Compose/app defaults.
+- If you want the most complete editable surface, start from `.env.example` and edit directly.
 It is intended for users who can run commands and prefer profile-driven configuration rather than direct source changes.
 
 ## What it does
