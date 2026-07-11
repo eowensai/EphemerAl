@@ -1,3 +1,8 @@
+> **Historical review input — not an implementation authority.** This document was
+> captured before implementation began and is preserved for provenance. Proposed
+> decisions, sequencing, acceptance criteria, and current status are maintained in
+> `IMPLEMENTATION_PLAN.md`. Coding agents must not execute this document directly.
+
 # EphemerAl Requirements v2: Grounding Correctness and Deployment Hardening
 
 ## Purpose
