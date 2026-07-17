@@ -24,6 +24,26 @@ If this file and `IMPLEMENTATION_PLAN.md` appear to conflict, the plan controls 
 the specifically authorized work package. Update stale durable guidance as part of
 that package rather than silently preserving obsolete behavior.
 
+## Program branch and release flow
+
+- `Dev` is the integration branch for the staged implementation program, even though
+  GitHub's repository default branch is `main`.
+- Start every ordinary work-package and regression-fix branch from the current
+  `origin/Dev`, and target its pull request back to `Dev`.
+- Do not make ordinary work-package changes directly on `Dev`, and do not target them
+  at `main`.
+- `main` remains the public-release branch. Do not modify, merge to, tag, or release
+  from `main` during ordinary work packages.
+- After WP-10 records a GO result, use runbook Prompt 7 to verify and promote the
+  complete `Dev` line to `main` through a dedicated pull request. Use Prompt 8 to
+  create the release tag and artifacts only from the verified `main` commit after that
+  promotion.
+- Never delete `Dev` or `main`. A merged short-lived work branch may be deleted when
+  the GitHub tool offers that safe option.
+- CI added by WP-00 must validate pull requests targeting `Dev` or `main` and pushes to
+  `Dev` or `main`, protecting ordinary work, the eventual `Dev`-to-`main` promotion,
+  and the release branch.
+
 ## Product purpose
 
 EphemerAl is a small, self-hosted, privacy-oriented document and image chat
@@ -176,6 +196,13 @@ approved plan and the smallest reliable approach.
 - Do not ask the owner where code belongs, which library to choose, how to structure a
   function, or which command to run.
 - Do not tell the owner to insert text between lines or manually edit YAML/code.
+- The owner's normal workflow is browser-only: open ChatGPT or Codex, select the
+  EphemerAl repository and `Dev` when the interface asks for a source branch, and paste
+  a prompt from `CODEX_RUNBOOK.md`. Do not assume the owner knows the CLI, local
+  checkouts, setup scripts, worktrees, environment configuration, or Git terminology.
+- When the owner must click something in a web interface, name the site, the visible
+  control, the value to select, and what should appear next. Do not describe an action
+  only as "configure the environment," "use the setup script," or similar shorthand.
 - If owner action is unavoidable, provide one complete copy/paste command or script,
   explain in plain language what success looks like, and wait for the output.
 - Ask only when continuing would change a product goal, privacy promise, license
@@ -188,9 +215,17 @@ approved plan and the smallest reliable approach.
 ## Implementation-program workflow
 
 - Implement or review only one work package per context.
+- Treat `Dev` as the program baseline and pull-request target throughout this workflow;
+  never substitute GitHub's default `main` branch.
 - Update only the status/evidence fields that the plan permits; do not silently change
   approved scope, technical decisions, or acceptance criteria.
 - A package is not complete until its acceptance criteria and required validation pass.
+- Independent review must record and recheck the exact `Dev` base, reviewed code head,
+  and final pull-request head. Do not merge if either branch moved after validation;
+  restart review on the same pull request. After merge, verify the recorded merge
+  result is current `Dev`, its tree/content matches the approved pull-request head, and
+  every required push check on that exact result passes. Do not authorize the next
+  package while current `Dev` checks are pending or failing.
 - Do not begin a later package to work around a failure in the current one.
 - Branch, commit, push, pull-request, merge, release, and deployment behavior must
   follow the explicit authorization in the owner's pasted runbook prompt.

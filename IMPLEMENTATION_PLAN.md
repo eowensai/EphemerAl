@@ -1,7 +1,9 @@
 # EphemerAl implementation plan
 
 **Status:** Proposed implementation baseline; application implementation has not started
-**Repository baseline:** `bede6eb79cfa39115ef1e941e0b3358d23713275`
+**Repository analysis baseline:** `bede6eb79cfa39115ef1e941e0b3358d23713275`
+**Program integration branch:** `Dev`
+**Public release branch:** `main`
 **Plan created:** July 10, 2026
 **Audience:** The project owner and coding agents working in fresh contexts
 
@@ -25,9 +27,10 @@ must be updated as work packages change that behavior, but they do not override 
 plan. Tests and source comments likewise document current contracts; approved work may
 update obsolete contracts atomically.
 
-Pasting the runbook's planning-publication prompt and then Prompt 1 constitutes approval
-to begin this documented program. Until then, this remains a proposed plan and none of
-the application work below is accepted or started.
+The planning package was published in merge commit `68427d3`; Prompt 0 in the runbook
+is complete and must not be used again. Pasting Prompt 1 as directed in the runbook
+constitutes approval to begin this documented program. Until then, this remains a
+proposed plan and none of the application work below is accepted or started.
 
 Once execution begins, only the owner may change product goals, privacy promises,
 license obligations, supported platforms, meaningful acceptance outcomes, or package
@@ -42,16 +45,52 @@ owner.
 
 The owner should never have to edit source files or choose implementation details.
 
-1. Open `CODEX_RUNBOOK.md`.
-2. Copy the first prompt into a fresh Codex context with the repository connected.
-3. Codex will inspect this plan and implement only the first eligible work package.
-4. Use the independent-review prompt in a second fresh context before merge.
-5. Repeat. Package status and evidence in this file carry context forward.
+1. Open Codex in the web browser.
+2. Select repository `eowensai/EphemerAl` and starting branch `Dev`.
+3. Paste Prompt 1 from `CODEX_RUNBOOK.md`. Codex will inspect this plan and implement
+   only the first eligible work package.
+4. When Codex finishes, use its **Create pull request** control if it did not already
+   create one. The pull request must say that its destination or base branch is `Dev`.
+5. Copy the pull-request link and open a new ChatGPT Work conversation. In the empty
+   message box, type `@GitHub` and select **GitHub** from the list, then paste Prompt 2
+   with the link in the marked place. ChatGPT Work inspects the pull-request branch and
+   `Dev`; the owner does not need to check out code or understand the branch structure.
+6. If that completed review cannot access the final merge action, paste the runbook's
+   Prompt 2M into a new ChatGPT Work conversation: type `@GitHub`, select **GitHub**,
+   and include the same pull-request link. ChatGPT Work re-verifies and merges the
+   approved pull request into `Dev`.
+7. Repeat. Package status, pull requests, and the evidence ledger carry context
+   forward; the owner does not need to remember implementation details between chats.
+
+The runbook describes each browser step and provides complete prompts. The owner is
+not expected to use a terminal, maintain a local repository, understand worktrees, or
+configure a Codex environment or setup script. If Codex needs dependencies in its
+hosted workspace, Codex installs the repository's pinned requirements itself in an
+isolated environment.
 
 If owner action on real Windows/GPU hardware is unavoidable, Codex must provide one
 complete copy/paste command or script and explain what output to return. The owner must
 not be told to edit YAML, insert code at line numbers, choose a library, or design a
 technical solution.
+
+### Program branch and release path
+
+`Dev` is the authoritative integration line for this implementation program even
+though GitHub's repository default branch is `main`.
+
+For every ordinary work package and regression fix:
+
+1. Update from `origin/Dev`.
+2. Create one focused work branch from that exact `Dev` commit.
+3. Open the pull request with `Dev` as its destination/base.
+4. Independently review and merge it into `Dev` only after its gates pass.
+
+Do not modify `main` during ordinary work packages. It remains the public-release line.
+After WP-10 produces a GO result, Prompt 7 verifies the complete `Dev` history, opens a
+dedicated `Dev`-to-`main` promotion pull request, requires its checks to pass, and
+merges it. Only the resulting verified `main` commit may receive the version tag and
+published release artifacts. If `main` contains unexpected work that is not already in
+`Dev`, the promotion stops for review rather than overwriting or bypassing it.
 
 ## 3. Product briefing
 
@@ -195,7 +234,7 @@ These decisions are made. Do not return them to the owner as open questions.
 - `In progress`: implementation started but is not ready for independent review.
 - `Needs review`: implementation claims acceptance criteria pass; a fresh context must
   independently verify it.
-- `Complete`: independently reviewed, validated, and merged into the working baseline.
+- `Complete`: independently reviewed, validated, and merged into `Dev`.
 - `Blocked`: cannot proceed without a product-level decision or external prerequisite.
 - `Deferred`: approved future work intentionally held outside the first-release sequence.
 
@@ -204,16 +243,38 @@ and then `Needs review`. Independent-review agents may change `Needs review` to
 `Complete`, or back to `In progress`/`Blocked`. After marking a package `Complete`, the
 review agent may promote the next dependency-satisfied package from `Planned` to
 `Ready`. `Deferred` packages are never promoted automatically. A WP-10 GO result leads
-to the release prompt, not directly to WP-11.
+to Prompt 7 for the `Dev`-to-`main` promotion and then Prompt 8 for release publication,
+not directly to WP-11.
+
+An independent reviewer stages `Complete` and the next `Ready` status on the final
+pull-request head only after validation passes. Those staged values are provisional:
+the status table on `Dev` remains authoritative, and the package becomes Complete only
+when that exact approved pull-request head merges into `Dev`. If `Dev` moves during
+review, the same pull request must be updated and independently reviewed again before
+merge.
 
 Only one work package may be active repository-wide. If any package is `In progress` or
 `Needs review`, or any work-package pull request remains open, a new implementation
 agent must stop and resume/review that package rather than starting another.
 
+Even when the table shows a package Ready, implementation may begin only after every
+required push check on the exact current `Dev` head has completed successfully. A
+pending or failed current-`Dev` check is a program blocker to investigate, not
+permission to start the next package.
+
+The status table and evidence ledger on `Dev` are the durable program record. Every
+ordinary work-package or regression-fix pull request must target `Dev`. An open Codex
+web task that has not yet produced its pull request also counts as the one active work
+package; the owner must let it finish or resume it instead of launching another. A
+Codex web task's inability to open a draft pull request midway through its run is not a
+technical blocker. It may finish the focused implementation in its managed workspace
+and publish the reviewable branch and pull request at the end.
+
 ### Validation gate classes
 
 - **Automated merge gates:** Every package must pass its unit/static/integration tests,
-  compilation, lint, and applicable PR checks before merge.
+  compilation, lint, and applicable PR checks before merge. After merge, required push
+  checks on the exact resulting `Dev` commit must pass before another package begins.
 - **Package environment gates:** Docker/browser behavior explicitly changed by a package
   must be tested in a suitable non-production environment when available. If the plan
   labels the check as release-candidate validation, it may be recorded for WP-10 rather
@@ -262,8 +323,13 @@ review configuration. Do not upgrade application dependencies in this package.
 - Record the current local test/compile/lint/Compose baseline.
 - Add CI for Python 3.11 dependency installation, `pip check`, pytest, Ruff, Python
   compilation, `docker compose config`, and application-image build.
+- Run the workflow for pull requests targeting `Dev` or `main` and pushes to `Dev` or
+  `main`. This protects ordinary work, the later `Dev`-to-`main` promotion, and the
+  release line. Do not configure CI only for GitHub's default `main` branch.
 - Add monthly Dependabot pull requests for Python, GitHub Actions, and Docker where
-  supported. Do not auto-merge.
+  supported. Configure each Dependabot ecosystem with `target-branch: Dev` so its pull
+  requests join the reviewed program line rather than defaulting to `main`. Do not
+  auto-merge.
 - Remove accidental duplicate test execution from `scripts/validate.sh` only if doing
   so preserves exactly the same coverage.
 - Add a short compatibility-evidence location for tested Streamlit/Ollama/Tika/model
@@ -281,6 +347,9 @@ installation in CI, model downloads, GPU tests, release publication.
 - All currently runnable tests pass, or pre-existing failures are precisely recorded
   without being hidden.
 - The app image builds without copying planning/review documents into the image.
+- Pull requests targeting `Dev` or `main` and pushes to `Dev` or `main` invoke the
+  intended CI gates; the eventual promotion to `main` cannot bypass them.
+- Python, GitHub Actions, and Docker Dependabot updates target `Dev`, not `main`.
 - No runtime behavior or production dependency changes.
 
 **Validation:** Repository baseline commands plus workflow/Compose validation.
@@ -720,8 +789,23 @@ Desktop is the easy path when licensed; current WSL Engine instructions remain a
 - Recommend and provision a certified model profile with size/progress/resume behavior.
 - Use a prebuilt versioned GHCR application image rather than building Python packages
   on the user's machine.
-- Publish workflow code for a release ZIP and checksums, but do not publish a real
-  release in this package.
+- Add a manually dispatched GitHub Actions workflow named **Publish release** in
+  `.github/workflows/release.yml`, but do not run it to publish a real release in this
+  package. Its visible inputs must be the version, exact approved `main` release commit
+  R, and exact verified `Dev` candidate V. It must refuse an initial publication unless
+  current `main` is R, current `Dev` is V, their tree/content matches, the Version input
+  exactly matches `.github/release-candidate.json` at R, the version/tag and public
+  outputs are unused, and all release tests pass. It then checks out exact R, creates
+  the annotated tag at R, and publishes the GHCR image, release ZIP, SHA-256 checksums,
+  release notes, and a GitHub release with provenance tied to R.
+- Exercise the workflow's same ref/version guards and build/package logic in pull-
+  request CI with publication disabled and read-only permissions. This is the WP-09
+  non-publishing test path; do not add another owner-facing release input for dry runs.
+- A retry after a partial infrastructure failure may continue only when every existing
+  tag, image, artifact, or release under that version belongs to the exact same
+  version/R/V attempt and matches its recorded provenance. Any mismatch must fail
+  closed. If all outputs already exist and verify, the retry must finish as a no-op
+  success rather than replacing them.
 - Preserve model weights during normal uninstall; remove them only with an explicit
   plain-language `-RemoveModels` option and confirmation.
 - Provide a tested update and rollback path.
@@ -747,6 +831,13 @@ third-party licenses, every Windows edition, other operating systems.
 - No manual code/YAML/Linux editing is required on the easy path.
 - A ZIP downloaded by a normal browser can be launched through the documented single
   entry point without a global execution-policy change.
+- The **Publish release** workflow accepts exact version/R/V inputs through GitHub's
+  **Run workflow** form, while pull-request CI exercises the same guards and packaging
+  logic without write credentials or publication. Initial runs reject moved refs,
+  mismatched trees, a version different from the candidate record, reused outputs, or
+  failing validation. Safe retries accept only matching partial outputs and emit a
+  final summary containing R, V, tag target, image digest, ZIP/checksum identifiers,
+  and release URLs.
 
 ### WP-10 — Independent release-candidate verification
 
@@ -779,8 +870,23 @@ third-party licenses, every Windows edition, other operating systems.
 - Produce a GO or NO-GO report with test evidence, remaining limitations, supported
   hardware/profile claims, and exact version recommendation.
 - All first-viable-release criteria in Section 4 pass.
-- A release remains unpublished until the owner uses the separate release-authorization
-  prompt in `CODEX_RUNBOOK.md`.
+- A GO result has two linked durable locations. In the repository, the ledger staged
+  on the WP-10 branch names the pull-request number, exact reviewed `Dev` base D, and
+  exact reviewed code head A. Final bookkeeping head B adds
+  `.github/release-candidate.json` with exactly
+  the approved `version`, `wp10_pull_request`, `reviewed_dev_base` D, and
+  `reviewed_code_head` A; it does not try to contain its own future B commit ID. The
+  final GitHub review submitted against B explicitly states GO and names the same exact
+  version, pull-request number, and full D, A, and B commit IDs. After that pull request
+  merges, the release-promotion check must obtain B from that GitHub review and verify
+  current `Dev` is the pull request's recorded merge result, its tree/content matches
+  B, no later commit was added, every completed first-release package is present, and
+  no work-package pull request remains open. The release workflow must reject a Version
+  input that differs from the candidate record at the exact release commit.
+- A release remains unpublished until Prompt 7 has promoted the recorded WP-10 merge
+  result from `Dev`—whose tree/content matches the exact approved WP-10 pull-request
+  head—to `main`, and the owner then uses Prompt 8's separate publication authorization
+  in `CODEX_RUNBOOK.md`.
 
 ### WP-11 — Exhaustive long-document overflow mode
 
@@ -873,12 +979,17 @@ Agents append one row per implementation or review event. Do not rewrite prior e
 | Date | Package | Event/status | Branch, commit, or PR | Validation evidence | Notes/blockers |
 |---|---|---|---|---|---|
 | 2026-07-10 | Planning | Plan created; no application work started | Baseline `bede6eb` | Repository inspection; Python compilation passed during architecture review; full dependency/GPU tests not run | Fable input reconciled; WP-00 ready |
+| 2026-07-17 | Planning | Dev/web workflow clarified; no application work started | `agent/dev-web-workflow` targeting `Dev` | Full planning-document review; branch/reference scan; Markdown and diff validation | `Dev` established as integration branch; browser-only owner workflow and later `Dev`-to-`main` promotion documented; WP-00 remains Ready |
 
 ## 11. Primary technical references
 
 These links support the current decisions. Packages depending on rapidly changing
 versions must recheck the relevant primary source at implementation time.
 
+- [Codex cloud](https://learn.chatgpt.com/docs/cloud)
+- [Codex cloud environments](https://learn.chatgpt.com/docs/environments/cloud-environment)
+- [Codex repository guidance with `AGENTS.md`](https://learn.chatgpt.com/docs/agent-configuration/agents-md)
+- [Codex code review in GitHub](https://learn.chatgpt.com/docs/third-party/github)
 - [Streamlit 2026 release notes](https://docs.streamlit.io/develop/quick-reference/release-notes/2026)
 - [Streamlit `st.bottom`](https://docs.streamlit.io/develop/api-reference/layout/st.bottom)
 - [Streamlit context](https://docs.streamlit.io/develop/api-reference/caching-and-state/st.context)
